@@ -65,10 +65,9 @@ export default function VenueBottomSheet({
     const currentY = y.get();
     let targetState;
 
-    if (velocity > 500 || currentY > PEEK_Y + 100) {
-      onClose();
-      return;
-    } else if (velocity < -500 || currentY < PEEK_Y - 100) {
+    if (velocity > 300 || currentY > PEEK_Y - 100) {
+      targetState = 'peek';
+    } else if (velocity < -300 || currentY < PEEK_Y - 100) {
       targetState = 'full';
     } else {
       targetState = 'peek';
@@ -97,7 +96,7 @@ export default function VenueBottomSheet({
       <motion.div
         ref={sheetRef}
         drag="y"
-        dragConstraints={{ top: FULL_Y, bottom: HIDDEN_Y }}
+        dragConstraints={{ top: FULL_Y, bottom: PEEK_Y }}
         dragElastic={0.08}
         onDragEnd={handleDragEnd}
         style={{
