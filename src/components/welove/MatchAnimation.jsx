@@ -192,32 +192,58 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onSe
 
             {/* Left Photo/Avatar */}
             <g clipPath="url(#heartClipLeft)">
-              <foreignObject x="20" y="30" width="100" height="180">
-                <div xmlns="http://www.w3.org/1999/xhtml" style={{ width: '100%', height: '100%' }}>
-                  {myPhoto ? (
-                    <img src={myPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', background: 'url(#gradLeft)', backgroundSize: 'cover', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 45 }}>
-                      {myProfile?.avatar ? myProfile.avatar.split(' ')[0] : '👤'}
-                    </div>
-                  )}
-                </div>
-              </foreignObject>
+              {myPhoto ? (
+                <image
+                  href={myPhoto}
+                  x="20"
+                  y="30"
+                  width="100"
+                  height="180"
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              ) : (
+                <g>
+                  <rect x="20" y="30" width="100" height="180" fill="url(#gradLeft)" />
+                  <text
+                    x="70"
+                    y="120"
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="#FFF"
+                    fontSize="40"
+                  >
+                    {myProfile?.avatar ? myProfile.avatar.split(' ')[0] : '👤'}
+                  </text>
+                </g>
+              )}
             </g>
 
             {/* Right Photo/Avatar */}
             <g clipPath="url(#heartClipRight)">
-              <foreignObject x="120" y="30" width="100" height="180">
-                <div xmlns="http://www.w3.org/1999/xhtml" style={{ width: '100%', height: '100%' }}>
-                  {theirPhoto ? (
-                    <img src={theirPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', background: '#F03E8F', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 45 }}>
-                      {matchedProfile?.avatar ? matchedProfile.avatar.split(' ')[0] : '👤'}
-                    </div>
-                  )}
-                </div>
-              </foreignObject>
+              {theirPhoto ? (
+                <image
+                  href={theirPhoto}
+                  x="120"
+                  y="30"
+                  width="100"
+                  height="180"
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              ) : (
+                <g>
+                  <rect x="120" y="30" width="100" height="180" fill="#F03E8F" />
+                  <text
+                    x="170"
+                    y="120"
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="#FFF"
+                    fontSize="40"
+                  >
+                    {matchedProfile?.avatar ? matchedProfile.avatar.split(' ')[0] : '👤'}
+                  </text>
+                </g>
+              )}
             </g>
 
             {/* Outer Glowing Stroke */}
