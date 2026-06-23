@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
       });
 
     // Supabase auth change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log(`[AuthContext] onAuthStateChange event=${event} session=${session ? 'present' : 'null'}`);
       if (cancelled) return;
 
@@ -68,11 +68,32 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          ...session.user.user_metadata
-        });
+        const supaUser = session.user;
+        const userObj = {
+          id: supaUser.id,
+          email: supaUser.email,
+          ...supaUser.user_metadata
+        };
+        setUser(userObj);
+
+        // On first verified sign-in (SIGNED_IN event), create profile if it doesn't exist yet
+        if (event === 'SIGNED_IN') {
+          try {
+            const existing = await base44.entities.UserProfile.filter({ user_email: supaUser.email });
+            if (!existing || existing.length === 0) {
+              // New verified user — create their initial profile using OTP metadata
+              const displayName = supaUser.user_metadata?.display_name || supaUser.email.split('@')[0];
+              await base44.entities.UserProfile.create({
+                user_email: supaUser.email,
+                display_name: displayName,
+                onboarding_complete: false
+              });
+              console.log('[AuthContext] Created new UserProfile for verified user:', supaUser.email);
+            }
+          } catch (err) {
+            console.error('[AuthContext] Error ensuring UserProfile:', err);
+          }
+        }
       } else {
         setUser(null);
       }

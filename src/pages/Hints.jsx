@@ -80,7 +80,9 @@ export default function Hints() {
   const initCamera = async (mode) => {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
     }
+    setPermissionError(null);
     try {
       const constraints = {
         video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -91,9 +93,9 @@ export default function Hints() {
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-      setPermissionError(null);
     } catch (err) {
-      console.warn("Failed with audio, trying video-only constraints...", err);
+      console.warn('Camera access failed:', err.name, err.message);
+      // Try video-only as fallback
       try {
         const videoOnlyStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: mode },
@@ -102,9 +104,14 @@ export default function Hints() {
         if (videoRef.current) {
           videoRef.current.srcObject = videoOnlyStream;
         }
-        setPermissionError(null);
       } catch (err2) {
-        setPermissionError("Camera toegang geweigerd of niet beschikbaar. Geef toestemming in de browser.");
+        if (err2.name === 'NotAllowedError' || err2.name === 'PermissionDeniedError') {
+          setPermissionError('blocked');
+        } else if (err2.name === 'NotFoundError' || err2.name === 'DevicesNotFoundError') {
+          setPermissionError('notfound');
+        } else {
+          setPermissionError('generic');
+        }
       }
     }
   };
@@ -357,9 +364,39 @@ export default function Hints() {
         ) : (
           <>
             {permissionError ? (
-              <div className="p-6 text-center flex flex-col items-center">
-                <AlertCircle className="w-12 h-12 text-red-500 mb-2" />
-                <p className="text-sm font-semibold">{permissionError}</p>
+              <div className="p-6 text-center flex flex-col items-center gap-4">
+                <AlertCircle className="w-14 h-14 text-red-400 mb-1" />
+                {permissionError === 'blocked' && (
+                  <>
+                    <p className="text-base font-bold text-white">Camera geblokkeerd 🚫</p>
+                    <p className="text-sm text-white/70 max-w-xs">
+                      Je browser heeft toegang tot de camera geblokkeerd. Ga naar de adresbalk → 🔒 → Camera → Toestaan, en probeer opnieuw.
+                    </p>
+                  </>
+                )}
+                {permissionError === 'notfound' && (
+                  <>
+                    <p className="text-base font-bold text-white">Geen camera gevonden 📷</p>
+                    <p className="text-sm text-white/70 max-w-xs">
+                      Er is geen camera beschikbaar op dit apparaat of de camera is al in gebruik door een andere app.
+                    </p>
+                  </>
+                )}
+                {permissionError === 'generic' && (
+                  <>
+                    <p className="text-base font-bold text-white">Camera niet beschikbaar</p>
+                    <p className="text-sm text-white/70 max-w-xs">
+                      Camera toegang geweigerd of niet beschikbaar. Geef toestemming in de browser en probeer opnieuw.
+                    </p>
+                  </>
+                )}
+                <button
+                  onClick={() => initCamera(facingMode)}
+                  className="mt-2 px-6 py-3 rounded-full font-bold text-sm text-white active:scale-95 transition-transform"
+                  style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)', boxShadow: '0 6px 20px rgba(255,75,114,0.4)' }}
+                >
+                  🔄 Opnieuw proberen
+                </button>
               </div>
             ) : (
               <video

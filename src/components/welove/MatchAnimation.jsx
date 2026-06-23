@@ -66,10 +66,9 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onSe
   }, []);
 
   const fireConfetti = () => {
-    const duration = 4000;
+    const duration = 1500;
     const end = Date.now() + duration;
 
-    // Create a custom canvas so we can set z-index > 9999
     const myCanvas = document.createElement('canvas');
     myCanvas.style.position = 'fixed';
     myCanvas.style.inset = '0';
@@ -84,54 +83,42 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onSe
       useWorker: true
     });
 
-    // Use shapeFromText for emoji hearts
-    let heartShape, sparkleShape;
-    try {
-      heartShape = confetti.shapeFromText({ text: '❤️', scalar: 3 });
-      sparkleShape = confetti.shapeFromText({ text: '✨', scalar: 2 });
-    } catch(e) {
-      // Fallback if shapeFromText fails for some reason
-      heartShape = 'circle';
-      sparkleShape = 'star';
-    }
-
     (function frame() {
       myConfetti({
-        particleCount: 5,
+        particleCount: 2,
         angle: 60,
-        spread: 60,
-        origin: { x: -0.1, y: 0.8 },
+        spread: 55,
+        origin: { x: -0.05, y: 0.75 },
         colors: ['#FF4B72', '#EA3FD3', '#8E54E9', '#FFB84D'],
-        shapes: [heartShape, sparkleShape],
+        shapes: ['circle'],
         disableForReducedMotion: true,
-        scalar: 1.2,
-        gravity: 0.8,
-        ticks: 200,
-        startVelocity: 45
+        scalar: 1.0,
+        gravity: 1.0,
+        ticks: 80,
+        startVelocity: 28
       });
       myConfetti({
-        particleCount: 5,
+        particleCount: 2,
         angle: 120,
-        spread: 60,
-        origin: { x: 1.1, y: 0.8 },
+        spread: 55,
+        origin: { x: 1.05, y: 0.75 },
         colors: ['#FF4B72', '#EA3FD3', '#8E54E9', '#FFB84D'],
-        shapes: [heartShape, sparkleShape],
+        shapes: ['circle'],
         disableForReducedMotion: true,
-        scalar: 1.2,
-        gravity: 0.8,
-        ticks: 200,
-        startVelocity: 45
+        scalar: 1.0,
+        gravity: 1.0,
+        ticks: 80,
+        startVelocity: 28
       });
 
       if (Date.now() < end) {
         requestAnimationFrame(frame);
       } else {
-        // Clean up custom canvas
         setTimeout(() => {
           if (myCanvas.parentNode) {
             myCanvas.parentNode.removeChild(myCanvas);
           }
-        }, 3000); // Wait for the last particles to fall
+        }, 1000);
       }
     }());
   };

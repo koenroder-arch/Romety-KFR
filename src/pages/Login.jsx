@@ -127,7 +127,8 @@ export default function Login() {
           return;
         }
 
-        // Send OTP magic link
+        // Send OTP magic link — profile will be created AFTER the user clicks the link
+        // The display_name is saved in the OTP metadata so AuthContext can use it post-verification
         const { error } = await supabase.auth.signInWithOtp({
           email: emailLower,
           options: {
@@ -139,14 +140,9 @@ export default function Login() {
         });
         if (error) throw error;
 
-        // Create the draft profile in the database
-        await base44.entities.UserProfile.create({
-          user_email: emailLower,
-          display_name: usernameTrim,
-          onboarding_complete: false
-        });
-
+        // Do NOT create profile here — only after email verification!
         setMessage({ type: 'success', text: t.successRegister });
+
       } else {
         if (!hasAccount) {
           setMessage({
