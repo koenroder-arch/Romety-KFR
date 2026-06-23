@@ -1,0 +1,141 @@
+{
+  "name": "UserProfile",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email of the user this profile belongs to"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "contact_email": {
+      "type": "string",
+      "description": "Contact email shown during onboarding"
+    },
+    "age": {
+      "type": "number"
+    },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "male",
+        "female",
+        "non-binary",
+        "other"
+      ]
+    },
+    "height_cm": {
+      "type": "number"
+    },
+    "preferred_height": {
+      "type": "number",
+      "description": "Preferred height of a match in cm"
+    },
+    "relationship_goal": {
+      "type": "string",
+      "enum": [
+        "Relatie",
+        "Fun time",
+        "Ik weet het nog niet"
+      ],
+      "description": "What the user is looking for in a match"
+    },
+    "relationship_status": {
+      "type": "string",
+      "enum": [
+        "Relatie",
+        "Fun time",
+        "Ik weet het nog niet"
+      ],
+      "description": "Legacy field \u2014 use relationship_goal instead"
+    },
+    "looking_for": {
+      "type": "string",
+      "enum": [
+        "male",
+        "female",
+        "both"
+      ]
+    },
+    "min_age_pref": {
+      "type": "number"
+    },
+    "max_age_pref": {
+      "type": "number"
+    },
+    "min_height_pref": {
+      "type": "number",
+      "description": "Minimum height preference in cm"
+    },
+    "max_height_pref": {
+      "type": "number",
+      "description": "Maximum height preference in cm"
+    },
+    "traits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "interests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "photo_url": {
+      "type": "string"
+    },
+    "bio": {
+      "type": "string"
+    },
+    "is_premium": {
+      "type": "boolean",
+      "default": false
+    },
+    "location_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "location_expires_at": {
+      "type": "string"
+    },
+    "profile_views": {
+      "type": "number",
+      "default": 0
+    },
+    "likes_received": {
+      "type": "number",
+      "default": 0
+    },
+    "onboarding_complete": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [],
+  "rls": {
+    "create": {
+      "data.user_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.user_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "data.user_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.user_email": "{{user.email}}"
+    }
+  }
+}

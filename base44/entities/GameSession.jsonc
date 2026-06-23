@@ -1,0 +1,37 @@
+{
+  "name": "GameSession",
+  "type": "object",
+  "properties": {
+    "game_type": {
+      "type": "string",
+      "enum": ["cards", "number"]
+    },
+    "player1_email": {
+      "type": "string"
+    },
+    "player2_email": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "active", "finished", "declined"],
+      "default": "pending"
+    },
+    "invited_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "winner_email": {
+      "type": "string"
+    },
+    "last_activity": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["game_type", "player1_email", "player2_email"]
+}

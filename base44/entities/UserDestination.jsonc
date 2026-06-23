@@ -1,0 +1,53 @@
+{
+  "name": "UserDestination",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "venue_id": {
+      "type": "string"
+    },
+    "venue_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "expired"
+      ],
+      "default": "active"
+    },
+    "expires_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_email",
+    "venue_name"
+  ],
+  "rls": {
+    "create": {
+      "data.user_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.user_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "data.user_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.user_email": "{{user.email}}"
+    }
+  }
+}

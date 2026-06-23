@@ -1,0 +1,36 @@
+{
+  "name": "PremiumSubscription",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "expires_at": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "user_email"
+  ],
+  "rls": {
+    "create": {
+      "data.user_email": "{{user.email}}"
+    },
+    "read": {
+      "data.user_email": "{{user.email}}"
+    },
+    "update": {
+      "data.user_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.user_email": "{{user.email}}"
+    }
+  }
+}

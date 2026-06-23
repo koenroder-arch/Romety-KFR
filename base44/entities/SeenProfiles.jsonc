@@ -1,0 +1,33 @@
+{
+  "name": "SeenProfiles",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "seen_user_email": {
+      "type": "string"
+    },
+    "seen_date": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_email",
+    "seen_user_email"
+  ],
+  "rls": {
+    "create": {
+      "data.user_email": "{{user.email}}"
+    },
+    "read": {
+      "data.user_email": "{{user.email}}"
+    },
+    "update": {
+      "data.user_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.user_email": "{{user.email}}"
+    }
+  }
+}

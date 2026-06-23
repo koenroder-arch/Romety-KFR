@@ -1,0 +1,86 @@
+{
+  "name": "Hint",
+  "type": "object",
+  "properties": {
+    "from_email": {
+      "type": "string"
+    },
+    "from_name": {
+      "type": "string"
+    },
+    "from_photo_url": {
+      "type": "string"
+    },
+    "from_age": {
+      "type": "number"
+    },
+    "from_traits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "venue_name": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 15
+    },
+    "target_type": {
+      "type": "string",
+      "enum": [
+        "supermatch",
+        "matches",
+        "single"
+      ],
+      "description": "Who the hint was sent to"
+    },
+    "to_emails": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of recipient emails"
+    },
+    "heart_reactions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of user emails who reacted with a heart",
+      "default": []
+    }
+  },
+  "required": [
+    "from_email",
+    "message",
+    "venue_name",
+    "target_type"
+  ],
+  "rls": {
+    "create": {
+      "data.from_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.from_email": "{{user.email}}"
+        },
+        {
+          "data.to_emails": {
+            "$in": [
+              "{{user.email}}"
+            ]
+          }
+        }
+      ]
+    },
+    "update": {
+      "data.from_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.from_email": "{{user.email}}"
+    }
+  }
+}

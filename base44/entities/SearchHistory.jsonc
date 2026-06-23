@@ -1,0 +1,43 @@
+{
+  "name": "SearchHistory",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "query": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "location",
+        "club"
+      ]
+    },
+    "lat": {
+      "type": "number"
+    },
+    "lng": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "user_email",
+    "query"
+  ],
+  "rls": {
+    "create": {
+      "data.user_email": "{{user.email}}"
+    },
+    "read": {
+      "data.user_email": "{{user.email}}"
+    },
+    "update": {
+      "data.user_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.user_email": "{{user.email}}"
+    }
+  }
+}

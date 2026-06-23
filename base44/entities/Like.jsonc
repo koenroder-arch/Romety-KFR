@@ -1,0 +1,40 @@
+{
+  "name": "Like",
+  "type": "object",
+  "properties": {
+    "from_email": {
+      "type": "string"
+    },
+    "to_email": {
+      "type": "string"
+    },
+    "venue_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "from_email",
+    "to_email"
+  ],
+  "rls": {
+    "create": {
+      "data.from_email": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.from_email": "{{user.email}}"
+        },
+        {
+          "data.to_email": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "data.from_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.from_email": "{{user.email}}"
+    }
+  }
+}

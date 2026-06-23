@@ -1,0 +1,30 @@
+{
+  "name": "NumberGameState",
+  "type": "object",
+  "properties": {
+    "session_id": {
+      "type": "string"
+    },
+    "player_email": {
+      "type": "string"
+    },
+    "phone_number": {
+      "type": "string"
+    },
+    "gift_digits": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "guesses": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    }
+  },
+  "required": ["session_id", "player_email", "phone_number"]
+}

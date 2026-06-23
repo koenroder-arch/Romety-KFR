@@ -1,0 +1,57 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "to_email": {
+      "type": "string"
+    },
+    "from_email": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "like",
+        "match",
+        "hint",
+        "game_invite",
+        "game_accepted"
+      ]
+    },
+    "venue_name": {
+      "type": "string"
+    },
+    "from_name": {
+      "type": "string"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "game_type": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "to_email",
+    "from_email",
+    "type"
+  ],
+  "rls": {
+    "create": {
+      "data.from_email": "{{user.email}}"
+    },
+    "read": {
+      "data.to_email": "{{user.email}}"
+    },
+    "update": {
+      "data.to_email": "{{user.email}}"
+    },
+    "delete": {
+      "data.to_email": "{{user.email}}"
+    }
+  }
+}

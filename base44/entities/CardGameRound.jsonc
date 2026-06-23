@@ -1,0 +1,38 @@
+{
+  "name": "CardGameRound",
+  "type": "object",
+  "properties": {
+    "session_id": {
+      "type": "string"
+    },
+    "round_number": {
+      "type": "number"
+    },
+    "asker_email": {
+      "type": "string"
+    },
+    "question": {
+      "type": "string"
+    },
+    "question_category": {
+      "type": "string",
+      "enum": ["oppervlakkig", "diepgaand", "spicy"]
+    },
+    "answer": {
+      "type": "string",
+      "enum": ["yes", "no"]
+    },
+    "answered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "social_type": {
+      "type": "string",
+      "enum": ["instagram", "snapchat"]
+    },
+    "social_handle": {
+      "type": "string"
+    }
+  },
+  "required": ["session_id", "round_number", "asker_email", "question"]
+}
