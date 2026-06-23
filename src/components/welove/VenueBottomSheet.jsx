@@ -51,7 +51,7 @@ export default function VenueBottomSheet({
   // Sync motion value when snapState or venue changes
   useEffect(() => {
     const target = snapState === 'full' ? FULL_Y : snapState === 'peek' ? PEEK_Y : HIDDEN_Y;
-    animate(y, target, { type: 'spring', stiffness: 320, damping: 36 });
+    animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
   }, [snapState, venue]);
 
 
@@ -63,13 +63,22 @@ export default function VenueBottomSheet({
   const handleDragEnd = (_, info) => {
     const velocity = info.velocity.y;
     const currentY = y.get();
+    let targetState;
 
     if (velocity > 500 || currentY > PEEK_Y + 100) {
       onClose();
+      return;
     } else if (velocity < -500 || currentY < PEEK_Y - 100) {
-      onSnapChange('full');
+      targetState = 'full';
     } else {
-      onSnapChange('peek');
+      targetState = 'peek';
+    }
+
+    if (targetState === snapState) {
+      const target = targetState === 'full' ? FULL_Y : PEEK_Y;
+      animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
+    } else {
+      onSnapChange(targetState);
     }
   };
 

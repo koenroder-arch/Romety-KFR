@@ -70,7 +70,7 @@ export default function SendHintSheet({ user, myProfile, myCheckIn, matches, mut
   // Animate in on mount and state changes
   useEffect(() => {
     const target = snapState === 'open' ? FULL_Y : HIDDEN_Y;
-    animate(y, target, { type: 'spring', stiffness: 300, damping: 30 });
+    animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
   }, [snapState]);
 
   const handleDragEnd = (_, info) => {
@@ -83,7 +83,7 @@ export default function SendHintSheet({ user, myProfile, myCheckIn, matches, mut
     } else {
       // Snap back to open state
       setSnapState('open');
-      animate(y, FULL_Y, { type: 'spring', stiffness: 300, damping: 30 });
+      animate(y, FULL_Y, { type: 'spring', stiffness: 400, damping: 38 });
     }
   };
 

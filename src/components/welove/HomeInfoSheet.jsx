@@ -43,19 +43,27 @@ export default function HomeInfoSheet({
 
   useEffect(() => {
     const target = snapState === 'full' ? FULL_Y : PEEK_Y;
-    animate(y, target, { type: 'spring', stiffness: 320, damping: 36 });
+    animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
   }, [snapState]);
 
   const handleDragEnd = (_, info) => {
     const velocity = info.velocity.y;
     const currentY = y.get();
+    let targetState;
 
     if (velocity > 500 || currentY > PEEK_Y + 100) {
-      setSnapState('peek');
+      targetState = 'peek';
     } else if (velocity < -500 || currentY < PEEK_Y - 100) {
-      setSnapState('full');
+      targetState = 'full';
     } else {
-      setSnapState(currentY < PEEK_Y ? 'full' : 'peek');
+      targetState = currentY < PEEK_Y ? 'full' : 'peek';
+    }
+
+    if (targetState === snapState) {
+      const target = targetState === 'full' ? FULL_Y : PEEK_Y;
+      animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
+    } else {
+      setSnapState(targetState);
     }
   };
 
