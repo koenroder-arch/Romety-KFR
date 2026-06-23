@@ -169,19 +169,24 @@ export default function Login() {
           return;
         }
 
-        // Send OTP magic link
-        const { error } = await supabase.auth.signInWithOtp({
-          email: emailLower,
-          options: {
-            emailRedirectTo: window.location.origin + getRedirectUrl(),
-            data: {
-              display_name: usernameTrim
-            }
-          },
-        });
-        if (error) throw error;
+        // Bypass verification email for existing users
+        const mockUser = {
+          id: profile.id,
+          email: profile.user_email,
+          display_name: profile.display_name,
+          avatar: profile.avatar,
+          is_mock: true
+        };
+        localStorage.setItem('romety_mock_user', JSON.stringify(mockUser));
 
-        setMessage({ type: 'success', text: t.successLogin });
+        setMessage({
+          type: 'success',
+          text: lang === 'nl' ? 'Inloggen succesvol! Je wordt doorgestuurd...' : 'Login successful! Redirecting...'
+        });
+
+        setTimeout(() => {
+          window.location.replace(getRedirectUrl());
+        }, 800);
       }
     } catch (err) {
       setMessage({ type: 'error', text: err.message || t.errorTitle });

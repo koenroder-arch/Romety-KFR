@@ -21,6 +21,19 @@ export const AuthProvider = ({ children }) => {
 
     console.log('[AuthContext] Initializing check...');
 
+    // Fast check for mock user in localStorage
+    const mockUserStr = localStorage.getItem('romety_mock_user');
+    if (mockUserStr) {
+      try {
+        const mockUser = JSON.parse(mockUserStr);
+        setUser(mockUser);
+        setIsLoading(false);
+        // We still keep the unhandled rejection handler active
+      } catch (e) {
+        localStorage.removeItem('romety_mock_user');
+      }
+    }
+
     // Initial check (non-blocking)
     base44.auth.me()
       .then((u) => {
@@ -47,6 +60,13 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log(`[AuthContext] onAuthStateChange event=${event} session=${session ? 'present' : 'null'}`);
       if (cancelled) return;
+
+      // Yield to local mock user if present
+      if (localStorage.getItem('romety_mock_user')) {
+        setIsLoading(false);
+        return;
+      }
+
       if (session?.user) {
         setUser({
           id: session.user.id,
@@ -67,7 +87,10 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const logout = () => base44.auth.logout();
+  const logout = () => {
+    localStorage.removeItem('romety_mock_user');
+    return base44.auth.logout();
+  };
   const navigateToLogin = () => base44.auth.redirectToLogin(window.location.href);
 
   return (

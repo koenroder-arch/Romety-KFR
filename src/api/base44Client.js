@@ -141,6 +141,14 @@ export const base44 = {
   },
   auth: {
     me: async () => {
+      const mockUserStr = localStorage.getItem('romety_mock_user');
+      if (mockUserStr) {
+        try {
+          return JSON.parse(mockUserStr);
+        } catch (e) {
+          localStorage.removeItem('romety_mock_user');
+        }
+      }
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) return null;
       return {
