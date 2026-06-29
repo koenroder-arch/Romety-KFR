@@ -41,10 +41,7 @@ export const AuthProvider = ({ children }) => {
             setUser(u);
             authStorage.saveUser(u);
           } else {
-            const currentStored = authStorage.getUserSync();
-            if (!currentStored) {
-              setUser(null);
-            }
+            setUser(prev => prev || authStorage.getUserSync());
           }
           setIsLoading(false);
         }
@@ -52,10 +49,7 @@ export const AuthProvider = ({ children }) => {
       .catch((err) => {
         console.error('[AuthContext] base44.auth.me() rejected:', err);
         if (!cancelled) {
-          const currentStored = authStorage.getUserSync();
-          if (!currentStored) {
-            setUser(null);
-          }
+          setUser(prev => prev || authStorage.getUserSync());
           setIsLoading(false);
         }
       });
@@ -102,10 +96,7 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } else {
-        const currentStored = authStorage.getUserSync();
-        if (!currentStored) {
-          setUser(null);
-        }
+        setUser(prev => prev || authStorage.getUserSync());
       }
       setIsLoading(false);
     });

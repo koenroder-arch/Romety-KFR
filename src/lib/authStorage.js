@@ -12,14 +12,18 @@ const STORAGE_KEYS = [
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
-// Helper to format cookie string with explicit GMT Expires date
+// Helper to format cookie string with explicit GMT Expires date and Secure flag for HTTPS
 const formatCookie = (key, valueStr) => {
   const expiresDate = new Date(Date.now() + ONE_YEAR_MS).toUTCString();
-  return `${key}=${encodeURIComponent(valueStr)}; path=/; expires=${expiresDate}; max-age=31536000; SameSite=Lax`;
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const secureFlag = isHttps ? '; Secure' : '';
+  return `${key}=${encodeURIComponent(valueStr)}; path=/; expires=${expiresDate}; max-age=31536000; SameSite=Lax${secureFlag}`;
 };
 
 const formatClearCookie = (key) => {
-  return `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax`;
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const secureFlag = isHttps ? '; Secure' : '';
+  return `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax${secureFlag}`;
 };
 
 // ── In-Memory Backup Cache ──
