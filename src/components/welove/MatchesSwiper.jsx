@@ -413,7 +413,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center"
+            className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:p-4"
             style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
             onClick={() => setReportState(null)}
           >
@@ -422,8 +422,8 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-              className="w-full max-w-md rounded-t-3xl overflow-hidden"
-              style={{ background: 'rgba(14,14,22,0.98)', backdropFilter: 'blur(20px)', maxHeight: '92vh' }}
+              className="w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden mb-16 sm:mb-0"
+              style={{ background: 'rgba(14,14,22,0.98)', backdropFilter: 'blur(20px)', maxHeight: '80vh' }}
               onClick={e => e.stopPropagation()}
             >
               {/* Modal handle */}
@@ -455,7 +455,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
 
               {/* ── Step: choose reason ── */}
               {reportState.step === 'choose' && (
-                <div className="px-5 pt-3 pb-6 overflow-y-auto" style={{ maxHeight: '72vh' }}>
+                <div className="px-5 pt-3 pb-8 overflow-y-auto" style={{ maxHeight: '65vh' }}>
                   <p className="text-white/60 text-sm mb-3">Kies een reden voor je melding:</p>
                   <div className="flex flex-col gap-2">
                     {REPORT_REASONS.map(r => (

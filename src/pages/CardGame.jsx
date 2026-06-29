@@ -305,7 +305,7 @@ export default function CardGame() {
       )}
 
       {/* Main Container */}
-      <div className="relative z-10 flex-1 flex flex-col max-w-md mx-auto w-full px-4 pt-4 pb-12">
+      <div className="relative z-10 flex-1 flex flex-col max-w-md mx-auto w-full px-4 pt-12 sm:pt-14 pb-12">
         
         {/* Top Header Bar */}
         <div className="flex items-center justify-between py-2 mb-2">
@@ -315,9 +315,6 @@ export default function CardGame() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span className="font-black tracking-wider text-xl text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-400 to-purple-400">
-            ROMETY
-          </span>
           <span className={`text-xs font-bold px-3 py-1 rounded-full border ${isDark ? 'bg-white/10 border-white/10 text-pink-300' : 'bg-pink-50 border-pink-200 text-pink-700'}`}>
             {totalAnswered}/6 RONDEN
           </span>
