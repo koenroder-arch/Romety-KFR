@@ -275,35 +275,17 @@ export default function NumberGame() {
     );
   }
 
-  const partnerEmail = session.player1_email === user?.email ? session.player2_email : session.player1_email;
-  const partnerName = partnerProfile?.avatar?.split(' ').slice(1).join(' ') || 'je supermatch';
-
-  const mockPartner = { 
-    id: 'test_p', 
-    player_email: partnerEmail, 
-    phone_number: '0687654321', 
-    gift_digits: [{index:0,digit:'0'},{index:1,digit:'6'},{index:2,digit:'8'},{index:3,digit:'7'}], 
-    guesses: [] 
-  };
-  const mockMine = { 
-    id: 'test_m', 
-    player_email: user?.email, 
-    phone_number: '0612345678', 
-    gift_digits: [{index:0,digit:'0'},{index:1,digit:'6'},{index:2,digit:'1'},{index:3,digit:'2'}], 
-    guesses: [] 
-  };
-
-  const activeMyState = forceTestMode === 'setup' ? null : (forceTestMode ? mockMine : myState);
-  const activePartnerState = forceTestMode === 'setup' ? null : (forceTestMode ? mockPartner : partnerState);
+  const activeMyState = myState;
+  const activePartnerState = partnerState;
 
   const bothSetup = activeMyState && activePartnerState;
-  const isFinished = forceTestMode === 'win' ? true : (session.status === 'finished');
-  const activeWinnerEmail = forceTestMode === 'win' ? user?.email : session.winner_email;
+  const isFinished = session.status === 'finished';
+  const activeWinnerEmail = session.winner_email;
 
   const myGuessCount = (activeMyState?.guesses || []).length;
   const partnerGuessCount = (activePartnerState?.guesses || []).length;
   const isPlayer1 = session.player1_email === user?.email;
-  const isMyTurn = forceTestMode === 'turn' ? true : (forceTestMode === 'win' ? false : (bothSetup && !isFinished && (isPlayer1 ? myGuessCount === partnerGuessCount : myGuessCount < partnerGuessCount)));
+  const isMyTurn = bothSetup && !isFinished && (isPlayer1 ? myGuessCount === partnerGuessCount : myGuessCount < partnerGuessCount);
 
   return (
     <div className="absolute inset-y-0 left-0 w-full flex flex-col" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
@@ -313,63 +295,21 @@ export default function NumberGame() {
         style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
       >
         <button onClick={() => window.history.back()} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-          <ArrowLeft className="w-5 h-5" style={{ color: isDark ? 'white' : '#333' }} />
+          <ArrowLeft className="w-5 h-5 text-gray-300" />
         </button>
-        <div className="flex-1">
-          <h1 className="font-black text-base" style={{ color: '#8B5CF6' }}>🔢 Nummer Spel</h1>
-          <p className="text-xs" style={{ color: textSub }}>Met {partnerName}</p>
-        </div>
-        <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6' }}>
-          {partnerProfile?.photo_url ? <img src={partnerProfile.photo_url} alt="" className="w-full h-full object-cover" /> : <span className="text-lg">{partnerProfile?.avatar?.split(' ')[0] || '👤'}</span>}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🔢</span>
+            <h1 className={`font-black text-base truncate ${textMain}`}>Nummer Spel</h1>
+          </div>
+          <p className="text-xs truncate mt-0.5" style={{ color: textSub }}>
+            {partnerProfile ? `Tegen ${partnerProfile.display_name}` : 'Laden...'}
+          </p>
         </div>
       </div>
 
       <div className="flex-1 px-5 pt-4 space-y-6 overflow-y-auto pb-32">
 
-        {/* Dev / Test Bar for NumberGame testing */}
-        <div className="my-1 p-2 rounded-2xl bg-white/5 border border-purple-500/30 backdrop-blur-md flex flex-wrap items-center justify-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-wider text-purple-300 w-full text-center">
-            🧪 Testmodus Nummer Spel
-          </span>
-          <button
-            onClick={() => setForceTestMode(forceTestMode === 'setup' ? null : 'setup')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
-              forceTestMode === 'setup' 
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' 
-                : 'bg-white/10 text-gray-300 hover:bg-white/20'
-            }`}
-          >
-            {forceTestMode === 'setup' ? '✓ Setup Phase' : '⚡ Test Setup'}
-          </button>
-          <button
-            onClick={() => setForceTestMode(forceTestMode === 'turn' ? null : 'turn')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
-              forceTestMode === 'turn' 
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' 
-                : 'bg-white/10 text-gray-300 hover:bg-white/20'
-            }`}
-          >
-            {forceTestMode === 'turn' ? '✓ Jouw Beurt' : '⚡ Test Jouw Beurt'}
-          </button>
-          <button
-            onClick={() => setForceTestMode(forceTestMode === 'win' ? null : 'win')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
-              forceTestMode === 'win' 
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md' 
-                : 'bg-white/10 text-gray-300 hover:bg-white/20'
-            }`}
-          >
-            {forceTestMode === 'win' ? '✓ Gewonnen! (Kopieer Knop)' : '⚡ Test Gewonnen!'}
-          </button>
-          {forceTestMode && (
-            <button
-              onClick={() => setForceTestMode(null)}
-              className="px-2 py-1.5 rounded-xl text-xs font-bold bg-red-500/20 text-red-300 hover:bg-red-500/30"
-            >
-              Reset
-            </button>
-          )}
-        </div>
 
         {/* SETUP PHASE */}
         {!activeMyState && (
