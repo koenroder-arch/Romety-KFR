@@ -143,7 +143,7 @@ export default function Matches() {
     return <div className="min-h-screen flex items-center justify-center" style={{ background: bg }}><div className="w-10 h-10 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" /></div>;
   }
 
-  const myLocation = myCheckIn || myDestination;
+  const myLocation = myCheckIn;
 
   return (
     <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
