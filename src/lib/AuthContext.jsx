@@ -32,27 +32,34 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
-    // Initial check via base44
-    base44.auth.me()
-      .then((u) => {
+    // Initial check via base44 with async recovery
+    (async () => {
+      try {
+        const u = await base44.auth.me();
         console.log('[AuthContext] base44.auth.me() resolved:', u);
         if (!cancelled) {
           if (u) {
             setUser(u);
             authStorage.saveUser(u);
           } else {
-            setUser(prev => prev || authStorage.getUserSync());
+            const asyncUser = await authStorage.getUserAsync();
+            if (asyncUser) {
+              setUser(asyncUser);
+            } else {
+              setUser(null);
+            }
           }
-          setIsLoading(false);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('[AuthContext] base44.auth.me() rejected:', err);
         if (!cancelled) {
-          setUser(prev => prev || authStorage.getUserSync());
-          setIsLoading(false);
+          const asyncUser = await authStorage.getUserAsync();
+          setUser(asyncUser);
         }
-      });
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
 
     // Supabase auth change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
