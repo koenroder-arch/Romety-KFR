@@ -4,7 +4,12 @@ const ThemeContext = createContext({ theme: 'dark', setTheme: () => {} });
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(() => {
-    return localStorage.getItem('romety_theme') || 'dark';
+    const saved = localStorage.getItem('romety_theme');
+    if (!saved) {
+      localStorage.setItem('romety_theme', 'dark');
+      return 'dark';
+    }
+    return saved;
   });
 
   const setTheme = (t) => {

@@ -53,7 +53,7 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick }) 
               cardBorder = isDark
                 ? '2px solid rgba(245, 158, 11, 0.8)'
                 : '2px solid rgba(255, 107, 74, 0.6)';
-              boxShadow = '0 8px 30px rgba(255, 75, 114, 0.35)';
+              boxShadow = 'none';
             } else if (isSecond) {
               cardWidth = 170;
               cardBg = isDark
@@ -62,7 +62,7 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick }) 
               cardBorder = isDark
                 ? '1.5px solid rgba(255, 75, 114, 0.5)'
                 : '1.5px solid rgba(255, 75, 114, 0.3)';
-              boxShadow = '0 4px 18px rgba(255, 75, 114, 0.15)';
+              boxShadow = 'none';
             } else {
               cardWidth = 155;
               cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)';
@@ -85,13 +85,9 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick }) 
                   width: cardWidth,
                   background: cardBg,
                   border: cardBorder,
-                  boxShadow: boxShadow,
+                  boxShadow: 'none',
                 }}
               >
-                {/* Subtle sheen overlay for #1 */}
-                {isFirst && (
-                  <div className="absolute -top-12 -right-12 w-28 h-28 bg-amber-400/20 rounded-full blur-xl pointer-events-none" />
-                )}
 
                 <div>
                   {/* Header Row: Rank Badge & Crown */}

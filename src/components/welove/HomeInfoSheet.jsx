@@ -111,7 +111,7 @@ export default function HomeInfoSheet({
             WebkitBackdropFilter: 'blur(40px)',
             border: isDark ? '1.5px solid rgba(255,255,255,0.12)' : '1.5px solid rgba(0,0,0,0.08)',
             borderRadius: '28px 28px 0 0',
-            boxShadow: isDark ? '0 -8px 40px rgba(142,84,233,0.25), 0 -2px 20px rgba(0,0,0,0.5)' : '0 -4px 30px rgba(0,0,0,0.1)',
+            boxShadow: 'none',
             height: sheetHeight,
           }}
         >

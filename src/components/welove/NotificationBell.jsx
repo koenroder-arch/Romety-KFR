@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, Heart, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useNotifications } from './useNotifications';
@@ -78,12 +79,12 @@ export default function NotificationBell({ isDark = true }) {
         )}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(10,14,33,0.85)' }}>
+      {open && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[99999] flex flex-col" style={{ background: 'rgba(10,14,33,0.85)' }}>
           <div
             ref={panelRef}
-            className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-md h-full flex flex-col"
-            style={{ background: panelBg }}
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-md h-full flex flex-col shadow-2xl"
+            style={{ background: panelBg, zIndex: 100000 }}
           >
             {/* Header */}
             <div className="pt-8 pb-4">
@@ -222,7 +223,8 @@ export default function NotificationBell({ isDark = true }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

@@ -149,7 +149,7 @@ export default function Matches() {
     <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
       {/* Glassmorphic Header styled like SuperMatchesSheet */}
       <div 
-        className="flex items-center justify-between pt-12 px-5 pb-4 flex-shrink-0 backdrop-blur-xl z-20" 
+        className="flex items-center justify-between pt-12 px-5 pb-4 flex-shrink-0 backdrop-blur-xl z-[100]" 
         style={{ 
           background: isDark ? 'rgba(13,14,21,0.85)' : 'rgba(255,255,255,0.85)',
           borderBottom: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',

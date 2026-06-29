@@ -344,23 +344,23 @@ export default function Account() {
     <div className="min-h-screen pb-36 select-none" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
       
       {/* Top Header Background */}
-      <div className="px-5 pt-12 pb-20 relative overflow-hidden" style={{ background: headerBg }}>
-        <div className="flex items-center justify-between">
+      <div className="px-5 pt-14 sm:pt-16 pb-20 relative overflow-hidden" style={{ background: headerBg }}>
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>Mijn Account</h1>
-            <p className={`text-xs mt-0.5 ${isDark ? 'text-white/60' : 'text-gray-600'}`}>Beheer je profiel en voorkeuren</p>
+            <h1 className={`text-2xl sm:text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Mijn Account</h1>
+            <p className={`text-xs mt-1 font-medium ${isDark ? 'text-white/60' : 'text-gray-600'}`}>Beheer je profiel en voorkeuren</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
             <button
               onClick={() => setShowPreview(true)}
-              className={`px-3.5 py-2 rounded-2xl font-black text-xs flex items-center gap-1.5 backdrop-blur-md border shadow-sm transition-all active:scale-95 ${
+              className={`px-3 py-2 rounded-2xl font-black text-xs flex items-center gap-1.5 backdrop-blur-md border shadow-sm transition-all active:scale-95 ${
                 isDark 
                   ? 'bg-white/10 border-white/15 text-pink-300 hover:bg-white/20' 
                   : 'bg-white/90 border-pink-200 text-pink-600 hover:bg-white'
               }`}
             >
-              <Eye className="w-4 h-4" /> Voorvertoning
+              <Eye className="w-3.5 h-3.5" /> Voorvertoning
             </button>
 
             {!editing ? (
@@ -370,8 +370,8 @@ export default function Account() {
                   setPendingNewTrait(null);
                   setPendingNewInterest(null);
                 }} 
-                className={`p-2.5 rounded-2xl backdrop-blur-md border transition-all active:scale-95 ${
-                  isDark ? 'bg-white/10 border-white/15 text-white' : 'bg-white/90 border-gray-200 text-gray-800'
+                className={`p-2 rounded-2xl backdrop-blur-md border transition-all active:scale-95 ${
+                  isDark ? 'bg-white/10 border-white/15 text-white hover:bg-white/20' : 'bg-white/90 border-gray-200 text-gray-800'
                 }`}
               >
                 <Edit2 className="w-4 h-4" />
