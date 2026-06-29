@@ -57,7 +57,7 @@ export default function Games() {
       loadData();
       const interval = setInterval(() => {
         loadData(true);
-      }, 5000);
+      }, 10000);
       return () => clearInterval(interval);
     }
   }, [user]);
@@ -179,7 +179,7 @@ export default function Games() {
             
             {/* Left Section: Partner Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full p-[2px] bg-gradient-to-tr from-pink-500 via-rose-400 to-purple-400 shadow-[0_0_12px_rgba(255,75,114,0.4)]">
+              <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-pink-500 via-rose-400 to-purple-400 shadow-[0_0_12px_rgba(255,75,114,0.4)]">
                 <div className={`w-full h-full rounded-full overflow-hidden flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
                   {partner?.photo_url ? (
                     <img src={partner.photo_url} alt="" className="w-full h-full object-cover" />
@@ -255,13 +255,13 @@ export default function Games() {
       {/* Ambient Background Glows */}
       {isDark && (
         <>
-          <div className="absolute top-[-5%] left-[-10%] w-[380px] h-[380px] rounded-full bg-gradient-to-br from-rose-600/20 via-orange-500/15 to-transparent blur-[100px] pointer-events-none" />
-          <div className="absolute top-[20%] right-[-10%] w-[380px] h-[380px] rounded-full bg-gradient-to-bl from-amber-600/20 via-purple-600/15 to-transparent blur-[100px] pointer-events-none" />
+          <div className="absolute top-[-5%] left-[-10%] w-[320px] h-[320px] rounded-full bg-gradient-to-br from-rose-600/15 via-orange-500/10 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute top-[20%] right-[-10%] w-[320px] h-[320px] rounded-full bg-gradient-to-bl from-amber-600/15 via-purple-600/10 to-transparent blur-3xl pointer-events-none" />
         </>
       )}
 
       {/* Header */}
-      <div className={`relative z-10 pt-5 px-5 pb-4 flex items-center gap-3 flex-shrink-0 border-b ${isDark ? 'border-white/10' : 'border-gray-200 bg-white/80 backdrop-blur-md'}`}>
+      <div className={`relative z-10 pt-12 sm:pt-14 px-5 pb-4 flex items-center gap-3 flex-shrink-0 border-b ${isDark ? 'border-white/10' : 'border-gray-200 bg-white/80 backdrop-blur-md'}`}>
         <button
           onClick={() => window.history.back()}
           className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md border transition-all active:scale-95 ${isDark ? 'bg-white/10 border-white/15 text-white hover:bg-white/20' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}

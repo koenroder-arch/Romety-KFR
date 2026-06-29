@@ -173,8 +173,11 @@ export default function Login() {
           avatar: profile.avatar,
           is_mock: true
         };
-        try { localStorage.setItem('romety_mock_user', JSON.stringify(mockUser)); } catch(e) {}
-        try { document.cookie = `romety_mock_user=${encodeURIComponent(JSON.stringify(mockUser))}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
+        const str = JSON.stringify(mockUser);
+        try { localStorage.setItem('romety_user_session', str); } catch(e) {}
+        try { localStorage.setItem('romety_mock_user', str); } catch(e) {}
+        try { document.cookie = `romety_user_session=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
+        try { document.cookie = `romety_mock_user=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
 
         setMessage({
           type: 'success',

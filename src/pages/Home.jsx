@@ -192,12 +192,6 @@ export default function Home() {
     // Hints (exp. after 9 hours)
     const nineHoursAgo = new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString();
 
-    // Prune old hints from database
-    const oldHints = allHints.filter(h => h.created_date < nineHoursAgo);
-    for (const oldHint of oldHints) {
-      base44.entities.Hint.delete(oldHint.id).catch(err => console.error("Pruning hint error:", err));
-    }
-
     const activeHints = allHints.filter(h => h.created_date >= nineHoursAgo);
 
     const mutualEmailsSet = new Set(mutualEmails);
@@ -214,16 +208,20 @@ export default function Home() {
     setHasSentToday(myHintsRecent.length > 0);
     setMyTodayHint(myHintsRecent[0] || null);
 
-    // Stories (Verhalen) - exp. after 9 hours
-    
-    // Prune old stories from database and storage
-    const oldStories = allStories.filter(s => s.created_date < nineHoursAgo);
-    for (const oldStory of oldStories) {
-      if (oldStory.media_url) {
-        base44.integrations.Core.DeleteFile({ file_url: oldStory.media_url }).catch(err => console.error("Storage delete error:", err));
+    // Non-blocking background pruning
+    setTimeout(() => {
+      const oldHints = allHints.filter(h => h.created_date < nineHoursAgo);
+      for (const oldHint of oldHints) {
+        base44.entities.Hint.delete(oldHint.id).catch(() => {});
       }
-      base44.entities.Story.delete(oldStory.id).catch(err => console.error("Pruning story error:", err));
-    }
+      const oldStories = allStories.filter(s => s.created_date < nineHoursAgo);
+      for (const oldStory of oldStories) {
+        if (oldStory.media_url) {
+          base44.integrations.Core.DeleteFile({ file_url: oldStory.media_url }).catch(() => {});
+        }
+        base44.entities.Story.delete(oldStory.id).catch(() => {});
+      }
+    }, 1000);
 
     if (myCI) {
       const activeStories = allStories.filter(story => {

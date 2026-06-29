@@ -16,6 +16,17 @@ html, body {
   min-height: 100dvh;
   overflow-x: hidden;
   background-color: #F8F9FB;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  touch-action: manipulation;
+}
+
+.overflow-y-auto, .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
 }
 
 #root {

@@ -21,23 +21,32 @@ export const AuthProvider = ({ children }) => {
 
     console.log('[AuthContext] Initializing check...');
 
-    // Helper for mock user lookup
-    const getMockUser = () => {
+    // Helper for persistent user lookup
+    const getPersistentUser = () => {
       try {
-        const local = localStorage.getItem('romety_mock_user');
+        const local = localStorage.getItem('romety_user_session') || localStorage.getItem('romety_mock_user');
         if (local) return JSON.parse(local);
       } catch (e) {}
       try {
-        const match = document.cookie.match(/(?:^|; )romety_mock_user=([^;]*)/);
+        const match = document.cookie.match(/(?:^|; )(?:romety_user_session|romety_mock_user)=([^;]*)/);
         if (match) return JSON.parse(decodeURIComponent(match[1]));
       } catch (e) {}
       return null;
     };
 
-    // Fast check for mock user in localStorage or cookies
-    const mockUser = getMockUser();
-    if (mockUser) {
-      setUser(mockUser);
+    const savePersistentUser = (userObj) => {
+      if (!userObj) return;
+      const str = JSON.stringify(userObj);
+      try { localStorage.setItem('romety_user_session', str); } catch(e) {}
+      try { localStorage.setItem('romety_mock_user', str); } catch(e) {}
+      try { document.cookie = `romety_user_session=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
+      try { document.cookie = `romety_mock_user=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
+    };
+
+    // Fast check for persistent user in localStorage or cookies
+    const pUser = getPersistentUser();
+    if (pUser) {
+      setUser(pUser);
       setIsLoading(false);
     }
 
@@ -48,14 +57,15 @@ export const AuthProvider = ({ children }) => {
         if (!cancelled) {
           if (u) {
             setUser(u);
-          } else if (!getMockUser()) {
+            savePersistentUser(u);
+          } else if (!getPersistentUser()) {
             setUser(null);
           }
         }
       })
       .catch((err) => {
         console.error('[AuthContext] base44.auth.me() rejected:', err);
-        if (!cancelled && !getMockUser()) {
+        if (!cancelled && !getPersistentUser()) {
           setUser(null);
         }
       });
@@ -65,8 +75,10 @@ export const AuthProvider = ({ children }) => {
       console.log(`[AuthContext] onAuthStateChange event=${event} session=${session ? 'present' : 'null'}`);
       if (cancelled) return;
 
-      // Yield to local mock user if present
-      if (getMockUser()) {
+      // Yield to persistent user if present
+      const activePUser = getPersistentUser();
+      if (activePUser) {
+        setUser(activePUser);
         setIsLoading(false);
         return;
       }
@@ -79,6 +91,7 @@ export const AuthProvider = ({ children }) => {
           ...supaUser.user_metadata
         };
         setUser(userObj);
+        savePersistentUser(userObj);
 
         // On first verified sign-in (SIGNED_IN event), create profile if it doesn't exist yet
         if (event === 'SIGNED_IN') {
@@ -99,7 +112,9 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } else {
-        setUser(null);
+        if (!getPersistentUser()) {
+          setUser(null);
+        }
       }
       setIsLoading(false);
       console.log('[AuthContext] isLoading set to false');
@@ -113,7 +128,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = () => {
+    try { localStorage.removeItem('romety_user_session'); } catch(e) {}
     try { localStorage.removeItem('romety_mock_user'); } catch(e) {}
+    try { document.cookie = `romety_user_session=; path=/; max-age=0; SameSite=Lax`; } catch(e) {}
     try { document.cookie = `romety_mock_user=; path=/; max-age=0; SameSite=Lax`; } catch(e) {}
     return base44.auth.logout();
   };
