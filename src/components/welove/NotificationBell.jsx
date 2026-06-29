@@ -48,6 +48,17 @@ export default function NotificationBell({ isDark = true }) {
   const matchNotifs = notifications.filter(n => n.type === 'match');
   const likeNotifs = notifications.filter(n => n.type !== 'match');
 
+  const handleNotificationClick = (n) => {
+    setOpen(false);
+    if (n.type === 'game_accepted' || n.type === 'game_invite' || n.type === 'game') {
+      window.location.href = '/Games';
+    } else if (n.type === 'hint') {
+      window.location.href = '/Home';
+    } else {
+      window.location.href = '/Matches';
+    }
+  };
+
   return (
     <>
       <button
@@ -130,7 +141,8 @@ export default function NotificationBell({ isDark = true }) {
                       {matchesExpanded && matchNotifs.map((n) => (
                         <div
                           key={n.id}
-                          className="flex items-start gap-3 px-5 py-4"
+                          onClick={() => handleNotificationClick(n)}
+                          className="flex items-center justify-between gap-3 px-5 py-4 cursor-pointer hover:brightness-110 transition-all"
                           style={{ borderBottom: `1px solid ${divider}`, background: n.is_read ? 'transparent' : (isDark ? 'rgba(234,63,211,0.06)' : 'rgba(234,63,211,0.04)') }}
                         >
                           <div className="flex-1 min-w-0">
@@ -144,43 +156,68 @@ export default function NotificationBell({ isDark = true }) {
                               {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
                             </p>
                           </div>
-                          {!n.is_read && (
-                            <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0" style={{ background: '#EA3FD3' }} />
-                          )}
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleNotificationClick(n); }}
+                            className="px-3 py-1.5 rounded-full text-xs font-black text-white shadow-sm active:scale-95 transition-transform flex-shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
+                          >
+                            Bekijk match
+                          </button>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* Likes */}
-                  {likeNotifs.map((n) => (
-                    <div
-                      key={n.id}
-                      className="flex items-start gap-3 px-5 py-4"
-                      style={{ borderBottom: `1px solid ${divider}`, background: n.is_read ? 'transparent' : (isDark ? 'rgba(160,97,255,0.06)' : 'rgba(160,97,255,0.04)') }}
-                    >
+                  {/* Likes and other notifications */}
+                  {likeNotifs.map((n) => {
+                    const isGame = n.type === 'game_accepted' || n.type === 'game_invite' || n.type === 'game';
+                    const isHint = n.type === 'hint';
+
+                    return (
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                        style={{ background: 'rgba(160,97,255,0.15)' }}
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className="flex items-center justify-between gap-3 px-5 py-4 cursor-pointer hover:brightness-110 transition-all"
+                        style={{ borderBottom: `1px solid ${divider}`, background: n.is_read ? 'transparent' : (isDark ? 'rgba(160,97,255,0.06)' : 'rgba(160,97,255,0.04)') }}
                       >
-                        <Heart className="w-5 h-5" style={{ color: '#A061FF' }} />
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ background: isGame ? 'rgba(16,185,129,0.15)' : 'rgba(160,97,255,0.15)' }}
+                          >
+                            {isGame ? (
+                              <span className="text-base">🎮</span>
+                            ) : (
+                              <Heart className="w-5 h-5" style={{ color: '#A061FF' }} />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate" style={{ color: textMain }}>
+                              {isGame 
+                                ? `🎮 Spel-update van ${n.from_name || 'je match'}` 
+                                : isHint 
+                                ? `💬 Hint van ${n.from_name || 'iemand'}` 
+                                : `💜 ${n.from_name || 'Iemand'} liked jouw profiel`}
+                            </p>
+                            {n.venue_name && (
+                              <p className="text-xs mt-0.5 truncate" style={{ color: textSub }}>📍 {n.venue_name}</p>
+                            )}
+                            <p className="text-xs mt-0.5" style={{ color: textSub }}>
+                              {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleNotificationClick(n); }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-black text-white shadow-sm active:scale-95 transition-transform flex-shrink-0 ${
+                            isGame ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-purple-600 hover:bg-purple-700'
+                          }`}
+                        >
+                          {isGame ? 'Naar spel' : isHint ? 'Bekijk hint' : 'Bekijk'}
+                        </button>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold" style={{ color: textMain }}>
-                          💜 {n.from_name || 'Iemand'} liked jouw profiel
-                        </p>
-                        {n.venue_name && (
-                          <p className="text-xs mt-0.5" style={{ color: textSub }}>📍 {n.venue_name}</p>
-                        )}
-                        <p className="text-xs mt-0.5" style={{ color: textSub }}>
-                          {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
-                        </p>
-                      </div>
-                      {!n.is_read && (
-                        <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0" style={{ background: '#A061FF' }} />
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

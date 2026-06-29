@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
-import { X, Send, AlertCircle, Lock } from 'lucide-react';
+import { X, Send, AlertCircle, Lock, Download } from 'lucide-react';
 import { createPageUrl } from '@/utils';
 
 export default function Hints() {
@@ -300,6 +300,18 @@ export default function Hints() {
     }
   };
 
+  const handleSaveMedia = () => {
+    if (!capturedUrl) return;
+    const a = document.createElement('a');
+    a.href = capturedUrl;
+    const ext = capturedType === 'video' ? 'mp4' : 'jpg';
+    a.download = `romety_${capturedType === 'video' ? 'video' : 'photo'}_${Date.now()}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast.success(`${capturedType === 'video' ? 'Video' : 'Foto'} opgeslagen op je apparaat! 📥`);
+  };
+
   const bg = isDark ? '#08090E' : '#F8F9FB';
   const textMain = isDark ? 'text-white' : 'text-gray-900';
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)';
@@ -417,28 +429,33 @@ export default function Hints() {
           </div>
         )}
 
-        {!capturedUrl && !permissionError && (
-          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white/70 tracking-wide text-center bg-black/30 backdrop-blur px-3 py-1.5 rounded-full pointer-events-none z-50">
-            Tik voor foto · Houd vast voor video
-          </div>
-        )}
       </div>
 
       {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 z-50 px-6 pb-28 pt-12 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-center gap-10">
         {capturedUrl ? (
-          <div className="flex items-center justify-center gap-6 w-full">
+          <div className="flex items-center justify-center gap-3 w-full max-w-xs mx-auto">
             <button
               onClick={resetCamera}
               disabled={isUploading}
-              className="px-6 py-3.5 rounded-full font-bold text-sm bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+              className="p-3.5 rounded-full font-bold text-sm bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50"
+              title="Opnieuw"
             >
-              <X className="w-4 h-4" /> Opnieuw
+              <X className="w-5 h-5" />
+            </button>
+            <button
+              onClick={handleSaveMedia}
+              disabled={isUploading}
+              className="p-3.5 rounded-full font-bold text-sm bg-white/10 hover:bg-white/20 border border-amber-400/40 text-amber-300 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 shadow-md"
+              style={{ background: 'rgba(245, 158, 11, 0.15)' }}
+              title="Opslaan op apparaat"
+            >
+              <Download className="w-5 h-5 text-amber-300" />
             </button>
             <button
               onClick={sendToStory}
               disabled={isUploading}
-              className="px-8 py-3.5 rounded-full font-black text-sm text-white shadow-lg flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+              className="flex-1 py-3.5 px-5 rounded-full font-black text-xs sm:text-sm text-white shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
               style={{
                 background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
                 boxShadow: '0 8px 24px rgba(255,75,114,0.4)',

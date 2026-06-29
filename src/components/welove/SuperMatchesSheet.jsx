@@ -79,11 +79,11 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
   return createPortal(
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-40 max-w-md mx-auto flex flex-col overflow-hidden"
+        className="fixed inset-x-0 bottom-0 top-6 z-40 max-w-md mx-auto flex flex-col overflow-hidden rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.8)] border-t border-white/15"
         style={{ background: bg }}
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 0, y: 100 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
+        exit={{ opacity: 0, y: 100 }}
         transition={{ type: 'spring', stiffness: 280, damping: 28 }}
       >
         <style>{`
@@ -125,26 +125,23 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
 
                   {/* Foreground Content */}
                   <div className="relative z-10 flex flex-col h-full p-6 pb-28 justify-end pointer-events-none">
-                    {/* Top Right Avatar Badge - sits below the glassmorphic header */}
-                    <div className="absolute top-14 right-6 pointer-events-auto">
-                      {profile.avatar && (
-                        <div className="px-3.5 py-1.5 rounded-full text-white font-black text-[14px] flex items-center gap-1 shadow-md tracking-wide" style={{ background: '#FF6B4A' }}>
-                          <span>{profile.avatar.split(' ')[0]}</span>
-                          <span>{profile.avatar.split(' ').slice(1).join(' ')}</span>
-                        </div>
-                      )}
-                    </div>
 
                     <div className="mt-auto pointer-events-auto flex flex-col">
                       {/* Name/Age/Height */}
-                      <h2 className="text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide">
+                      <h2 className="text-[26px] sm:text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide">
                         {profile.age} jaar {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                       </h2>
 
-                      {/* Tags */}
-                      <div className="flex flex-wrap gap-1.5 mb-5">
-                        {[...(profile.interests || []), ...(profile.traits || [])].slice(0, 5).map((tag) => (
-                          <span key={tag} className="px-3.5 py-1 rounded-full text-[12px] font-semibold text-white bg-black/45 backdrop-blur-[2px] shadow-sm">
+                      {/* Tags (Avatar first, then interests/traits) */}
+                      <div className="flex flex-wrap gap-1.5 mb-5 items-center">
+                        {profile.avatar && (
+                          <span className="px-3.5 py-1 rounded-full text-[12px] font-bold text-white bg-black/45 backdrop-blur-md border border-pink-500/40 shadow-sm flex items-center gap-1.5">
+                            <span className="text-sm">{profile.avatar.split(' ')[0]}</span>
+                            <span className="text-pink-100">{profile.avatar.split(' ').slice(1).join(' ')}</span>
+                          </span>
+                        )}
+                        {[...(profile.interests || []).slice(0, 2), ...(profile.traits || []).slice(0, 1)].map((tag) => (
+                          <span key={tag} className="px-3.5 py-1 rounded-full text-[12px] font-semibold text-white bg-black/45 backdrop-blur-[2px] shadow-sm border border-white/10">
                             {tag}
                           </span>
                         ))}
@@ -205,17 +202,18 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
           </div>
         </div>
 
-        {/* Floating Header with Glassmorphism */}
+        {/* Floating Rounded Glassmorphic Header */}
         <div
-          className="absolute top-0 left-0 w-full z-20 flex items-center justify-between px-5 pt-3.5 pb-2 backdrop-blur-md"
+          className="absolute top-0 left-0 w-full z-20 flex items-center justify-between px-5 pt-3.5 pb-3.5 backdrop-blur-xl rounded-t-[32px] rounded-b-[24px]"
           style={{ 
-            background: isDark ? 'rgba(8,9,14,0.45)' : 'rgba(248,249,251,0.45)',
-            borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' 
+            background: isDark ? 'rgba(13,14,21,0.75)' : 'rgba(255,255,255,0.75)',
+            borderBottom: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
           }}
         >
           <div>
             <h2
-              className="font-black text-sm"
+              className="font-black text-base tracking-wide"
               style={{
                 background: GRAD,
                 WebkitBackgroundClip: 'text',
@@ -224,16 +222,16 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
             >
               💜 Supermatches
             </h2>
-            <p className="text-[10px]" style={{ color: textSub }}>
+            <p className="text-[11px] font-medium" style={{ color: textSub }}>
               {profiles.length} {profiles.length === 1 ? 'supermatch' : 'supermatches'}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full flex items-center justify-center pointer-events-auto"
-            style={{ background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}
+            className="w-9 h-9 rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-95 border border-white/15"
+            style={{ background: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)' }}
           >
-            <X className="w-4 h-4" style={{ color: isDark ? 'white' : '#111' }} />
+            <X className="w-5 h-5 text-white" />
           </button>
         </div>
       </motion.div>

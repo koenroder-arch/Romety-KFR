@@ -1,40 +1,31 @@
 id,user_email,venue_id,venue_name,expires_at,status,created_date
-d663ff2d-6c6d-481d-8791-d1de506b29e8,lotte0@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-de7be4cf-0e9c-40be-bb85-b3aafd865ee4,maud1@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-6158fc43-4c55-42c3-a52c-9295aced57f2,nina3@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-3672efaa-c295-4f65-b0e8-09048aab860b,maud4@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-25625391-0cd8-44c5-9ebf-b5f1af30381f,nina5@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-1595c9ae-1bec-4d8d-8eb8-21e525a565a1,noa6@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-162e1028-139c-4900-9c6c-b28d00355c50,anna7@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-4f1f95b2-2c6f-4cb0-a5a4-96af14ccdd98,evi8@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-28735f43-a6cf-4d5f-91ec-45d5fe005bdd,evi9@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-07d6036f-a95a-446f-9cae-831d40e7aa90,isa10@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-5794d128-5572-4eab-b986-39ffd6376531,sophie13@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-9d0e7730-cf49-43fd-b0e1-b1fd37a131f5,femke14@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-aa2c8323-6a63-4a3d-bf3a-5f646c749cbf,liv15@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-97afccd5-d73b-4780-ab74-3f63ffde616e,lotte16@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-c00a178e-bd67-4d3f-a25a-dd522bbe6172,emma17@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-3228068c-63e6-4df1-a1c1-e488f1d3e857,anna18@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-576fb21d-c920-4546-95b9-c7704b7fe661,nora19@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-343175e8-dd01-49b9-bf2a-7c12ac754034,saar20@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-a05ffee6-ad71-483d-a978-55317aff6722,evi21@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-7ffaff53-0e85-4a49-8d63-3a2d60920c97,eline22@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-e82bd6ca-f650-4e2b-a37a-1659f765fb1f,liv23@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-55acca6d-057d-42aa-b137-409bdd3c2b7b,anna24@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-a97537ba-dd2f-4169-8224-c37cf5afef40,evi26@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-d56a09a9-436f-46a9-b856-cb836ffd938b,lynn27@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-163c887a-5897-4398-947d-1eb39ac02b24,liv28@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-296e35ce-fe7c-4236-b5f4-2e48868cf7f2,lotte29@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-a072fd0c-8d04-4360-9bee-829bbba6abcb,max31@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-f20a2fc4-72c4-43c8-ba4b-91fc59c2f320,casper33@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-842c3005-acc1-4fce-b352-330471178fd1,lars34@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-a5146026-ea8f-41a9-9a7e-8c30af720368,ruben36@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-8cb1b10f-7998-46ae-a795-16d30591f826,luuk37@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-3e293347-31ad-43e8-bc1d-672e94f55ca5,floris38@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-76c87b96-6271-400f-a368-89adebc23dc5,thijs39@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-6695bcc7-fd9c-45e3-9582-c864b940dea5,thijs41@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-8c641b91-b307-4343-98ba-8f34dba37059,jesse42@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-608ac212-3d39-4ba9-a7f9-26bae25fb2e6,bram43@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-bc3e52bd-ade4-490f-a8e6-99246d594ad1,stijn46@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-a91a73cf-93ba-4378-80ea-62742a130593,noah47@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
-3a1c1294-a1f5-4950-bc2c-38b1ae21273d,jesse49@test.com,Club Poema,Club Poema,2026-07-10T06:21:25.816Z,active,2026-06-09T22:21:25.816Z
+078f62cc-0b41-4cc6-82ae-ad9a3a634b16,lotte0@test.com,"De Jansbar","De Jansbar",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.745Z
+c34c7dc2-a3da-4d69-9bca-3e9b270d508b,maud1@test.com,"De Jansbar","De Jansbar",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+4190657c-03a1-44af-8247-5fd924dbe431,emma2@test.com,"De Jansbar","De Jansbar",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+70e11128-aa36-45f5-9622-d1984b4e89fe,nina3@test.com,"De Jansbar","De Jansbar",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+63d62b3f-41ba-4db3-b5e9-e54c5b21bee9,maud4@test.com,"Grand Café De Vrienden","Grand Café De Vrienden",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+36f19af8-4de6-4dd1-9ce9-23f058dbc111,nina5@test.com,"Grand Café De Vrienden","Grand Café De Vrienden",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+d786882c-eec0-4d7b-b140-2f7c6a0ae217,noa6@test.com,"Grand Café De Vrienden","Grand Café De Vrienden",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+b65be74b-0285-469f-9355-9e7e729e6572,anna7@test.com,"Grand Café De Vrienden","Grand Café De Vrienden",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+585db4ba-7317-4dd1-b362-93e561827e63,evi8@test.com,"Grand Café De Vrienden","Grand Café De Vrienden",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+e85bf412-5b80-4094-81c1-1b5b6016dce0,evi9@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+c1e3140f-6222-449b-a32d-0e226e14309f,isa10@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+6895cfc9-4da4-46a1-b32f-5cf58f7c065b,anna11@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+b9e49296-e3e0-492f-ba43-061654b84688,julia12@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+3037ade6-ff91-4a6a-91c9-beb4b3b8164f,sophie13@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+c45c3fd0-3b19-462a-8b1d-876101108e3b,femke14@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+1b7523e2-5e7a-49e1-9478-a0df254eef48,liv15@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+1b17a372-5c9a-416c-b398-1b251572377c,lotte16@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+83356a3f-06a4-4a4e-8bf8-f6faa6951338,emma17@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+7a9ef1de-c4cc-43b1-98c8-ec97076a4431,anna18@test.com,"Club Poema","Club Poema",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+87a9085b-28c8-4d0f-8273-d93672df9ded,nora19@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+1e1ed080-316d-44b5-a7c5-68ec54e4bc5f,saar20@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+a322cffa-9307-4692-9083-3c691a753988,evi21@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+1714e9f8-aa23-45b8-a607-aaa8f146240d,eline22@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+9f60fc86-677f-4708-8f8c-38b3c4b7b890,liv23@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+a8dca6c6-aa26-45f9-93df-a16603b2059b,anna24@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+1526a6e0-e6c2-468e-a6f0-ad88d56c1957,sanne25@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+c44ea84d-36ce-45ea-9576-64885923018a,evi26@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+c084add1-c7a3-49fc-9cd1-3db64a129c62,lynn27@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+ea557408-8c84-4f70-af66-f6384e6383fb,liv28@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z
+9d303698-e5b5-4ba4-aff0-a49998c052be,lotte29@test.com,"'t Pakhuis","'t Pakhuis",2026-12-31T23:59:59.000Z,active,2026-06-29T16:24:59.746Z

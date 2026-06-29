@@ -107,11 +107,6 @@ export default function CardGame() {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
 
-  const bg = isDark ? '#08090E' : '#F8F9FB';
-  const cardBg = isDark ? '#141521' : '#FFFFFF';
-  const textMain = isDark ? 'text-white' : 'text-gray-900';
-  const textSub = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.55)';
-
   const [session, setSession] = useState(null);
   const [rounds, setRounds] = useState([]);
   const [partnerProfile, setPartnerProfile] = useState(null);
@@ -122,19 +117,23 @@ export default function CardGame() {
   cardsRef.current = cards;
   const [selectedCard, setSelectedCard] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [view, setView] = useState('main'); // 'main' | 'answer' | 'social_result'
-  // Social media state (round 6)
+  const [view, setView] = useState('main');
+
   const [socialType, setSocialType] = useState('instagram');
   const [socialHandle, setSocialHandle] = useState('');
   const [answerSocialType, setAnswerSocialType] = useState('phone');
   const [answerSocialHandle, setAnswerSocialHandle] = useState('');
 
   const pollRef = useRef(null);
-
   const sessionId = new URLSearchParams(window.location.search).get('session');
 
   useEffect(() => {
-    if (user !== undefined && sessionId) loadData();
+    if (user !== undefined && sessionId) {
+      loadData();
+      pollRef.current = setInterval(() => {
+        loadData(true);
+      }, 5000);
+    }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [user, sessionId]);
 
@@ -147,7 +146,6 @@ export default function CardGame() {
       base44.entities.CardGameRound.filter({ session_id: sessionId }),
     ]);
 
-    // Also check as player2
     const sessionsP2 = await base44.entities.GameSession.filter({ player2_email: user.email });
     const allSessions = [...sessions, ...sessionsP2];
     const sess = allSessions.find(s => s.id === sessionId);
@@ -155,11 +153,9 @@ export default function CardGame() {
     if (!sess) { setLoading(false); return; }
     setSession(sess);
 
-    // Sort rounds
     const sortedRounds = roundData.sort((a, b) => a.round_number - b.round_number);
     setRounds(sortedRounds);
 
-    // Load profiles
     const partnerEmail = sess.player1_email === user.email ? sess.player2_email : sess.player1_email;
     const [myProfs, partnerProfs] = await Promise.all([
       base44.entities.UserProfile.filter({ user_email: user.email }),
@@ -168,12 +164,10 @@ export default function CardGame() {
     setMyProfile(myProfs[0] || null);
     setPartnerProfile(partnerProfs[0] || null);
 
-    // Generate cards for current round if it's my turn
     const currentRound = sortedRounds.length + 1;
     const myTurn = isMyTurn(sess, sortedRounds, user.email);
 
     if (myTurn && currentRound <= 6 && !cardsRef.current.length) {
-      // Check if there's an unanswered round for me (I need to answer)
       const pendingAnswer = sortedRounds.find(r =>
         r.asker_email !== user.email && !r.answer
       );
@@ -198,30 +192,15 @@ export default function CardGame() {
 
     if (!silent) setLoading(false);
 
-    // Start polling
     if (!pollRef.current) {
       pollRef.current = setInterval(() => loadData(true), 5000);
     }
   };
 
-  const handleDrawNewCards = (roundNum) => {
-    const newCards = getRandomCards(roundNum);
-    const cacheKey = `game_cards_${sessionId}_${roundNum}`;
-    localStorage.setItem(cacheKey, JSON.stringify(newCards));
-    setCards(newCards);
-  };
-
   const isMyTurn = (sess, sortedRounds, email) => {
-    // 1. If there is any unanswered round, nobody can ask.
     const unanswered = sortedRounds.find(r => !r.answer);
     if (unanswered) return false;
-
-    // 2. If no rounds played yet, player1 starts.
-    if (sortedRounds.length === 0) {
-      return sess.player1_email === email;
-    }
-
-    // 3. Otherwise, the player who did NOT ask the last round gets to ask.
+    if (sortedRounds.length === 0) return sess.player1_email === email;
     const lastRound = sortedRounds[sortedRounds.length - 1];
     return lastRound.asker_email !== email;
   };
@@ -236,8 +215,6 @@ export default function CardGame() {
     setSubmitting(true);
     try {
       const nextRound = rounds.length + 1;
-      const isLastRound = nextRound === 6;
-
       await base44.entities.CardGameRound.create({
         session_id: sessionId,
         round_number: nextRound,
@@ -271,7 +248,6 @@ export default function CardGame() {
       await base44.entities.CardGameRound.update(round.id, updateData);
       await base44.entities.GameSession.update(sessionId, { last_activity: new Date().toISOString() });
 
-      // Check if game is finished (6 answered rounds)
       const newRounds = [...rounds];
       const idx = newRounds.findIndex(r => r.id === round.id);
       if (idx > -1) newRounds[idx] = { ...newRounds[idx], ...updateData };
@@ -291,386 +267,419 @@ export default function CardGame() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: bg }}>
-        <div className="w-10 h-10 rounded-full border-4 border-pink-200 border-t-pink-500 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0E15]">
+        <div className="w-12 h-12 rounded-full border-4 border-pink-500/20 border-t-pink-500 animate-spin" />
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: bg }}>
-        <p className={`font-black text-lg ${textMain}`}>Spel niet gevonden</p>
-        <button onClick={() => window.history.back()} className="mt-4 px-6 py-2 rounded-full text-white font-bold" style={{ background: '#FF4B72' }}>Terug</button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0D0E15] text-white">
+        <p className="font-black text-xl mb-4">Spel niet gevonden</p>
+        <button onClick={() => window.history.back()} className="px-6 py-2.5 rounded-full bg-pink-500 font-bold">Terug</button>
       </div>
     );
   }
 
   const partnerEmail = session.player1_email === user?.email ? session.player2_email : session.player1_email;
   const partnerName = partnerProfile?.avatar?.split(' ').slice(1).join(' ') || 'je supermatch';
+  
   const totalAnswered = rounds.filter(r => !!r.answer).length;
   const pendingRound = getPendingAnswerRound();
   const myTurn = !pendingRound && isMyTurn(session, rounds, user?.email);
   const nextRoundNum = rounds.length + 1;
   const isFinished = session.status === 'finished' || totalAnswered >= 6;
 
+  const sharedSocialRound = rounds.find(r => r.social_handle && r.answer === 'yes');
+  const socialRoundData = sharedSocialRound ? { social_type: sharedSocialRound.social_type, social_handle: sharedSocialRound.social_handle } : null;
+
   return (
-    <div className="absolute inset-y-0 left-0 w-full flex flex-col" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
-      {/* Header */}
-      <div
-        className="flex items-center gap-3 px-5 pt-5 pb-4 flex-shrink-0"
-        style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
-      >
-        <button onClick={() => window.history.back()} className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-          <ArrowLeft className="w-5 h-5" style={{ color: isDark ? 'white' : '#333' }} />
-        </button>
-        <div className="flex-1">
-          <h1 className="font-black text-base" style={{ color: '#FF4B72' }}>🃏 Kaarten Spel</h1>
-          <p className="text-xs" style={{ color: textSub }}>Met {partnerName}</p>
-        </div>
-        {/* Partner avatar */}
-        <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6' }}>
-          {partnerProfile?.photo_url ? <img src={partnerProfile.photo_url} alt="" className="w-full h-full object-cover" /> : <span className="text-lg">{partnerProfile?.avatar?.split(' ')[0] || '👤'}</span>}
-        </div>
-      </div>
+    <div className={`min-h-screen w-full relative overflow-x-hidden flex flex-col justify-between select-none ${isDark ? 'bg-[#0D0E15] text-white' : 'bg-[#F8F9FB] text-gray-900'}`} style={{ fontFamily: "'Inter', sans-serif" }}>
+      {/* Ambient Background Glows */}
+      {isDark && (
+        <>
+          <div className="absolute top-[-5%] left-[-10%] w-[380px] h-[380px] rounded-full bg-gradient-to-br from-orange-500/30 via-pink-500/20 to-transparent blur-[100px] pointer-events-none" />
+          <div className="absolute top-[5%] right-[-10%] w-[380px] h-[380px] rounded-full bg-gradient-to-bl from-purple-600/30 via-indigo-500/20 to-transparent blur-[100px] pointer-events-none" />
+        </>
+      )}
 
-      <div className="flex-1 px-5 pt-4 space-y-6 overflow-y-auto pb-32">
-        {/* Progress bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-bold tracking-tight text-gray-500 dark:text-gray-300">Voortgang</span>
-            <span className="text-sm font-bold text-[#FF4B72]">{totalAnswered}/6 rondes</span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: '#FF4B72' }}
-              initial={{ width: 0 }}
-              animate={{ width: `${(totalAnswered / 6) * 100}%` }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
+      {/* Main Container */}
+      <div className="relative z-10 flex-1 flex flex-col max-w-md mx-auto w-full px-4 pt-4 pb-12">
+        
+        {/* Top Header Bar */}
+        <div className="flex items-center justify-between py-2 mb-2">
+          <button 
+            onClick={() => window.history.back()} 
+            className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md border transition-all active:scale-95 ${isDark ? 'bg-white/10 border-white/15 text-white hover:bg-white/20' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <span className="font-black tracking-wider text-xl text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-400 to-purple-400">
+            ROMETY
+          </span>
+          <span className={`text-xs font-bold px-3 py-1 rounded-full border ${isDark ? 'bg-white/10 border-white/10 text-pink-300' : 'bg-pink-50 border-pink-200 text-pink-700'}`}>
+            {totalAnswered}/6 RONDEN
+          </span>
         </div>
 
-        {/* Section Heading: GESCHIEDENIS */}
-        <div className="pt-2">
-          <p className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">GESCHIEDENIS</p>
+        {/* Title */}
+        <div className="text-center my-2">
+          <h1 className={`text-3xl font-black tracking-tight drop-shadow-md ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Icebreaker
+          </h1>
         </div>
 
-        {/* Unified chronological list flow */}
-        <div className="space-y-4">
-          {/* Answered Rounds */}
-          {rounds.filter(r => !!r.answer).map((round) => {
-            const askedByMe = round.asker_email === user?.email;
-            const catInfo = CATEGORY_COLORS[round.question_category] || { color: '#888', bg: 'rgba(128,128,128,0.1)', label: 'Ronde' };
+        {/* Avatars with Connecting Beam */}
+        <div className="flex items-center justify-center my-4">
+          <div className="relative flex items-center gap-8">
+            {/* Beam between avatars */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-[3px] bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500 shadow-[0_0_15px_rgba(236,72,153,0.9)] rounded-full" />
             
-            return (
-              <div 
-                key={round.id} 
-                className="rounded-[24px] p-5 flex items-center justify-between gap-4 shadow-[0_4px_16px_rgba(0,0,0,0.02)] border" 
-                style={{ 
-                  background: cardBg, 
-                  borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' 
-                }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span 
-                      className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider" 
-                      style={{ background: catInfo.bg, color: catInfo.color }}
-                    >
-                      {catInfo.label || 'Vraag'}
-                    </span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">Ronde {round.round_number}</span>
-                  </div>
-                  <p className="text-sm font-black text-gray-900 dark:text-white leading-tight">
-                    {askedByMe ? 'Jij vroeg:' : `${partnerName} vroeg:`}
-                  </p>
-                  <p className="text-sm mt-1 text-gray-500 dark:text-gray-300 leading-normal">
-                    "{round.question}"
-                  </p>
-                  
-                  {round.social_handle && (
-                    <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                      {round.social_type === 'phone' ? (
-                        <Phone className="w-3.5 h-3.5" />
-                      ) : round.social_type === 'instagram' ? (
-                        <Instagram className="w-3.5 h-3.5" />
-                      ) : (
-                        <Camera className="w-3.5 h-3.5" />
-                      )}
-                      <span>{round.social_type === 'phone' ? '' : '@'}{round.social_handle}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Checked / Cross indicator */}
-                <div 
-                  className="w-10 h-10 rounded-[12px] flex items-center justify-center flex-shrink-0"
-                  style={{
-                    background: round.answer === 'yes' ? '#ECFDF5' : '#FEF2F2',
-                    color: round.answer === 'yes' ? '#10B981' : '#EF4444',
-                  }}
-                >
-                  {round.answer === 'yes' ? (
-                    <Check className="w-5 h-5 stroke-[3]" />
-                  ) : (
-                    <X className="w-5 h-5 stroke-[3]" />
-                  )}
-                </div>
+            {/* My Avatar */}
+            <div className="relative z-10 w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-orange-400 via-pink-500 to-rose-400 shadow-[0_0_20px_rgba(249,115,22,0.5)]">
+              <div className="w-full h-full rounded-full overflow-hidden bg-gray-900 flex items-center justify-center">
+                {myProfile?.photo_url ? (
+                  <img src={myProfile.photo_url} alt="You" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl">{myProfile?.avatar?.split(' ')[0] || '👤'}</span>
+                )}
               </div>
-            );
-          })}
+            </div>
 
-          {/* Active Round / Turn State (Waiting, Answering, Asking, or Finished) */}
-          {!isFinished && (
-            pendingRound ? (
-              /* Your turn to ANSWER */
-              <div 
-                className="rounded-[24px] p-5 shadow-[0_4px_16px_rgba(0,0,0,0.02)] border" 
-                style={{ 
-                  background: cardBg, 
-                  borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' 
-                }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span 
-                    className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider" 
-                    style={{ 
-                      background: 'rgba(255,75,114,0.12)', 
-                      color: '#FF4B72' 
-                    }}
-                  >
-                    👉 Jouw Beurt
-                  </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">Ronde {pendingRound.round_number}</span>
-                </div>
-                
-                <p className="text-sm font-black text-gray-900 dark:text-white leading-tight">
-                  {partnerName} vraagt:
-                </p>
-                <p className="text-sm mt-1 text-gray-500 dark:text-gray-300 leading-normal mb-5">
-                  "{pendingRound.question}"
-                </p>
+            {/* Partner Avatar */}
+            <div className="relative z-10 w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-purple-500 via-pink-500 to-indigo-400 shadow-[0_0_20px_rgba(168,85,247,0.5)]">
+              <div className="w-full h-full rounded-full overflow-hidden bg-gray-900 flex items-center justify-center">
+                {partnerProfile?.photo_url ? (
+                  <img src={partnerProfile.photo_url} alt={partnerName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl">{partnerProfile?.avatar?.split(' ')[0] || '👤'}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
-                {/* Social media round */}
-                {pendingRound.round_number === 6 || pendingRound.question_category === 'final' ? (
-                  <div className="space-y-3">
-                    <div className="flex gap-1.5 flex-wrap">
-                      <button
-                        onClick={() => { setAnswerSocialType('phone'); }}
-                        className="flex-1 min-w-[90px] py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
-                        style={{
-                          background: answerSocialType === 'phone' ? 'rgba(16,185,129,0.15)' : 'rgba(0,0,0,0.03)',
-                          border: answerSocialType === 'phone' ? '1.5px solid rgba(16,185,129,0.4)' : '1.5px solid transparent',
-                          color: answerSocialType === 'phone' ? '#10B981' : (isDark ? 'white' : '#666'),
-                        }}
-                      >
-                        <Phone className="w-3.5 h-3.5" /> Nummer
-                      </button>
-                      <button
-                        onClick={() => { setAnswerSocialType('instagram'); }}
-                        className="flex-1 min-w-[90px] py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
-                        style={{
-                          background: answerSocialType === 'instagram' ? 'rgba(139,92,246,0.15)' : 'rgba(0,0,0,0.03)',
-                          border: answerSocialType === 'instagram' ? '1.5px solid rgba(139,92,246,0.4)' : '1.5px solid transparent',
-                          color: answerSocialType === 'instagram' ? '#8B5CF6' : (isDark ? 'white' : '#666'),
-                        }}
-                      >
-                        <Instagram className="w-3.5 h-3.5" /> Instagram
-                      </button>
-                      <button
-                        onClick={() => { setAnswerSocialType('snapchat'); }}
-                        className="flex-1 min-w-[90px] py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
-                        style={{
-                          background: answerSocialType === 'snapchat' ? 'rgba(255,212,0,0.1)' : 'rgba(0,0,0,0.03)',
-                          border: answerSocialType === 'snapchat' ? '1.5px solid rgba(255,212,0,0.4)' : '1.5px solid transparent',
-                          color: answerSocialType === 'snapchat' ? '#D97706' : (isDark ? 'white' : '#666'),
-                        }}
-                      >
-                        <Camera className="w-3.5 h-3.5" /> Snapchat
-                      </button>
+        {/* Speech Bubble Card Container */}
+        <div className="relative mt-2 mb-6 w-full">
+          <div className="relative rounded-[32px] p-6 sm:p-7 bg-gradient-to-b from-[#FFFDF9] via-[#FAF3FF] to-[#F2E7FE] text-gray-900 shadow-[0_25px_60px_rgba(0,0,0,0.45)] border border-white/60">
+            {/* Speech Bubble Notch */}
+            <div 
+              className={`w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-b-[16px] border-b-[#FFFDF9] absolute -top-[15px] transition-all duration-300 ${
+                pendingRound ? 'right-16' : myTurn ? 'left-16' : 'left-1/2 -translate-x-1/2'
+              }`}
+            />
+
+            {/* CARD CONTENT STATES */}
+            {!isFinished && (
+              pendingRound ? (
+                /* ── State 1: Answer Question ── */
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <span className="inline-block text-[11px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full mb-3 bg-pink-500/10 text-pink-600">
+                      Ronde {pendingRound.round_number} • {partnerName} vraagt
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black leading-tight text-gray-900 px-2">
+                      "{pendingRound.question}"
+                    </h2>
+                  </div>
+
+                  {/* Social round answering */}
+                  {pendingRound.round_number === 6 || pendingRound.question_category === 'final' ? (
+                    <div className="space-y-4">
+                      <div className="flex gap-2 p-1.5 bg-black/5 rounded-2xl">
+                        {['phone', 'instagram', 'snapchat'].map((type) => (
+                          <button
+                            key={type}
+                            onClick={() => setAnswerSocialType(type)}
+                            className={`flex-1 py-2.5 rounded-xl font-black text-xs capitalize transition-all flex items-center justify-center gap-1.5 ${
+                              answerSocialType === type 
+                                ? 'bg-white text-gray-900 shadow-sm' 
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            {type === 'phone' && <Phone className="w-3.5 h-3.5" />}
+                            {type === 'instagram' && <Instagram className="w-3.5 h-3.5" />}
+                            {type === 'snapchat' && <Camera className="w-3.5 h-3.5" />}
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleAnswer(pendingRound, 'no')}
+                          disabled={submitting}
+                          className="px-5 py-3.5 rounded-2xl font-black text-sm bg-red-100 text-red-600 hover:bg-red-200 transition-all active:scale-95"
+                        >
+                          ❌ Nee
+                        </button>
+                        <div className="flex-1 space-y-2">
+                          <input
+                            value={answerSocialHandle}
+                            onChange={e => setAnswerSocialHandle(e.target.value)}
+                            placeholder={`Jouw ${answerSocialType === 'phone' ? 'nummer' : (answerSocialType === 'instagram' ? 'Insta' : 'Snap')}…`}
+                            className="w-full px-4 py-3 rounded-2xl text-sm font-bold bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                          <button
+                            onClick={() => {
+                              if (!answerSocialHandle.trim()) { toast.error('Vul je gegevens in'); return; }
+                              handleAnswer(pendingRound, 'yes', { type: answerSocialType, handle: answerSocialHandle.trim() });
+                            }}
+                            disabled={submitting}
+                            className="w-full py-3.5 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-105 transition-all active:scale-95 shadow-md"
+                          >
+                            ✅ Ja, deel!
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                  ) : (
+                    /* Standard Yes / No option buttons */
+                    <div className="grid grid-cols-2 gap-4 pt-2">
                       <button
                         onClick={() => handleAnswer(pendingRound, 'no')}
                         disabled={submitting}
-                        className="flex-1 py-3 rounded-2xl font-black text-sm transition-all active:scale-95 text-[#EF4444]"
-                        style={{ background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.15)' }}
+                        className="group relative rounded-2xl p-5 flex flex-col items-center justify-center text-center text-white font-black text-lg transition-all transform active:scale-95 shadow-lg overflow-hidden bg-gradient-to-br from-red-400 via-rose-500 to-red-600 hover:brightness-105"
+                        style={{ minHeight: '130px' }}
                       >
-                        ❌ Nee
+                        <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">❌</span>
+                        <span>Nee</span>
                       </button>
-                      <div className="flex-1 space-y-2">
-                        <input
-                          value={answerSocialHandle}
-                          onChange={e => setAnswerSocialHandle(e.target.value)}
-                          placeholder={`Jouw ${answerSocialType === 'phone' ? 'nummer' : (answerSocialType === 'instagram' ? 'Insta' : 'Snap')}…`}
-                          className={`w-full px-3 py-2.5 rounded-xl text-sm font-bold outline-none ${
-                            isDark ? 'bg-white/5 border-white/20 text-white placeholder-white/40' : 'bg-black/5 border-black/10 text-gray-900 placeholder-gray-400'
-                          }`}
-                          style={{ border: '1px solid' }}
-                        />
-                        <button
-                          onClick={() => {
-                            if (!answerSocialHandle.trim()) { toast.error('Vul je gegevens in'); return; }
-                            handleAnswer(pendingRound, 'yes', { type: answerSocialType, handle: answerSocialHandle.trim() });
-                          }}
-                          disabled={submitting}
-                          className="w-full py-2.5 rounded-xl font-black text-sm text-white transition-all active:scale-95 bg-[#10B981] hover:bg-[#059669]"
-                        >
-                          ✅ Ja, deel!
-                        </button>
-                      </div>
+
+                      <button
+                        onClick={() => handleAnswer(pendingRound, 'yes')}
+                        disabled={submitting}
+                        className="group relative rounded-2xl p-5 flex flex-col items-center justify-center text-center text-white font-black text-lg transition-all transform active:scale-95 shadow-lg overflow-hidden bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-600 hover:brightness-105"
+                        style={{ minHeight: '130px' }}
+                      >
+                        <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">✅</span>
+                        <span>Ja</span>
+                      </button>
                     </div>
-                  </div>
-                ) : (
-                  /* Normal yes/no */
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleAnswer(pendingRound, 'no')}
-                      disabled={submitting}
-                      className="flex-1 py-3.5 rounded-[16px] font-black text-base transition-all active:scale-95"
-                      style={{ background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.15)', color: '#EF4444' }}
-                    >
-                      ❌ Nee
-                    </button>
-                    <button
-                      onClick={() => handleAnswer(pendingRound, 'yes')}
-                      disabled={submitting}
-                      className="flex-1 py-3.5 rounded-[16px] font-black text-base transition-all active:scale-95"
-                      style={{ background: 'rgba(16,185,129,0.08)', border: '1.5px solid rgba(16,185,129,0.15)', color: '#10B981' }}
-                    >
-                      ✅ Ja
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : myTurn ? (
-              /* Your turn to ASK */
-              <div className="space-y-3 pt-2">
-                <div className="px-1">
-                  <p className="text-xs font-black uppercase tracking-wider text-[#8B5CF6]">
-                    Kies een vraagkaart voor {partnerName}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-300 mt-0.5">Kies 1 van de 4 onderstaande vragen om te stellen:</p>
+                  )}
                 </div>
-
-                {nextRoundNum === 6 ? (
-                  /* Round 6: automatic social question */
-                  <div className="space-y-4">
-                    <div 
-                      className="rounded-[24px] p-5 border" 
-                      style={{ 
-                        background: cardBg, 
-                        borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' 
-                      }}
-                    >
-                      <p className="text-xs font-bold mb-2 text-[#8B5CF6]">🏆 Laatste ronde</p>
-                      <p className="text-base font-black text-gray-900 dark:text-white leading-snug">{SOCIAL_QUESTION}</p>
-                    </div>
-                    <button
-                      onClick={() => handleSendQuestion()}
-                      disabled={submitting}
-                      className="w-full py-4 rounded-2xl font-black text-white text-base transition-all active:scale-[0.97]"
-                      style={{ background: 'linear-gradient(135deg, #8B5CF6, #6366F1)' }}
-                    >
-                      Verstuur vraag 📲
-                    </button>
+              ) : myTurn ? (
+                /* ── State 2: Ask Question ── */
+                <div className="space-y-5">
+                  <div className="text-center">
+                    <span className="inline-block text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2 bg-purple-500/10 text-purple-700">
+                      Ronde {nextRoundNum} • Jouw beurt
+                    </span>
+                    <h2 className="text-xl font-black text-gray-900">
+                      {nextRoundNum === 6 ? 'Social Media Vraag 📲' : `Kies een vraag voor ${partnerName}:`}
+                    </h2>
                   </div>
-                ) : (
-                  /* Normal round: pick a card */
-                  <>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      {cards.map((card, i) => {
-                        const catInfo = CATEGORY_COLORS[card.category] || { color: '#888', bg: 'rgba(128,128,128,0.1)', label: '' };
-                        const isSelected = selectedCard?.question === card.question;
-                        return (
-                          <motion.button
-                            key={i}
-                            whileTap={{ scale: 0.96 }}
-                            onClick={() => setSelectedCard(isSelected ? null : card)}
-                            className="rounded-2xl p-4 text-left transition-all flex flex-col justify-between"
-                            style={{
-                              background: isSelected ? catInfo.bg : (isDark ? '#141521' : '#FFFFFF'),
-                              border: isSelected ? `2px solid ${catInfo.color}` : `1.5px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-                              minHeight: 110,
-                            }}
-                          >
-                            <div>
-                              <span className="text-[9px] font-black block mb-1.5" style={{ color: catInfo.color }}>{catInfo.label}</span>
-                              <p className="text-xs font-bold leading-snug" style={{ color: isDark ? 'rgba(255,255,255,0.85)' : '#333' }}>{card.question}</p>
-                            </div>
-                            {isSelected && (
-                              <div className="mt-2 flex justify-end">
-                                <Check className="w-4 h-4" style={{ color: catInfo.color }} />
-                              </div>
-                            )}
-                          </motion.button>
-                        );
-                      })}
+                  {nextRoundNum === 6 ? (
+                    <div className="space-y-4 pt-2">
+                      <p className="text-base font-bold text-gray-800 bg-white/80 p-5 rounded-2xl border border-purple-100 text-center leading-relaxed shadow-sm">
+                        "{SOCIAL_QUESTION}"
+                      </p>
+                      <button
+                        onClick={() => handleSendQuestion()}
+                        disabled={submitting}
+                        className="w-full py-4 rounded-2xl font-black text-white text-base bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 shadow-lg hover:brightness-105 transition-all active:scale-95"
+                      >
+                        Verstuur vraag 📲
+                      </button>
                     </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        {cards.map((card, i) => {
+                          const catInfo = CATEGORY_COLORS[card.category] || { color: '#888', label: 'Vraag' };
+                          const isSelected = selectedCard?.question === card.question;
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => setSelectedCard(isSelected ? null : card)}
+                              className={`rounded-2xl p-4 text-left transition-all flex flex-col justify-between min-h-[115px] relative overflow-hidden transform active:scale-95 ${
+                                isSelected 
+                                  ? 'bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-md ring-4 ring-purple-300' 
+                                  : 'bg-white text-gray-900 border border-gray-200/80 hover:border-purple-300 shadow-sm'
+                              }`}
+                            >
+                              <div>
+                                <span className={`text-[10px] font-black uppercase tracking-wider block mb-1.5 ${isSelected ? 'text-pink-200' : ''}`} style={{ color: isSelected ? undefined : catInfo.color }}>
+                                  {catInfo.label}
+                                </span>
+                                <p className="text-xs font-bold leading-snug">
+                                  {card.question}
+                                </p>
+                              </div>
+                              {isSelected && (
+                                <div className="mt-2 flex justify-end">
+                                  <Check className="w-4 h-4 text-white" />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                    <AnimatePresence>
-                      {selectedCard && (
-                        <motion.button
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          onClick={handleSendQuestion}
-                          disabled={submitting}
-                          className="w-full py-3.5 rounded-2xl font-black text-white text-base transition-all active:scale-[0.97]"
-                          style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)', boxShadow: '0 8px 24px rgba(255,75,114,0.2)' }}
-                        >
-                          Verstuur deze vraag →
-                        </motion.button>
-                      )}
-                    </AnimatePresence>
+                      <AnimatePresence>
+                        {selectedCard && (
+                          <motion.button
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            onClick={handleSendQuestion}
+                            disabled={submitting}
+                            className="w-full py-4 rounded-2xl font-black text-white text-base bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 shadow-lg hover:brightness-105 transition-all active:scale-95"
+                          >
+                            Verstuur vraag naar {partnerName} →
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* ── State 3: Waiting ── */
+                <div className="py-8 text-center space-y-3">
+                  <div className="text-5xl animate-bounce">⏳</div>
+                  <h2 className="text-xl font-black text-gray-900">Wachten op {partnerName}...</h2>
+                  <p className="text-xs text-gray-500 font-medium">Zodra {partnerName} reageert zie je het hier meteen!</p>
+                </div>
+              )
+            )}
 
+            {/* Finished State */}
+            {isFinished && (
+              socialRoundData ? (
+                <div className="py-4 text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-amber-400 flex items-center justify-center text-3xl shadow-lg animate-bounce">
+                    {socialRoundData.social_type === 'phone' ? '📞' : socialRoundData.social_type === 'instagram' ? '📸' : '👻'}
+                  </div>
+                  
+                  <div>
+                    <span className="inline-block text-[11px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full mb-2 bg-purple-500/10 text-purple-700">
+                      🎉 Supermatch Contact!
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight">
+                      {partnerName} heeft {socialRoundData.social_type === 'phone' ? 'telefoonnummer' : socialRoundData.social_type === 'instagram' ? 'Instagram' : 'Snapchat'} gedeeld!
+                    </h2>
+                  </div>
 
-                  </>
-                )}
-              </div>
-            ) : (
-              /* Waiting state (inline) */
-              <div 
-                className="rounded-[24px] p-8 text-center border shadow-[0_4px_16px_rgba(0,0,0,0.02)]" 
-                style={{ 
-                  background: cardBg, 
-                  borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' 
-                }}
-              >
-                <div className="text-4xl mb-4">⏳</div>
-                <p className="font-black text-base text-gray-900 dark:text-white">Wachten op {partnerName}...</p>
-              </div>
-            )
-          )}
+                  <div className="p-4 rounded-2xl bg-white border border-purple-200 shadow-md flex items-center justify-center gap-3 my-2">
+                    {socialRoundData.social_type === 'phone' ? (
+                      <Phone className="w-6 h-6 text-emerald-600" />
+                    ) : socialRoundData.social_type === 'instagram' ? (
+                      <Instagram className="w-6 h-6 text-pink-600" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-amber-500" />
+                    )}
+                    <span className="text-xl font-black text-gray-900 tracking-wide select-all">
+                      {socialRoundData.social_type === 'phone' ? '' : '@'}{socialRoundData.social_handle}
+                    </span>
+                  </div>
 
-          {/* Finished State (inline) */}
-          {isFinished && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              className="rounded-[24px] p-6 text-center border" 
-              style={{ 
-                background: 'rgba(16,185,129,0.05)', 
-                borderColor: 'rgba(16,185,129,0.15)' 
-              }}
-            >
-              <div className="text-4xl mb-3">🎉</div>
-              <p className="font-black text-base text-gray-900 dark:text-white mb-1">Spel afgerond!</p>
-              <p className="text-xs text-gray-500 dark:text-gray-300">Jullie hebben alle 6 rondes gespeeld</p>
-              <button 
-                onClick={() => window.history.back()} 
-                className="mt-4 px-6 py-2.5 rounded-xl font-bold text-white text-xs bg-[#10B981] hover:bg-[#059669]"
-              >
-                Terug naar spellen
-              </button>
-            </motion.div>
-          )}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(socialRoundData.social_handle);
+                        toast.success('Gekopieerd naar klembord!');
+                      }}
+                      className="flex-1 py-3 rounded-2xl font-black text-xs bg-gray-100 text-gray-800 hover:bg-gray-200 transition-all active:scale-95 shadow-sm"
+                    >
+                      📋 Kopieer
+                    </button>
+                    {socialRoundData.social_type === 'instagram' && (
+                      <a
+                        href={`https://instagram.com/${socialRoundData.social_handle.replace('@', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-3 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:brightness-105 transition-all active:scale-95 text-center flex items-center justify-center shadow-md"
+                      >
+                        Open Insta ↗
+                      </a>
+                    )}
+                  </div>
+
+                  <button 
+                    onClick={() => window.history.back()} 
+                    className="mt-2 w-full py-3 rounded-2xl font-bold text-gray-500 text-xs hover:text-gray-900 transition-all"
+                  >
+                    Terug naar spellen
+                  </button>
+                </div>
+              ) : (
+                <div className="py-6 text-center space-y-4">
+                  <div className="text-5xl animate-bounce">🎉</div>
+                  <h2 className="text-2xl font-black text-gray-900">Spel Afgerond!</h2>
+                  <p className="text-sm font-bold text-gray-600">Jullie hebben alle 6 rondes succesvol gespeeld!</p>
+                  <button 
+                    onClick={() => window.history.back()} 
+                    className="px-8 py-3.5 rounded-2xl font-black text-white text-sm bg-gradient-to-r from-emerald-500 to-teal-600 shadow-md hover:brightness-105 active:scale-95 transition-all"
+                  >
+                    Terug naar spellen
+                  </button>
+                </div>
+              )
+            )}
+
+          </div>
         </div>
+
+        {/* History Section (Geschiedenis) */}
+        <div className="mt-4 space-y-3">
+          <p className={`text-xs font-black uppercase tracking-widest px-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            GESCHIEDENIS ({rounds.filter(r => !!r.answer).length}/6)
+          </p>
+
+          <div className="space-y-3">
+            {rounds.filter(r => !!r.answer).map((round) => {
+              const askedByMe = round.asker_email === user?.email;
+              
+              return (
+                <div 
+                  key={round.id} 
+                  className={`rounded-2xl p-4 flex items-center justify-between gap-3 border backdrop-blur-sm ${
+                    isDark 
+                      ? 'bg-white/5 border-white/10' 
+                      : 'bg-white border-gray-200/80 shadow-sm'
+                  }`} 
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                        isDark ? 'bg-white/10 text-pink-300' : 'bg-pink-100 text-pink-700'
+                      }`}>
+                        Ronde {round.round_number}
+                      </span>
+                      <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{askedByMe ? 'Jij vroeg' : `${partnerName} vroeg`}</span>
+                    </div>
+                    <p className={`text-xs font-bold truncate ${isDark ? 'text-white/90' : 'text-gray-900'}`}>
+                      "{round.question}"
+                    </p>
+                    {round.social_handle && (
+                      <div className={`mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        isDark ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {round.social_type === 'phone' ? <Phone className="w-3 h-3" /> : round.social_type === 'instagram' ? <Instagram className="w-3 h-3" /> : <Camera className="w-3 h-3" />}
+                        <span>{round.social_type === 'phone' ? '' : '@'}{round.social_handle}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div 
+                    className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 font-black text-xs"
+                    style={{
+                      background: round.answer === 'yes' ? (isDark ? 'rgba(16,185,129,0.2)' : '#D1FAE5') : (isDark ? 'rgba(239,68,68,0.2)' : '#FEE2E2'),
+                      color: round.answer === 'yes' ? (isDark ? '#34D399' : '#047857') : (isDark ? '#F87171' : '#B91C1C'),
+                    }}
+                  >
+                    {round.answer === 'yes' ? <Check className="w-4 h-4 stroke-[3]" /> : <X className="w-4 h-4 stroke-[3]" />}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
     </div>
   );
 }
+

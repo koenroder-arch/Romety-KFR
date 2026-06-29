@@ -246,11 +246,11 @@ export default function SendHintSheet({ user, myProfile, myCheckIn, matches, mut
         >
           {/* Drag handle */}
           <div
-            className="flex flex-col items-center pt-3 pb-2 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
+            className="w-full flex flex-col items-center pt-3 pb-2 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
             onPointerDown={(e) => dragControls.start(e)}
             style={{ touchAction: 'none' }}
           >
-            <div className="w-10 h-1 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }} />
+            <div className="w-12 h-1.5 rounded-full mb-3 shadow-sm" style={{ background: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.25)' }} />
 
             {/* Header */}
             <div className="w-full px-5 pb-2 flex items-center justify-between" style={{ borderBottom: `1px solid ${divider}` }}>

@@ -175,14 +175,14 @@ export default function HomeInfoSheet({
                 </button>
               </div>
             ) : (
-              <div className="rounded-[20px] p-4 border-2" style={{ background: isDark ? 'rgba(251,146,60,0.1)' : 'rgba(251,146,60,0.05)', borderColor: 'rgba(251,146,60,0.3)' }}>
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0">
-                    <AlertCircle className="w-5 h-5 text-orange-500 mt-0.5" />
+              <div className="rounded-[18px] p-3 px-4 border flex items-center justify-between gap-3" style={{ background: isDark ? 'rgba(251,146,60,0.1)' : 'rgba(251,146,60,0.06)', borderColor: 'rgba(251,146,60,0.3)' }}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(249,115,22,0.2)' }}>
+                    <AlertCircle className="w-4.5 h-4.5 text-orange-400" />
                   </div>
-                  <div>
-                    <h3 className={`font-bold text-sm ${textMain}`}>📍 Vind je match vanavond</h3>
-                    <p className="text-xs mt-1" style={{ color: textSub }}>Zet je locatie aan of voer een bestemming in om matches te ontdekken</p>
+                  <div className="min-w-0">
+                    <h3 className={`font-bold text-xs ${textMain}`}>📍 Vind je match vanavond</h3>
+                    <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: textSub }}>Kies een bestemming om matches te ontdekken</p>
                   </div>
                 </div>
               </div>

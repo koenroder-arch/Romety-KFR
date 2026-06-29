@@ -126,28 +126,27 @@ export default function VenueBottomSheet({
         >
           {/* ── Drag handle + header (always visible in peek) ── */}
           <div
-            className="flex flex-col items-center pt-3 pb-2 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
+            className="w-full flex flex-col items-center pt-3 pb-3 cursor-pointer select-none flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             onClick={() => onSnapChange(snapState === 'full' ? 'peek' : 'full')}
           >
-            <div className="w-10 h-1 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }} />
+            <div className="w-12 h-1.5 rounded-full mb-3 shadow-sm transition-transform hover:scale-115" style={{ background: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.25)' }} />
 
-            <div className="w-full px-5 pb-2 flex items-center justify-between">
-              <div>
-                <p className="font-black text-xl drop-shadow" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>{venue.name}</p>
+            <div className="w-full px-5 pb-1 flex items-center justify-between">
+              <div className="flex-1 min-w-0 pr-2">
+                <p className="font-black text-xl truncate drop-shadow" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>{venue.name}</p>
                 <div className="flex items-center gap-3 mt-0.5">
-                  {venue.city && <p className="text-sm" style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' }}>{venue.city}</p>}
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,107,74,0.15)', color: '#FF6B4A' }}>
+                  {venue.city && <p className="text-sm font-medium truncate" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)' }}>{venue.city}</p>}
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(255,107,74,0.15)', color: '#FF6B4A' }}>
                     {matchGoingCount} matches gaan
                   </span>
                 </div>
-
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0"
-                style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
+                className="flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0 transition-transform active:scale-90"
+                style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
               >
-                <X className="w-4 h-4" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
+                <X className="w-4.5 h-4.5" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
               </button>
             </div>
           </div>

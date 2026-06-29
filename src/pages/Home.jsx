@@ -216,9 +216,12 @@ export default function Home() {
 
     // Stories (Verhalen) - exp. after 9 hours
     
-    // Prune old stories from database
+    // Prune old stories from database and storage
     const oldStories = allStories.filter(s => s.created_date < nineHoursAgo);
     for (const oldStory of oldStories) {
+      if (oldStory.media_url) {
+        base44.integrations.Core.DeleteFile({ file_url: oldStory.media_url }).catch(err => console.error("Storage delete error:", err));
+      }
       base44.entities.Story.delete(oldStory.id).catch(err => console.error("Pruning story error:", err));
     }
 
@@ -296,28 +299,35 @@ export default function Home() {
         position: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'relative' : 'static'
       }}
     >
-      {/* Logo */}
-      <div className="pt-4 px-5 flex items-center justify-between">
-        <h1
-          className="font-black tracking-tight leading-none"
-          style={{
-            fontSize: '1rem',
-            background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            color: 'transparent',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          ROMETY
-        </h1>
-        <NotificationBell isDark={isDark} />
-      </div>
+      {/* Header Container with Romety Fade */}
+      <div 
+        className="pt-5 pb-6 px-5 relative overflow-hidden mb-2" 
+        style={{ 
+          background: isDark 
+            ? 'linear-gradient(180deg, #4D122D 0%, #2E0B1B 65%, rgba(13,14,21,0) 100%)' 
+            : 'linear-gradient(180deg, rgba(255,75,114,0.18) 0%, rgba(234,63,211,0.06) 70%, transparent 100%)' 
+        }}
+      >
+        {/* Logo */}
+        <div className="flex items-center justify-between mb-2">
+          <h1
+            className="font-black tracking-tight leading-none text-base"
+            style={{
+              background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              color: 'transparent',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            ROMETY
+          </h1>
+          <NotificationBell isDark={isDark} />
+        </div>
 
-      {/* Header */}
-      <div className="pb-2 px-5 pt-2 flex justify-center text-center">
-        <div>
+        {/* Title */}
+        <div className="flex justify-center text-center pt-1">
           <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Home</h1>
         </div>
       </div>
@@ -393,8 +403,6 @@ export default function Home() {
         </div>
       )}
 
-      <VenueBanner checkIn={myCheckIn} onRemoved={loadData} />
-
       <div className="px-5 mt-4 space-y-4">
 
         {/* Activity Summary (Blob style) */}
@@ -454,6 +462,8 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        <VenueBanner checkIn={myCheckIn} onRemoved={loadData} />
 
         {/* Send hint card */}
         <button

@@ -143,6 +143,8 @@ export default function Matches() {
     return <div className="min-h-screen flex items-center justify-center" style={{ background: bg }}><div className="w-10 h-10 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" /></div>;
   }
 
+  const myLocation = myCheckIn || myDestination;
+
   return (
     <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
       {/* Top bar: logo + bell */}
@@ -165,25 +167,25 @@ export default function Matches() {
       </div>
 
       {/* No location locked state */}
-      {!myCheckIn && (
+      {!myLocation && (
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center flex-1">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'rgba(255,75,114,0.15)' }}>
             <Lock className="w-8 h-8" style={{ color: '#FF4B72' }} />
           </div>
           <h2 className={`text-lg font-black mb-2 ${textMain}`}>Geen locatie ingesteld</h2>
           <p className="text-sm mb-4" style={{ color: textSub }}>
-            Zet je locatie aan of voer een bestemming in om je matches en supermatches te zien.
+            Zet je locatie aan of kies een bestemming op Pinpoint om je venue-matches te zien.
           </p>
-          <div className="rounded-[16px] p-4 w-full max-w-xs border-2" style={{ background: isDark ? 'rgba(255,75,114,0.12)' : 'rgba(255,75,114,0.08)', borderColor: 'rgba(255,75,114,0.35)' }}>
+          <div className="rounded-[16px] p-4 w-full max-w-xs border-2 cursor-pointer active:scale-95 transition-transform" onClick={() => window.location.href = '/pinpoint'} style={{ background: isDark ? 'rgba(255,75,114,0.12)' : 'rgba(255,75,114,0.08)', borderColor: 'rgba(255,75,114,0.35)' }}>
             <p className="text-xs font-semibold text-pink-500 flex items-center justify-center gap-2">
               <MapPin className="w-4 h-4" />
-              Ga naar Pinpoint en stel je bestemming in
+              Ga naar Pinpoint en kies een bestemming
             </p>
           </div>
         </div>
       )}
 
-      {myCheckIn && (
+      {myLocation && (
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <MatchesSwiper
             profiles={matches.map(m => m.profile)}

@@ -191,6 +191,17 @@ export const base44 = {
           .getPublicUrl(filePath);
 
         return { file_url: publicUrl };
+      },
+      DeleteFile: async ({ file_url }) => {
+        if (!file_url) return;
+        try {
+          const fileName = file_url.split('/uploads/').pop();
+          if (fileName) {
+            await supabase.storage.from('uploads').remove([fileName]);
+          }
+        } catch (err) {
+          console.error('Error deleting file from storage:', err);
+        }
       }
     }
   },

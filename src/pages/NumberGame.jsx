@@ -141,6 +141,7 @@ export default function NumberGame() {
   
   // UI states & refs
   const [historyTab, setHistoryTab] = useState('mine'); // 'mine' | 'theirs'
+  const [forceTestMode, setForceTestMode] = useState(null); // null | 'setup' | 'turn' | 'win'
   const guessInputRef = useRef(null);
   const phoneInputRef = useRef(null);
 
@@ -148,7 +149,12 @@ export default function NumberGame() {
   const sessionId = new URLSearchParams(window.location.search).get('session');
 
   useEffect(() => {
-    if (user !== undefined && sessionId) loadData();
+    if (user !== undefined && sessionId) {
+      loadData();
+      pollRef.current = setInterval(() => {
+        loadData(true);
+      }, 5000);
+    }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [user, sessionId]);
 
@@ -272,18 +278,32 @@ export default function NumberGame() {
   const partnerEmail = session.player1_email === user?.email ? session.player2_email : session.player1_email;
   const partnerName = partnerProfile?.avatar?.split(' ').slice(1).join(' ') || 'je supermatch';
 
-  // Determine game state
-  const bothSetup = myState && partnerState;
-  const isFinished = session.status === 'finished';
+  const mockPartner = { 
+    id: 'test_p', 
+    player_email: partnerEmail, 
+    phone_number: '0687654321', 
+    gift_digits: [{index:0,digit:'0'},{index:1,digit:'6'},{index:2,digit:'8'},{index:3,digit:'7'}], 
+    guesses: [] 
+  };
+  const mockMine = { 
+    id: 'test_m', 
+    player_email: user?.email, 
+    phone_number: '0612345678', 
+    gift_digits: [{index:0,digit:'0'},{index:1,digit:'6'},{index:2,digit:'1'},{index:3,digit:'2'}], 
+    guesses: [] 
+  };
 
-  const myGuessCount = (myState?.guesses || []).length;
-  const partnerGuessCount = (partnerState?.guesses || []).length;
+  const activeMyState = forceTestMode === 'setup' ? null : (forceTestMode ? mockMine : myState);
+  const activePartnerState = forceTestMode === 'setup' ? null : (forceTestMode ? mockPartner : partnerState);
+
+  const bothSetup = activeMyState && activePartnerState;
+  const isFinished = forceTestMode === 'win' ? true : (session.status === 'finished');
+  const activeWinnerEmail = forceTestMode === 'win' ? user?.email : session.winner_email;
+
+  const myGuessCount = (activeMyState?.guesses || []).length;
+  const partnerGuessCount = (activePartnerState?.guesses || []).length;
   const isPlayer1 = session.player1_email === user?.email;
-  const isMyTurn = bothSetup && !isFinished && (
-    isPlayer1 
-      ? myGuessCount === partnerGuessCount 
-      : myGuessCount < partnerGuessCount
-  );
+  const isMyTurn = forceTestMode === 'turn' ? true : (forceTestMode === 'win' ? false : (bothSetup && !isFinished && (isPlayer1 ? myGuessCount === partnerGuessCount : myGuessCount < partnerGuessCount)));
 
   return (
     <div className="absolute inset-y-0 left-0 w-full flex flex-col" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
@@ -306,8 +326,53 @@ export default function NumberGame() {
 
       <div className="flex-1 px-5 pt-4 space-y-6 overflow-y-auto pb-32">
 
+        {/* Dev / Test Bar for NumberGame testing */}
+        <div className="my-1 p-2 rounded-2xl bg-white/5 border border-purple-500/30 backdrop-blur-md flex flex-wrap items-center justify-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-wider text-purple-300 w-full text-center">
+            🧪 Testmodus Nummer Spel
+          </span>
+          <button
+            onClick={() => setForceTestMode(forceTestMode === 'setup' ? null : 'setup')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
+              forceTestMode === 'setup' 
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' 
+                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+            }`}
+          >
+            {forceTestMode === 'setup' ? '✓ Setup Phase' : '⚡ Test Setup'}
+          </button>
+          <button
+            onClick={() => setForceTestMode(forceTestMode === 'turn' ? null : 'turn')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
+              forceTestMode === 'turn' 
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' 
+                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+            }`}
+          >
+            {forceTestMode === 'turn' ? '✓ Jouw Beurt' : '⚡ Test Jouw Beurt'}
+          </button>
+          <button
+            onClick={() => setForceTestMode(forceTestMode === 'win' ? null : 'win')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
+              forceTestMode === 'win' 
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md' 
+                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+            }`}
+          >
+            {forceTestMode === 'win' ? '✓ Gewonnen! (Kopieer Knop)' : '⚡ Test Gewonnen!'}
+          </button>
+          {forceTestMode && (
+            <button
+              onClick={() => setForceTestMode(null)}
+              className="px-2 py-1.5 rounded-xl text-xs font-bold bg-red-500/20 text-red-300 hover:bg-red-500/30"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+
         {/* SETUP PHASE */}
-        {!myState && (
+        {!activeMyState && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <div 
               className="rounded-3xl p-5" 
@@ -365,7 +430,7 @@ export default function NumberGame() {
         )}
 
         {/* Waiting for partner */}
-        {myState && !partnerState && (
+        {activeMyState && !activePartnerState && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl p-6 text-center" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
             <div className="text-4xl mb-3">⏳</div>
             <p className="font-black text-base" style={{ color: isDark ? 'white' : '#111' }}>Wachten op {partnerName}…</p>
@@ -414,10 +479,31 @@ export default function NumberGame() {
               >
                 <Trophy className="w-12 h-12 mx-auto mb-3" style={{ color: '#10B981' }} />
                 <p className={`font-black text-lg mb-1 ${isDark ? 'text-white' : 'text-emerald-950'}`}>🎉 Spel afgerond!</p>
-                {session.winner_email === user?.email
+                {activeWinnerEmail === user?.email
                   ? <p className="text-sm font-bold" style={{ color: '#10B981' }}>Jij hebt het gewonnen! 🏆</p>
                   : <p className="text-sm font-medium" style={{ color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }}>{partnerName} heeft jouw nummer geraden</p>
                 }
+
+                {activePartnerState?.phone_number && (
+                  <div className="mt-5 p-4 rounded-2xl bg-white/10 border border-emerald-500/30 flex flex-col items-center gap-2">
+                    <p className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                      Telefoonnummer van {partnerName}
+                    </p>
+                    <span className="text-2xl font-black tracking-widest text-white select-all">
+                      {activePartnerState.phone_number}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(activePartnerState.phone_number);
+                        toast.success('Telefoonnummer gekopieerd! 📋');
+                      }}
+                      className="mt-1 px-5 py-2.5 rounded-xl font-black text-xs text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all flex items-center gap-1.5 shadow-md"
+                    >
+                      📋 Kopieer Nummer
+                    </button>
+                  </div>
+                )}
+
                 <button onClick={() => window.history.back()} className="mt-5 px-6 py-2.5 rounded-2xl font-black text-white text-sm" style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
                   Terug naar spellen
                 </button>
@@ -433,7 +519,7 @@ export default function NumberGame() {
                   </div>
                   <InputDigitRow 
                     digits="" 
-                    giftDigits={partnerState.gift_digits || []} 
+                    giftDigits={activePartnerState?.gift_digits || []} 
                     guessInput={guessInput} 
                     isDark={isDark} 
                     onBoxClick={() => guessInputRef.current?.focus()} 
@@ -472,7 +558,7 @@ export default function NumberGame() {
                     <p className="text-xs font-black uppercase tracking-wider" style={{ color: textSub }}>Onthulde cadeaucijfers</p>
                     <p className="text-[10px] mt-0.5" style={{ color: textSub }}>Deze cijfers van {partnerName} heb je al cadeau gekregen:</p>
                   </div>
-                  <DigitRow digits={Array(10).fill('').map((_, i) => partnerState.gift_digits?.find(g => g.index === i)?.digit || '')} giftDigits={partnerState.gift_digits || []} isDark={isDark} />
+                  <DigitRow digits={Array(10).fill('').map((_, i) => activePartnerState?.gift_digits?.find(g => g.index === i)?.digit || '')} giftDigits={activePartnerState?.gift_digits || []} isDark={isDark} />
                 </div>
               )
             )}
@@ -488,7 +574,7 @@ export default function NumberGame() {
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Jouw gokken ({(myState.guesses || []).length})
+                  Jouw gokken ({(activeMyState?.guesses || []).length})
                 </button>
                 <button
                   onClick={() => setHistoryTab('theirs')}
@@ -498,31 +584,44 @@ export default function NumberGame() {
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Gokken van {partnerName} ({(partnerState.guesses || []).length})
+                  Gokken van {partnerName} ({(activePartnerState?.guesses || []).length})
                 </button>
               </div>
 
               <div className="space-y-3">
                 {historyTab === 'mine' ? (
-                  (myState.guesses || []).length > 0 ? (
-                    [...(myState.guesses || [])].reverse().map((g, idx, arr) => (
+                  (activeMyState?.guesses || []).length > 0 ? (
+                    [...(activeMyState?.guesses || [])].reverse().map((g, idx, arr) => (
                       <div key={idx} className="rounded-2xl p-4 space-y-2" style={{ background: cardBg, border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` }}>
-                        <DigitRow digits={g.digits} result={g.result} giftDigits={partnerState.gift_digits || []} isDark={isDark} />
+                        <DigitRow digits={g.digits} result={g.result} giftDigits={activePartnerState?.gift_digits || []} isDark={isDark} />
                         <p className="text-center text-[11px] font-bold" style={{ color: textSub }}>
                           Poging {arr.length - idx} · {g.result?.filter(r => r.result === 'correct').length}/10 correct
                         </p>
+                        {g.result?.filter(r => r.result === 'correct').length === 10 && (
+                          <div className="flex justify-center pt-1">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(g.digits);
+                                toast.success('Telefoonnummer gekopieerd! 📋');
+                              }}
+                              className="px-4 py-1.5 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all flex items-center gap-1 shadow-sm"
+                            >
+                              📋 Kopieer Nummer
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (
                     <p className="text-center text-xs py-8 text-gray-500 dark:text-gray-400 italic">Je hebt nog geen gokken gedaan.</p>
                   )
                 ) : (
-                  (partnerState.guesses || []).length > 0 ? (
-                    [...(partnerState.guesses || [])].reverse().map((g, idx, arr) => {
-                      const result = scoreGuess(g.digits, myState.phone_number);
+                  (activePartnerState?.guesses || []).length > 0 ? (
+                    [...(activePartnerState?.guesses || [])].reverse().map((g, idx, arr) => {
+                      const result = scoreGuess(g.digits, activeMyState?.phone_number || '');
                       return (
                         <div key={idx} className="rounded-2xl p-4 space-y-2" style={{ background: cardBg, border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` }}>
-                          <DigitRow digits={g.digits} result={result} giftDigits={myState.gift_digits || []} isDark={isDark} />
+                          <DigitRow digits={g.digits} result={result} giftDigits={activeMyState?.gift_digits || []} isDark={isDark} />
                           <p className="text-center text-[11px] font-bold" style={{ color: textSub }}>
                             Poging {arr.length - idx} · {result.filter(r => r.result === 'correct').length}/10 correct
                           </p>

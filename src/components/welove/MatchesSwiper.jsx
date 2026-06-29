@@ -190,15 +190,6 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
 
             {/* Foreground Content */}
             <div className="relative z-10 flex flex-col h-full p-6 pb-[100px] pointer-events-none">
-              {/* Top Right Avatar Badge */}
-              <div className="absolute top-6 right-6 z-10 pointer-events-auto">
-                {profile.avatar && (
-                  <div className="px-3.5 py-1.5 rounded-full text-white font-black text-[14px] flex items-center gap-1 shadow-md tracking-wide" style={{ background: '#FF6B4A' }}>
-                    <span>{profile.avatar.split(' ')[0]}</span>
-                    <span>{profile.avatar.split(' ').slice(1).join(' ')}</span>
-                  </div>
-                )}
-              </div>
 
               <div className="mt-auto pointer-events-auto flex flex-col">
                 {/* Name/Age/Height */}
@@ -206,10 +197,16 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                   {profile.age} jaar {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                 </h2>
 
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {[...(profile.interests || []), ...(profile.traits || [])].map((tag) => (
-                    <span key={tag} className="px-4 py-1.5 rounded-full text-[14px] font-semibold text-white bg-black/35 backdrop-blur-[2px] shadow-sm">
+                {/* Tags (Avatar first, then interests/traits) */}
+                <div className="flex flex-wrap gap-2 mb-6 items-center">
+                  {profile.avatar && (
+                    <span className="px-4 py-1.5 rounded-full text-[14px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5">
+                      <span className="text-base">{profile.avatar.split(' ')[0]}</span>
+                      <span className="text-pink-100">{profile.avatar.split(' ').slice(1).join(' ')}</span>
+                    </span>
+                  )}
+                  {[...(profile.interests || []).slice(0, 2), ...(profile.traits || []).slice(0, 1)].map((tag) => (
+                    <span key={tag} className="px-4 py-1.5 rounded-full text-[14px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
                       {tag}
                     </span>
                   ))}
@@ -219,17 +216,17 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                 <div className="flex gap-4">
                   <button 
                     onClick={() => handleLike(profile)} 
-                    className="flex-1 py-3.5 px-4 rounded-full border border-white/20 bg-black/35 backdrop-blur-sm flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform"
+                    className="flex-1 py-3.5 px-4 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform shadow-lg"
                   >
-                    <Heart className="w-5 h-5" color={isLiked ? '#FF5A43' : 'white'} fill={isLiked ? '#FF5A43' : 'transparent'} strokeWidth={2.2} />
+                    <Heart className="w-5 h-5" color={isLiked ? '#FF5A43' : 'white'} fill={isLiked ? '#FF5A43' : 'transparent'} strokeWidth={2.4} />
                     Like
                   </button>
                   <button 
                     onClick={() => !hasSentToday && onSendHint && onSendHint(profile)} 
                     disabled={hasSentToday}
-                    className="flex-1 py-3.5 px-4 rounded-full border border-white/20 bg-black/35 backdrop-blur-sm flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex-1 py-3.5 px-4 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
                   >
-                    <MessageCircle className="w-5 h-5" color="white" strokeWidth={2.2} />
+                    <MessageCircle className="w-5 h-5" color="white" strokeWidth={2.4} />
                     Hint
                   </button>
                 </div>
