@@ -1,12 +1,15 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { supabase } from '@/api/supabaseClient';
+import { authStorage } from '@/lib/authStorage';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Synchronously initialize state from persistent store if available
+  const initialUser = authStorage.getUserSync();
+  const [user, setUser] = useState(initialUser);
+  const [isLoading, setIsLoading] = useState(!initialUser);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,54 +22,41 @@ export const AuthProvider = ({ children }) => {
     };
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
-    console.log('[AuthContext] Initializing check...');
+    console.log('[AuthContext] Initializing persistent check...');
 
-    // Helper for persistent user lookup
-    const getPersistentUser = () => {
-      try {
-        const local = localStorage.getItem('romety_user_session') || localStorage.getItem('romety_mock_user');
-        if (local) return JSON.parse(local);
-      } catch (e) {}
-      try {
-        const match = document.cookie.match(/(?:^|; )(?:romety_user_session|romety_mock_user)=([^;]*)/);
-        if (match) return JSON.parse(decodeURIComponent(match[1]));
-      } catch (e) {}
-      return null;
-    };
+    // Async check via authStorage (includes IndexedDB fallback)
+    authStorage.getUserAsync().then((storedUser) => {
+      if (!cancelled && storedUser) {
+        setUser(storedUser);
+        setIsLoading(false);
+      }
+    });
 
-    const savePersistentUser = (userObj) => {
-      if (!userObj) return;
-      const str = JSON.stringify(userObj);
-      try { localStorage.setItem('romety_user_session', str); } catch(e) {}
-      try { localStorage.setItem('romety_mock_user', str); } catch(e) {}
-      try { document.cookie = `romety_user_session=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
-      try { document.cookie = `romety_mock_user=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
-    };
-
-    // Fast check for persistent user in localStorage or cookies
-    const pUser = getPersistentUser();
-    if (pUser) {
-      setUser(pUser);
-      setIsLoading(false);
-    }
-
-    // Initial check (non-blocking)
+    // Initial check via base44
     base44.auth.me()
       .then((u) => {
         console.log('[AuthContext] base44.auth.me() resolved:', u);
         if (!cancelled) {
           if (u) {
             setUser(u);
-            savePersistentUser(u);
-          } else if (!getPersistentUser()) {
-            setUser(null);
+            authStorage.saveUser(u);
+          } else {
+            const currentStored = authStorage.getUserSync();
+            if (!currentStored) {
+              setUser(null);
+            }
           }
+          setIsLoading(false);
         }
       })
       .catch((err) => {
         console.error('[AuthContext] base44.auth.me() rejected:', err);
-        if (!cancelled && !getPersistentUser()) {
-          setUser(null);
+        if (!cancelled) {
+          const currentStored = authStorage.getUserSync();
+          if (!currentStored) {
+            setUser(null);
+          }
+          setIsLoading(false);
         }
       });
 
@@ -76,9 +66,9 @@ export const AuthProvider = ({ children }) => {
       if (cancelled) return;
 
       // Yield to persistent user if present
-      const activePUser = getPersistentUser();
-      if (activePUser) {
-        setUser(activePUser);
+      const activeStored = authStorage.getUserSync();
+      if (activeStored) {
+        setUser(activeStored);
         setIsLoading(false);
         return;
       }
@@ -88,17 +78,17 @@ export const AuthProvider = ({ children }) => {
         const userObj = {
           id: supaUser.id,
           email: supaUser.email,
+          user_email: supaUser.email,
           ...supaUser.user_metadata
         };
         setUser(userObj);
-        savePersistentUser(userObj);
+        authStorage.saveUser(userObj);
 
         // On first verified sign-in (SIGNED_IN event), create profile if it doesn't exist yet
         if (event === 'SIGNED_IN') {
           try {
             const existing = await base44.entities.UserProfile.filter({ user_email: supaUser.email });
             if (!existing || existing.length === 0) {
-              // New verified user — create their initial profile using OTP metadata
               const displayName = supaUser.user_metadata?.display_name || supaUser.email.split('@')[0];
               await base44.entities.UserProfile.create({
                 user_email: supaUser.email,
@@ -112,12 +102,12 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } else {
-        if (!getPersistentUser()) {
+        const currentStored = authStorage.getUserSync();
+        if (!currentStored) {
           setUser(null);
         }
       }
       setIsLoading(false);
-      console.log('[AuthContext] isLoading set to false');
     });
 
     return () => {
@@ -128,12 +118,11 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = () => {
-    try { localStorage.removeItem('romety_user_session'); } catch(e) {}
-    try { localStorage.removeItem('romety_mock_user'); } catch(e) {}
-    try { document.cookie = `romety_user_session=; path=/; max-age=0; SameSite=Lax`; } catch(e) {}
-    try { document.cookie = `romety_mock_user=; path=/; max-age=0; SameSite=Lax`; } catch(e) {}
+    authStorage.clearUser();
+    setUser(null);
     return base44.auth.logout();
   };
+
   const navigateToLogin = () => base44.auth.redirectToLogin(window.location.href);
 
   return (

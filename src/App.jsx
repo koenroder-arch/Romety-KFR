@@ -37,9 +37,9 @@ const OnboardingGate = ({ children }) => {
       const done = profiles?.[0]?.onboarding_complete === true;
       setNeedsOnboarding(!done);
       setChecking(false);
-    }).catch(() => {
-      // If error, assume needs onboarding
-      setNeedsOnboarding(true);
+    }).catch((err) => {
+      console.warn('[OnboardingGate] Error checking onboarding status, allowing access:', err);
+      setNeedsOnboarding(false);
       setChecking(false);
     });
   }, [user?.email]);

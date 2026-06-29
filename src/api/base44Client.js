@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { authStorage } from '@/lib/authStorage';
 
 const parseOrder = (orderStr) => {
   if (!orderStr) return { column: 'created_date', ascending: false };
@@ -141,27 +142,8 @@ export const base44 = {
   },
   auth: {
     me: async () => {
-      let persistentUser = null;
-      try {
-        const local = localStorage.getItem('romety_user_session') || localStorage.getItem('romety_mock_user');
-        if (local) persistentUser = JSON.parse(local);
-      } catch (e) {}
-      if (!persistentUser) {
-        try {
-          const match = document.cookie.match(/(?:^|; )(?:romety_user_session|romety_mock_user)=([^;]*)/);
-          if (match) persistentUser = JSON.parse(decodeURIComponent(match[1]));
-        } catch (e) {}
-      }
-
-      if (persistentUser) {
-        // Sync back to localStorage & cookie to ensure 1-year persistence
-        const str = JSON.stringify(persistentUser);
-        try { localStorage.setItem('romety_user_session', str); } catch(e) {}
-        try { localStorage.setItem('romety_mock_user', str); } catch(e) {}
-        try { document.cookie = `romety_user_session=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
-        try { document.cookie = `romety_mock_user=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
-        return persistentUser;
-      }
+      const persistentUser = await authStorage.getUserAsync();
+      if (persistentUser) return persistentUser;
 
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) return null;
@@ -170,10 +152,7 @@ export const base44 = {
         email: user.email,
         ...user.user_metadata
       };
-      // Save valid user to persistent storage
-      const str = JSON.stringify(supaUserObj);
-      try { localStorage.setItem('romety_user_session', str); } catch(e) {}
-      try { document.cookie = `romety_user_session=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
+      authStorage.saveUser(supaUserObj);
       return supaUserObj;
     },
     redirectToLogin: (redirectTo) => {
@@ -181,10 +160,7 @@ export const base44 = {
       window.location.replace(`/Login${redirectParam}`);
     },
     logout: async () => {
-      try { localStorage.removeItem('romety_user_session'); } catch(e) {}
-      try { localStorage.removeItem('romety_mock_user'); } catch(e) {}
-      try { document.cookie = `romety_user_session=; path=/; max-age=0; SameSite=Lax`; } catch(e) {}
-      try { document.cookie = `romety_mock_user=; path=/; max-age=0; SameSite=Lax`; } catch(e) {}
+      authStorage.clearUser();
       const { error } = await supabase.auth.signOut();
       if (error) console.error('Error logging out:', error);
       window.location.replace('/Login');

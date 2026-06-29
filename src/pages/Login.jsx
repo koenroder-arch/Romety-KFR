@@ -4,6 +4,7 @@ import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { Mail, Loader2, Sparkles, LogIn, UserPlus, User } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { authStorage } from '@/lib/authStorage';
 
 export default function Login() {
   const { lang } = useLang();
@@ -169,15 +170,12 @@ export default function Login() {
         const mockUser = {
           id: profile.id,
           email: profile.user_email,
+          user_email: profile.user_email,
           display_name: profile.display_name,
           avatar: profile.avatar,
           is_mock: true
         };
-        const str = JSON.stringify(mockUser);
-        try { localStorage.setItem('romety_user_session', str); } catch(e) {}
-        try { localStorage.setItem('romety_mock_user', str); } catch(e) {}
-        try { document.cookie = `romety_user_session=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
-        try { document.cookie = `romety_mock_user=${encodeURIComponent(str)}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
+        authStorage.saveUser(mockUser);
 
         setMessage({
           type: 'success',
