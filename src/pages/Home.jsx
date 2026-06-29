@@ -301,7 +301,7 @@ export default function Home() {
     >
       {/* Header Container with Romety Fade */}
       <div 
-        className="pt-5 pb-6 px-5 relative overflow-hidden mb-2" 
+        className="pt-12 sm:pt-14 pb-6 px-5 relative overflow-hidden mb-2" 
         style={{ 
           background: isDark 
             ? 'linear-gradient(180deg, #4D122D 0%, #2E0B1B 65%, rgba(13,14,21,0) 100%)' 

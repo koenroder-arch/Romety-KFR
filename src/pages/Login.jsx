@@ -173,7 +173,8 @@ export default function Login() {
           avatar: profile.avatar,
           is_mock: true
         };
-        localStorage.setItem('romety_mock_user', JSON.stringify(mockUser));
+        try { localStorage.setItem('romety_mock_user', JSON.stringify(mockUser)); } catch(e) {}
+        try { document.cookie = `romety_mock_user=${encodeURIComponent(JSON.stringify(mockUser))}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
 
         setMessage({
           type: 'success',

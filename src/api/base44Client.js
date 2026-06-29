@@ -141,14 +141,25 @@ export const base44 = {
   },
   auth: {
     me: async () => {
-      const mockUserStr = localStorage.getItem('romety_mock_user');
-      if (mockUserStr) {
+      let mockUser = null;
+      try {
+        const local = localStorage.getItem('romety_mock_user');
+        if (local) mockUser = JSON.parse(local);
+      } catch (e) {}
+      if (!mockUser) {
         try {
-          return JSON.parse(mockUserStr);
-        } catch (e) {
-          localStorage.removeItem('romety_mock_user');
-        }
+          const match = document.cookie.match(/(?:^|; )romety_mock_user=([^;]*)/);
+          if (match) mockUser = JSON.parse(decodeURIComponent(match[1]));
+        } catch (e) {}
       }
+
+      if (mockUser) {
+        // Sync back to localStorage & cookie just in case
+        try { localStorage.setItem('romety_mock_user', JSON.stringify(mockUser)); } catch(e) {}
+        try { document.cookie = `romety_mock_user=${encodeURIComponent(JSON.stringify(mockUser))}; path=/; max-age=31536000; SameSite=Lax`; } catch(e) {}
+        return mockUser;
+      }
+
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) return null;
       return {
@@ -162,6 +173,8 @@ export const base44 = {
       window.location.replace(`/Login${redirectParam}`);
     },
     logout: async () => {
+      try { localStorage.removeItem('romety_mock_user'); } catch(e) {}
+      try { document.cookie = `romety_mock_user=; path=/; max-age=0; SameSite=Lax`; } catch(e) {}
       const { error } = await supabase.auth.signOut();
       if (error) console.error('Error logging out:', error);
       window.location.replace('/Login');

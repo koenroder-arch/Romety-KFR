@@ -21,17 +21,24 @@ export const AuthProvider = ({ children }) => {
 
     console.log('[AuthContext] Initializing check...');
 
-    // Fast check for mock user in localStorage
-    const mockUserStr = localStorage.getItem('romety_mock_user');
-    if (mockUserStr) {
+    // Helper for mock user lookup
+    const getMockUser = () => {
       try {
-        const mockUser = JSON.parse(mockUserStr);
-        setUser(mockUser);
-        setIsLoading(false);
-        // We still keep the unhandled rejection handler active
-      } catch (e) {
-        localStorage.removeItem('romety_mock_user');
-      }
+        const local = localStorage.getItem('romety_mock_user');
+        if (local) return JSON.parse(local);
+      } catch (e) {}
+      try {
+        const match = document.cookie.match(/(?:^|; )romety_mock_user=([^;]*)/);
+        if (match) return JSON.parse(decodeURIComponent(match[1]));
+      } catch (e) {}
+      return null;
+    };
+
+    // Fast check for mock user in localStorage or cookies
+    const mockUser = getMockUser();
+    if (mockUser) {
+      setUser(mockUser);
+      setIsLoading(false);
     }
 
     // Initial check (non-blocking)
@@ -39,20 +46,17 @@ export const AuthProvider = ({ children }) => {
       .then((u) => {
         console.log('[AuthContext] base44.auth.me() resolved:', u);
         if (!cancelled) {
-          if (!u) {
-            setUser(null);
-            console.log('[AuthContext] No user found on server, signing out locally...');
-            supabase.auth.signOut();
-          } else {
+          if (u) {
             setUser(u);
+          } else if (!getMockUser()) {
+            setUser(null);
           }
         }
       })
       .catch((err) => {
         console.error('[AuthContext] base44.auth.me() rejected:', err);
-        if (!cancelled) {
+        if (!cancelled && !getMockUser()) {
           setUser(null);
-          supabase.auth.signOut();
         }
       });
 
@@ -62,7 +66,7 @@ export const AuthProvider = ({ children }) => {
       if (cancelled) return;
 
       // Yield to local mock user if present
-      if (localStorage.getItem('romety_mock_user')) {
+      if (getMockUser()) {
         setIsLoading(false);
         return;
       }
@@ -109,7 +113,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = () => {
-    localStorage.removeItem('romety_mock_user');
+    try { localStorage.removeItem('romety_mock_user'); } catch(e) {}
+    try { document.cookie = `romety_mock_user=; path=/; max-age=0; SameSite=Lax`; } catch(e) {}
     return base44.auth.logout();
   };
   const navigateToLogin = () => base44.auth.redirectToLogin(window.location.href);
