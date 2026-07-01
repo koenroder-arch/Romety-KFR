@@ -88,12 +88,11 @@ export default function NotificationBell({ isDark = true }) {
               <motion.div
                 ref={panelRef}
                 initial={{ x: '100%' }}
-                animate={{ x: '-50%' }}
+                animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-                className="absolute top-0 left-1/2 w-full max-w-md h-full flex flex-col shadow-2xl overflow-hidden"
+                className="absolute top-0 left-0 right-0 mx-auto w-full max-w-md h-full flex flex-col shadow-2xl overflow-hidden"
                 style={{ 
-                  left: '50%',
                   background: panelBg, 
                   zIndex: 40,
                   borderLeft: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
@@ -112,7 +111,13 @@ export default function NotificationBell({ isDark = true }) {
                 )}
 
                 {/* Header */}
-                <div className="pt-8 pb-4 px-4 border-b z-10 relative" style={{ borderColor: divider }}>
+                <div 
+                  className="pb-4 px-4 border-b z-10 relative" 
+                  style={{ 
+                    borderColor: divider,
+                    paddingTop: 'calc(env(safe-area-inset-top, 40px) + 16px)'
+                  }}
+                >
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setOpen(false)}
@@ -175,7 +180,7 @@ export default function NotificationBell({ isDark = true }) {
                                 <div
                                   key={n.id}
                                   onClick={() => handleNotificationClick(n)}
-                                  className="flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl cursor-pointer hover:brightness-105 active:scale-[0.99] border transition-all duration-200"
+                                  className="flex items-center justify-between gap-3 px-5 py-4 rounded-2xl cursor-pointer hover:brightness-105 active:scale-[0.99] border transition-all duration-200"
                                   style={{ 
                                     background: n.is_read 
                                       ? (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)') 
@@ -186,10 +191,10 @@ export default function NotificationBell({ isDark = true }) {
                                   }}
                                 >
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white">
+                                    <p className="text-[15px] font-extrabold text-white">
                                       Nieuwe supermatch! 🎉
                                     </p>
-                                    <p className="text-[10px] text-white/40 mt-1">
+                                    <p className="text-[11px] text-white/40 mt-1">
                                       {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
                                     </p>
                                   </div>
@@ -270,7 +275,7 @@ export default function NotificationBell({ isDark = true }) {
                                   <div
                                     key={n.id}
                                     onClick={() => handleNotificationClick(n)}
-                                    className="flex items-center justify-between gap-3 px-4 py-4 rounded-2xl cursor-pointer hover:brightness-105 active:scale-[0.99] border transition-all duration-200"
+                                    className="flex items-center justify-between gap-3 px-5 py-4.5 rounded-2xl cursor-pointer hover:brightness-105 active:scale-[0.99] border transition-all duration-200"
                                     style={{ 
                                       background: n.is_read 
                                         ? (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)') 
@@ -281,16 +286,16 @@ export default function NotificationBell({ isDark = true }) {
                                     }}
                                   >
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-bold truncate" style={{ color: textMain }}>
+                                      <p className="text-[15px] font-extrabold truncate" style={{ color: textMain }}>
                                         {titleText}
                                       </p>
-                                      <p className="text-xs mt-0.5 text-white/60">
+                                      <p className="text-sm mt-0.5 text-white/60">
                                         {descText}
                                       </p>
                                       {n.venue_name && (
-                                        <p className="text-xs mt-0.5 text-white/40">📍 {n.venue_name}</p>
+                                        <p className="text-sm mt-0.5 text-white/40">📍 {n.venue_name}</p>
                                       )}
-                                      <p className="text-[10px] text-white/40 mt-1">
+                                      <p className="text-[11px] text-white/40 mt-1">
                                         {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
                                       </p>
                                     </div>

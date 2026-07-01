@@ -463,7 +463,7 @@ export default function Home() {
 
         <VenueBanner checkIn={myCheckIn} onRemoved={loadData} />
 
-        <div className="mx-5 mt-3 mb-2">
+        <div className="mx-3 mt-3 mb-2">
           <button
             onClick={() => myCheckIn && !hasSentToday && setShowSheet(true)}
             className="w-full flex items-center justify-between rounded-[22px] px-5 py-4 relative z-30 border border-l-[4px] border-l-[#FF4B72] shadow-lg active:scale-[0.98] transition-all"
