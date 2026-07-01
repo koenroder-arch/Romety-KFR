@@ -40,6 +40,13 @@ export default function Layout({ children, currentPageName }) {
         [data-sonner-toaster] {
           font-family: 'Inter', sans-serif !important;
           top: max(16px, env(safe-area-inset-top, 16px)) !important;
+          left: 50% !important;
+          right: auto !important;
+          transform: translateX(-50%) !important;
+          width: calc(100vw - 32px) !important;
+          max-width: 400px !important;
+          display: flex !important;
+          justify-content: center !important;
         }
         
         [data-sonner-toast] {
@@ -47,9 +54,8 @@ export default function Layout({ children, currentPageName }) {
           padding: 14px 20px !important;
           font-size: 14px !important;
           font-weight: 600 !important;
-          width: calc(100vw - 32px) !important;
-          max-width: 400px !important;
-          margin: 0 auto !important;
+          width: 100% !important;
+          margin: 0 !important;
           display: flex !important;
           align-items: center !important;
           gap: 12px !important;
