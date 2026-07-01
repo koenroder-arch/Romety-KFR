@@ -23,10 +23,10 @@ export default function Login() {
       subtitle: 'Vind je perfecte match vanavond',
       email: 'E-mailadres',
       username: 'Gebruikersnaam / Naam',
-      loginBtn: 'Stuur inloglink',
+      loginBtn: 'Log in',
       signUpBtn: 'Stuur registratielink',
       loginTitle: 'Inloggen',
-      signUpTitle: 'Account aanmaken',
+      signUpTitle: 'Account aanmaken*',
       noAccount: 'Nog geen account?',
       hasAccount: 'Heb je al een account?',
       registerNow: 'Meld je aan',
@@ -66,10 +66,10 @@ export default function Login() {
       subtitle: 'Vind je perfecte match vanavond',
       email: 'E-mailadres',
       username: 'Gebruikersnaam / Naam',
-      loginBtn: 'Stuur inloglink',
+      loginBtn: 'Log in',
       signUpBtn: 'Stuur registratielink',
       loginTitle: 'Inloggen',
-      signUpTitle: 'Account aanmaken',
+      signUpTitle: 'Account aanmaken*',
       noAccount: 'Nog geen account?',
       hasAccount: 'Heb je al een account?',
       registerNow: 'Meld je aan',
@@ -114,8 +114,13 @@ export default function Login() {
       const emailLower = email.trim().toLowerCase();
       const usernameTrim = username.trim();
 
-      // Check if profile exists
-      const existing = await base44.entities.UserProfile.filter({ user_email: emailLower });
+      // Check if profile exists case-insensitively
+      const { data: existing, error: checkError } = await supabase
+        .from('UserProfile')
+        .select('*')
+        .ilike('user_email', emailLower);
+
+      if (checkError) throw checkError;
       const hasAccount = existing && existing.length > 0;
 
       if (isRegister) {
@@ -169,8 +174,8 @@ export default function Login() {
         // Bypass verification email for existing users
         const mockUser = {
           id: profile.id,
-          email: profile.user_email,
-          user_email: profile.user_email,
+          email: (profile.user_email || '').toLowerCase().trim(),
+          user_email: (profile.user_email || '').toLowerCase().trim(),
           display_name: profile.display_name,
           avatar: profile.avatar,
           is_mock: true
@@ -218,21 +223,25 @@ export default function Login() {
       <div className="w-full max-w-md space-y-8">
         {/* Brand/Logo Header */}
         <div className="text-center">
-          <div className="inline-flex items-center justify-center p-3 rounded-3xl bg-gradient-to-tr from-[#FF4B72] to-[#EA3FD3] shadow-lg mb-4">
-            <Sparkles className="w-8 h-8 text-white animate-pulse" />
+          <div className="flex flex-col items-center gap-2 mb-6">
+            <h1
+              className="font-black tracking-tight leading-none"
+              style={{
+                fontSize: '3rem',
+                background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              ROMETY
+            </h1>
+            <div className="flex items-center justify-center gap-2 mt-1">
+              <div className="h-px w-8" style={{ background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
+              <span className="text-[10px] font-semibold tracking-[0.2em] uppercase" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }}>Connect &amp; Meet</span>
+              <div className="h-px w-8" style={{ background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
+            </div>
           </div>
-          <h1
-            className="text-4xl font-black tracking-tight mb-2"
-            style={{
-              background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              color: 'transparent',
-            }}
-          >
-            ROMETY
-          </h1>
           <p className={`text-sm ${textSub}`}>{t.subtitle}</p>
         </div>
 
@@ -320,10 +329,7 @@ export default function Login() {
                   {t.signUpBtn}
                 </>
               ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  {t.loginBtn}
-                </>
+                t.loginBtn
               )}
             </button>
           </form>

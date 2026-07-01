@@ -31,7 +31,7 @@ export default function VenueBanner({ checkIn, onRemoved }) {
       className="mx-5 mt-4 mb-2 rounded-[22px] px-5 py-4 flex items-center justify-between relative z-30 border border-l-[4px] border-l-[#10B981] shadow-lg"
       style={{
         background: isDark ? 'rgba(20,21,33,0.95)' : 'rgba(255,255,255,1)',
-        borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+        borderColor: isDark ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.15)',
         boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.25)' : '0 8px 32px rgba(0,0,0,0.06)',
       }}
     >

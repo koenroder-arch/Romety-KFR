@@ -75,8 +75,6 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
         base44.entities.Notification.create({ to_email: currentUserEmail, from_email: profile.user_email, type: 'match', from_name: 'Een Match' }),
       ]);
       setMatchAnim({ myProfile: myProf, matchedProfile: profile });
-    } else {
-      await base44.entities.Notification.create({ to_email: profile.user_email, from_email: currentUserEmail, type: 'like', from_name: myName });
     }
   };
 
@@ -403,6 +401,15 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
           allGroups={null} // Only viewing one profile's stories
           onClose={() => setSelectedStoryGroup(null)}
           isDark={isDark}
+          currentUserEmail={currentUserEmail}
+          onStoryDeleted={(storyId) => {
+            setSelectedStoryGroup((prev) => {
+              if (!prev) return null;
+              const updatedItems = prev.items.filter((item) => item.id !== storyId);
+              if (updatedItems.length === 0) return null;
+              return { ...prev, items: updatedItems };
+            });
+          }}
         />
       )}
 

@@ -35,6 +35,52 @@ export default function Layout({ children, currentPageName }) {
           image-rendering: crisp-edges;
           transform: translateZ(0);
         }
+        
+        /* Premium Floating Glassmorphic Toasts (WhatsApp / iOS style) */
+        [data-sonner-toaster] {
+          font-family: 'Inter', sans-serif !important;
+          top: max(16px, env(safe-area-inset-top, 16px)) !important;
+        }
+        
+        [data-sonner-toast] {
+          border-radius: 20px !important;
+          padding: 14px 20px !important;
+          font-size: 14px !important;
+          font-weight: 600 !important;
+          width: calc(100vw - 32px) !important;
+          max-width: 400px !important;
+          margin: 0 auto !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 12px !important;
+          box-sizing: border-box !important;
+          transition: all 0.3s ease !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+
+        .dark [data-sonner-toast] {
+          background: rgba(14, 14, 28, 0.93) !important;
+          color: #ffffff !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+          backdrop-filter: blur(20px) !important;
+          -webkit-backdrop-filter: blur(20px) !important;
+        }
+
+        html:not(.dark) [data-sonner-toast] {
+          background: rgba(255, 255, 255, 0.93) !important;
+          color: #111827 !important;
+          border: 1px solid rgba(0, 0, 0, 0.06) !important;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+          backdrop-filter: blur(20px) !important;
+          -webkit-backdrop-filter: blur(20px) !important;
+        }
+
+        [data-sonner-toast] [data-icon] {
+          color: #FF4B72 !important; /* Premium brand pink */
+          margin-top: 0 !important;
+          flex-shrink: 0 !important;
+        }
       `}</style>
 
       <main className={`flex-1 w-full ${showNav ? 'pb-[72px]' : ''}`}>

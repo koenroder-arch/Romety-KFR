@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, Heart, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
+import { Bell, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
 import { useNotifications } from './useNotifications';
 import { useAuth } from '@/lib/AuthContext';
@@ -13,6 +14,7 @@ export default function NotificationBell({ isDark = true }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [matchesExpanded, setMatchesExpanded] = useState(false);
+  const [othersExpanded, setOthersExpanded] = useState(false);
   const { unreadCount, markAllRead } = useNotifications();
   const panelRef = useRef(null);
 
@@ -41,7 +43,7 @@ export default function NotificationBell({ isDark = true }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const panelBg = isDark ? '#1A1A2E' : '#FFFFFF';
+  const panelBg = isDark ? '#08090E' : '#F8F9FB';
   const textMain = isDark ? '#FFFFFF' : '#111827';
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)';
   const divider = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
@@ -71,159 +73,250 @@ export default function NotificationBell({ isDark = true }) {
         }}
       >
         <Bell className="w-4 h-4" style={{ color: isDark ? '#FFFFFF' : '#111827' }} />
-        {unreadCount > 0 && (
-          <span
-            className="absolute -top-1 -right-1 w-3 h-3 rounded-full"
-            style={{ background: '#EA3FD3', boxShadow: '0 2px 6px rgba(234,63,211,0.6)' }}
-          />
-        )}
       </button>
 
-      {open && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[99999] flex flex-col" style={{ background: 'rgba(10,14,33,0.85)' }}>
-          <div
-            ref={panelRef}
-            className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-md h-full flex flex-col shadow-2xl"
-            style={{ background: panelBg, zIndex: 100000 }}
-          >
-            {/* Header */}
-            <div className="pt-8 pb-4">
-              <div className="px-4 rounded-[12px] flex items-center gap-3" style={{ background: isDark ? 'rgba(160,97,255,0.08)' : 'rgba(160,97,255,0.05)', border: `1px solid ${divider}` }}>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-70 flex-shrink-0"
-                  style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
-                >
-                  <ChevronLeft className="w-5 h-5" style={{ color: textMain }} />
-                </button>
-                <div className="py-3 pr-4">
-                  <h2 className="font-black text-lg" style={{ color: textMain }}>Meldingen</h2>
-                  <p className="text-xs font-semibold mt-1" style={{ color: textSub }}>{notifications.length} meldingen</p>
-                </div>
-              </div>
-            </div>
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {open && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 flex flex-col" 
+              style={{ background: 'rgba(5, 6, 10, 0.8)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+            >
+              <motion.div
+                ref={panelRef}
+                initial={{ x: '100%' }}
+                animate={{ x: '-50%' }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', stiffness: 350, damping: 32 }}
+                className="absolute top-0 left-1/2 w-full max-w-md h-full flex flex-col shadow-2xl overflow-hidden"
+                style={{ 
+                  left: '50%',
+                  background: panelBg, 
+                  zIndex: 40,
+                  borderLeft: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                  borderRight: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)'
+                }}
+              >
+                {/* Glowing background decor */}
+                {isDark && (
+                  <div 
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full pointer-events-none opacity-20 blur-[120px]"
+                    style={{ 
+                      background: 'radial-gradient(circle, #EA3FD3 0%, #8E54E9 100%)',
+                      zIndex: 0
+                    }}
+                  />
+                )}
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="flex items-center justify-center py-16">
-                  <div className="w-8 h-8 rounded-full border-4 border-purple-200 border-t-purple-500 animate-spin" />
-                </div>
-              ) : notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: isDark ? 'rgba(160,97,255,0.12)' : 'rgba(160,97,255,0.08)' }}>
-                    <Bell className="w-7 h-7" style={{ color: '#A061FF' }} />
-                  </div>
-                  <p className="font-bold text-sm" style={{ color: textMain }}>Nog geen meldingen</p>
-                  <p className="text-xs mt-1" style={{ color: textSub }}>Je ziet hier likes en supermatches</p>
-                </div>
-              ) : (
-                <div>
-                  {/* Supermatches section */}
-                  {matchNotifs.length > 0 && (
+                {/* Header */}
+                <div className="pt-8 pb-4 px-4 border-b z-10 relative" style={{ borderColor: divider }}>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setOpen(false)}
+                      className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 active:scale-95 transition-all flex-shrink-0"
+                      style={{ 
+                        background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                        border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)'
+                      }}
+                    >
+                      <ChevronLeft className="w-5 h-5" style={{ color: textMain }} />
+                    </button>
                     <div>
-                      <button
-                        onClick={() => setMatchesExpanded(!matchesExpanded)}
-                        className="w-full flex items-center justify-between px-5 py-3"
-                        style={{ borderBottom: `1px solid ${divider}`, background: isDark ? 'rgba(234,63,211,0.08)' : 'rgba(234,63,211,0.04)' }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-black" style={{ color: '#EA3FD3' }}>💜 Supermatches ({matchNotifs.length})</span>
-                          {matchNotifs.some(n => !n.is_read) && (
-                            <span className="w-2 h-2 rounded-full" style={{ background: '#EA3FD3' }} />
+                      <h2 className="font-extrabold text-xl tracking-tight" style={{ color: textMain }}>Meldingen</h2>
+                      <p className="text-xs font-semibold mt-0.5" style={{ color: textSub }}>{notifications.length} meldingen</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto z-10 relative pt-4">
+                  {loading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <div className="w-8 h-8 rounded-full border-4 border-purple-200 border-t-purple-500 animate-spin" />
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+                      <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: isDark ? 'rgba(160,97,255,0.12)' : 'rgba(160,97,255,0.08)' }}>
+                        <Bell className="w-7 h-7" style={{ color: '#A061FF' }} />
+                      </div>
+                      <p className="font-bold text-sm" style={{ color: textMain }}>Nog geen meldingen</p>
+                      <p className="text-xs mt-1" style={{ color: textSub }}>Je ziet hier likes en supermatches</p>
+                    </div>
+                  ) : (
+                    <div>
+                      {/* Supermatches section */}
+                      {matchNotifs.length > 0 && (
+                        <div className="mb-4">
+                          <div className="px-4">
+                            <button
+                              onClick={() => setMatchesExpanded(!matchesExpanded)}
+                              className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-200 border"
+                              style={{ 
+                                background: isDark 
+                                  ? 'linear-gradient(135deg, rgba(234,63,211,0.08) 0%, rgba(142,84,233,0.08) 100%)' 
+                                  : 'linear-gradient(135deg, rgba(234,63,211,0.03) 0%, rgba(142,84,233,0.03) 100%)',
+                                borderColor: isDark ? 'rgba(234,63,211,0.18)' : 'rgba(234,63,211,0.1)',
+                              }}
+                            >
+                              <span className="text-sm font-bold" style={{ color: '#EA3FD3' }}>Supermatches ({matchNotifs.length})</span>
+                              {matchesExpanded
+                                ? <ChevronUp className="w-4 h-4" style={{ color: '#EA3FD3' }} />
+                                : <ChevronDown className="w-4 h-4" style={{ color: '#EA3FD3' }} />
+                              }
+                            </button>
+                          </div>
+
+                          {matchesExpanded && (
+                            <div className="flex flex-col gap-2 mt-2 px-4">
+                              {matchNotifs.map((n) => (
+                                <div
+                                  key={n.id}
+                                  onClick={() => handleNotificationClick(n)}
+                                  className="flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl cursor-pointer hover:brightness-105 active:scale-[0.99] border transition-all duration-200"
+                                  style={{ 
+                                    background: n.is_read 
+                                      ? (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)') 
+                                      : (isDark ? 'rgba(234,63,211,0.05)' : 'rgba(234,63,211,0.03)'),
+                                    borderColor: n.is_read
+                                      ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)')
+                                      : (isDark ? 'rgba(234,63,211,0.15)' : 'rgba(234,63,211,0.08)')
+                                  }}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-white">
+                                      Nieuwe supermatch! 🎉
+                                    </p>
+                                    <p className="text-[10px] text-white/40 mt-1">
+                                      {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
+                                    </p>
+                                  </div>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); handleNotificationClick(n); }}
+                                    className="px-3.5 py-2 rounded-xl text-xs font-black text-white shadow-md active:scale-95 transition-transform flex-shrink-0"
+                                    style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)', boxShadow: '0 4px 12px rgba(255,75,114,0.3)' }}
+                                  >
+                                    Bekijk
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                        {matchesExpanded
-                          ? <ChevronUp className="w-4 h-4" style={{ color: '#EA3FD3' }} />
-                          : <ChevronDown className="w-4 h-4" style={{ color: '#EA3FD3' }} />
-                        }
-                      </button>
+                      )}
 
-                      {matchesExpanded && matchNotifs.map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => handleNotificationClick(n)}
-                          className="flex items-center justify-between gap-3 px-5 py-4 cursor-pointer hover:brightness-110 transition-all"
-                          style={{ borderBottom: `1px solid ${divider}`, background: n.is_read ? 'transparent' : (isDark ? 'rgba(234,63,211,0.06)' : 'rgba(234,63,211,0.04)') }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold" style={{ color: textMain }}>
-                              🎉 Supermatch met {n.from_name || 'iemand'}!
-                            </p>
-                            {n.venue_name && (
-                              <p className="text-xs mt-0.5" style={{ color: textSub }}>📍 {n.venue_name}</p>
-                            )}
-                            <p className="text-xs mt-0.5" style={{ color: textSub }}>
-                              {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
-                            </p>
+                      {/* Other notifications section */}
+                      {likeNotifs.length > 0 && (
+                        <div className="mb-4">
+                          <div className="px-4">
+                            <button
+                              onClick={() => setOthersExpanded(!othersExpanded)}
+                              className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-200 border"
+                              style={{ 
+                                background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                              }}
+                            >
+                              <span className="text-sm font-bold" style={{ color: textMain }}>Overige meldingen ({likeNotifs.length})</span>
+                              {othersExpanded
+                                ? <ChevronUp className="w-4 h-4" style={{ color: textMain }} />
+                                : <ChevronDown className="w-4 h-4" style={{ color: textMain }} />
+                              }
+                            </button>
                           </div>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleNotificationClick(n); }}
-                            className="px-3 py-1.5 rounded-full text-xs font-black text-white shadow-sm active:scale-95 transition-transform flex-shrink-0"
-                            style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
-                          >
-                            Bekijk match
-                          </button>
+
+                          {othersExpanded && (
+                            <div className="flex flex-col gap-2.5 mt-2 px-4 pb-28">
+                              {likeNotifs.map((n) => {
+                                const isGame = n.type === 'game_accepted' || n.type === 'game_invite' || n.type === 'game';
+                                const isHint = n.type === 'hint';
+
+                                let titleText = 'Melding';
+                                let descText = 'Je hebt een update.';
+                                let buttonText = 'Bekijk';
+                                let buttonColor = 'bg-gradient-to-r from-purple-500 to-indigo-600';
+                                let shadowColor = 'rgba(160,97,255,0.25)';
+
+                                if (n.type === 'game_invite') {
+                                  titleText = 'Speluitnodiging';
+                                  descText = 'Je match heeft je uitgenodigd voor een game!';
+                                  buttonText = 'Naar spel';
+                                  buttonColor = 'bg-gradient-to-r from-emerald-500 to-teal-600';
+                                  shadowColor = 'rgba(16,185,129,0.25)';
+                                } else if (n.type === 'game_accepted') {
+                                  titleText = 'Spel geaccepteerd';
+                                  descText = 'Je match heeft je speluitnodiging geaccepteerd! 🚀';
+                                  buttonText = 'Naar spel';
+                                  buttonColor = 'bg-gradient-to-r from-emerald-500 to-teal-600';
+                                  shadowColor = 'rgba(16,185,129,0.25)';
+                                } else if (n.type === 'game') {
+                                  titleText = 'Spel-update';
+                                  descText = 'Het is jouw beurt in het spel met je match!';
+                                  buttonText = 'Naar spel';
+                                  buttonColor = 'bg-gradient-to-r from-emerald-500 to-teal-600';
+                                  shadowColor = 'rgba(16,185,129,0.25)';
+                                } else if (isHint) {
+                                  titleText = 'Hint ontvangen';
+                                  descText = 'Je hebt een nieuwe hint gekregen van een match!';
+                                  buttonText = 'Bekijk';
+                                } else {
+                                  titleText = 'Nieuwe like';
+                                  descText = 'Iemand vindt je leuk! 💜';
+                                }
+
+                                return (
+                                  <div
+                                    key={n.id}
+                                    onClick={() => handleNotificationClick(n)}
+                                    className="flex items-center justify-between gap-3 px-4 py-4 rounded-2xl cursor-pointer hover:brightness-105 active:scale-[0.99] border transition-all duration-200"
+                                    style={{ 
+                                      background: n.is_read 
+                                        ? (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)') 
+                                        : (isDark ? 'rgba(160,97,255,0.05)' : 'rgba(160,97,255,0.02)'),
+                                      borderColor: n.is_read
+                                        ? (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)')
+                                        : (isDark ? 'rgba(160,97,255,0.12)' : 'rgba(160,97,255,0.06)')
+                                    }}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-bold truncate" style={{ color: textMain }}>
+                                        {titleText}
+                                      </p>
+                                      <p className="text-xs mt-0.5 text-white/60">
+                                        {descText}
+                                      </p>
+                                      {n.venue_name && (
+                                        <p className="text-xs mt-0.5 text-white/40">📍 {n.venue_name}</p>
+                                      )}
+                                      <p className="text-[10px] text-white/40 mt-1">
+                                        {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
+                                      </p>
+                                    </div>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); handleNotificationClick(n); }}
+                                      className={`px-3.5 py-2 rounded-xl text-xs font-black text-white shadow-md active:scale-95 transition-transform flex-shrink-0 ${buttonColor}`}
+                                      style={{
+                                        boxShadow: `0 4px 12px ${shadowColor}`
+                                      }}
+                                    >
+                                      {buttonText}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
-
-                  {/* Likes and other notifications */}
-                  {likeNotifs.map((n) => {
-                    const isGame = n.type === 'game_accepted' || n.type === 'game_invite' || n.type === 'game';
-                    const isHint = n.type === 'hint';
-
-                    return (
-                      <div
-                        key={n.id}
-                        onClick={() => handleNotificationClick(n)}
-                        className="flex items-center justify-between gap-3 px-5 py-4 cursor-pointer hover:brightness-110 transition-all"
-                        style={{ borderBottom: `1px solid ${divider}`, background: n.is_read ? 'transparent' : (isDark ? 'rgba(160,97,255,0.06)' : 'rgba(160,97,255,0.04)') }}
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={{ background: isGame ? 'rgba(16,185,129,0.15)' : 'rgba(160,97,255,0.15)' }}
-                          >
-                            {isGame ? (
-                              <span className="text-base">🎮</span>
-                            ) : (
-                              <Heart className="w-5 h-5" style={{ color: '#A061FF' }} />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate" style={{ color: textMain }}>
-                              {isGame 
-                                ? `🎮 Spel-update van ${n.from_name || 'je match'}` 
-                                : isHint 
-                                ? `💬 Hint van ${n.from_name || 'iemand'}` 
-                                : `💜 ${n.from_name || 'Iemand'} liked jouw profiel`}
-                            </p>
-                            {n.venue_name && (
-                              <p className="text-xs mt-0.5 truncate" style={{ color: textSub }}>📍 {n.venue_name}</p>
-                            )}
-                            <p className="text-xs mt-0.5" style={{ color: textSub }}>
-                              {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
-                            </p>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleNotificationClick(n); }}
-                          className={`px-3 py-1.5 rounded-full text-xs font-black text-white shadow-sm active:scale-95 transition-transform flex-shrink-0 ${
-                            isGame ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-purple-600 hover:bg-purple-700'
-                          }`}
-                        >
-                          {isGame ? 'Naar spel' : isHint ? 'Bekijk hint' : 'Bekijk'}
-                        </button>
-                      </div>
-                    );
-                  })}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>,
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
         document.body
       )}
     </>

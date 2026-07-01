@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, CheckCircle2, Navigation, Users, XCircle } from 'lucide-react';
+import { X, CheckCircle2, Navigation, Users, XCircle, Copy } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
+import { toast } from 'sonner';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -15,9 +16,11 @@ const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 // translateY=PEEK_Y → only top PEEK_VISIBLE px visible
 // translateY=SHEET_H → fully hidden below
 const SHEET_H = () => Math.round(window.innerHeight * 0.85);
-const PEEK_VISIBLE = () => Math.round(window.innerHeight * 0.27); // ~1/4 screen
+const PEEK_VISIBLE = () => Math.round(window.innerHeight * 0.38); // ~3/8 screen
+const COLLAPSED_VISIBLE = 84; // Show only drag handle, venue name, and close button
 const FULL_Y = 0;
 const getPeekY = () => SHEET_H() - PEEK_VISIBLE();
+const getCollapsedY = () => SHEET_H() - COLLAPSED_VISIBLE;
 const getHiddenY = () => SHEET_H() + 40;
 
 export default function VenueBottomSheet({
@@ -42,6 +45,7 @@ export default function VenueBottomSheet({
   const { theme } = useTheme();
   const isDark = theme !== 'light';
   const PEEK_Y = getPeekY();
+  const COLLAPSED_Y = getCollapsedY();
   const HIDDEN_Y = getHiddenY();
   const sheetHeight = SHEET_H();
 
@@ -50,7 +54,14 @@ export default function VenueBottomSheet({
 
   // Sync motion value when snapState or venue changes
   useEffect(() => {
-    const target = snapState === 'full' ? FULL_Y : snapState === 'peek' ? PEEK_Y : HIDDEN_Y;
+    const target =
+      snapState === 'full'
+        ? FULL_Y
+        : snapState === 'peek'
+        ? PEEK_Y
+        : snapState === 'collapsed'
+        ? COLLAPSED_Y
+        : HIDDEN_Y;
     animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
   }, [snapState, venue]);
 
@@ -60,28 +71,69 @@ export default function VenueBottomSheet({
     await onGoHere(v);
   };
 
+  const handleCopyVenue = () => {
+    navigator.clipboard.writeText(venue.name)
+      .then(() => {
+        toast.success('Locatienaam gekopieerd! 📋');
+      })
+      .catch((err) => {
+        toast.error('Kopiëren mislukt.');
+        console.error('Copy failed: ', err);
+      });
+  };
+
   const handleDragEnd = (_, info) => {
     const velocity = info.velocity.y;
     const currentY = y.get();
     let targetState;
 
-    if (velocity > 300 || currentY > PEEK_Y - 100) {
-      targetState = 'peek';
-    } else if (velocity < -300 || currentY < PEEK_Y - 100) {
-      targetState = 'full';
+    // Calculate midpoints between adjacent states
+    const midFullPeek = PEEK_Y / 2;
+    const midPeekCollapsed = PEEK_Y + (COLLAPSED_Y - PEEK_Y) / 2;
+
+    if (velocity > 300) {
+      // Dragging down quickly
+      if (currentY < midFullPeek) {
+        targetState = 'peek';
+      } else {
+        targetState = 'collapsed';
+      }
+    } else if (velocity < -300) {
+      // Dragging up quickly
+      if (currentY > midPeekCollapsed) {
+        targetState = 'peek';
+      } else {
+        targetState = 'full';
+      }
     } else {
-      targetState = 'peek';
+      // Snapping to the closest state
+      if (currentY < midFullPeek) {
+        targetState = 'full';
+      } else if (currentY < midPeekCollapsed) {
+        targetState = 'peek';
+      } else {
+        targetState = 'collapsed';
+      }
     }
 
     if (targetState === snapState) {
-      const target = targetState === 'full' ? FULL_Y : PEEK_Y;
+      const target =
+        targetState === 'full'
+          ? FULL_Y
+          : targetState === 'peek'
+          ? PEEK_Y
+          : COLLAPSED_Y;
       animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
     } else {
       onSnapChange(targetState);
     }
   };
 
-  const bgOpacity = useTransform(y, [FULL_Y, PEEK_Y, HIDDEN_Y], [0.75, 0.15, 0]);
+  const bgOpacity = useTransform(
+    y,
+    [FULL_Y, PEEK_Y, COLLAPSED_Y, HIDDEN_Y],
+    [0.75, 0.15, 0.02, 0]
+  );
 
   if (!venue) return null;
 
@@ -96,7 +148,7 @@ export default function VenueBottomSheet({
       <motion.div
         ref={sheetRef}
         drag="y"
-        dragConstraints={{ top: FULL_Y, bottom: PEEK_Y }}
+        dragConstraints={{ top: FULL_Y, bottom: COLLAPSED_Y }}
         dragElastic={0.08}
         onDragEnd={handleDragEnd}
         style={{
@@ -127,27 +179,48 @@ export default function VenueBottomSheet({
           {/* ── Drag handle + header (always visible in peek) ── */}
           <div
             className="w-full flex flex-col items-center pt-3 pb-3 cursor-pointer select-none flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-            onClick={() => onSnapChange(snapState === 'full' ? 'peek' : 'full')}
+            onClick={() => {
+              if (snapState === 'collapsed') onSnapChange('peek');
+              else if (snapState === 'peek') onSnapChange('full');
+              else onSnapChange('peek');
+            }}
           >
             <div className="w-12 h-1.5 rounded-full mb-3 shadow-sm transition-transform hover:scale-115" style={{ background: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.25)' }} />
 
             <div className="w-full px-5 pb-1 flex items-center justify-between">
               <div className="flex-1 min-w-0 pr-2">
                 <p className="font-black text-xl truncate drop-shadow" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>{venue.name}</p>
-                <div className="flex items-center gap-3 mt-0.5">
+                <div 
+                  className="flex items-center gap-3 overflow-hidden transition-all duration-300"
+                  style={{
+                    height: snapState === 'collapsed' ? 0 : 22,
+                    opacity: snapState === 'collapsed' ? 0 : 1,
+                    marginTop: snapState === 'collapsed' ? 0 : 4,
+                  }}
+                >
                   {venue.city && <p className="text-sm font-medium truncate" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)' }}>{venue.city}</p>}
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(255,107,74,0.15)', color: '#FF6B4A' }}>
                     {matchGoingCount} matches gaan
                   </span>
                 </div>
               </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0 transition-transform active:scale-90"
-                style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
-              >
-                <X className="w-4.5 h-4.5" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleCopyVenue(); }}
+                  className="flex items-center justify-center w-9 h-9 rounded-full transition-transform active:scale-90"
+                  style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
+                  title="Locatie kopiëren"
+                >
+                  <Copy className="w-4 h-4" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onClose(); }}
+                  className="flex items-center justify-center w-9 h-9 rounded-full transition-transform active:scale-90"
+                  style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
+                >
+                  <X className="w-4.5 h-4.5" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
+                </button>
+              </div>
             </div>
           </div>
 

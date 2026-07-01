@@ -62,15 +62,6 @@ export default function ProfileSwiper({ profiles, isPremium, currentUserEmail, a
       ]);
       // Show match animation instead of toast
       setMatchAnim({ myProfile: myProf, matchedProfile: current });
-    } else {
-      // Notify the liked user (no toast for the liker)
-      await base44.entities.Notification.create({
-        to_email: current.user_email,
-        from_email: currentUserEmail,
-        type: 'like',
-        venue_name: currentDest?.venue_name,
-        from_name: myName,
-      });
     }
 
     next();

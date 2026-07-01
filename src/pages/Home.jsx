@@ -463,49 +463,52 @@ export default function Home() {
 
         <VenueBanner checkIn={myCheckIn} onRemoved={loadData} />
 
-        {/* Send hint card */}
-        <button
-          onClick={() => myCheckIn && !hasSentToday && setShowSheet(true)}
-          className="w-full flex items-center justify-between px-5 py-4 rounded-[26px] transition-all border border-pink-500/20 active:scale-[0.98]"
-          style={{
-            background: isDark ? 'rgba(20,21,33,0.95)' : 'rgba(255,255,255,1)',
-            border: '1.5px solid rgba(255, 75, 114, 0.25)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-            opacity: (myCheckIn && !hasSentToday) ? 1 : 0.6,
-            cursor: (myCheckIn && !hasSentToday) ? 'pointer' : 'not-allowed',
-          }}
-          disabled={!myCheckIn || hasSentToday}
-        >
-          <div className="flex items-center gap-4">
-            <div 
-              className="w-11 h-11 flex items-center justify-center flex-shrink-0"
-              style={{ 
-                borderRadius: '30% 70% 70% 30% / 30% 30% 70% 70%',
-                background: '#451025' 
-              }}
-            >
-              <Sun className="w-5 h-5 text-pink-400 fill-pink-400/10" />
-            </div>
-            <div className="text-left">
-              <p className={`text-sm font-extrabold ${textMain}`}>
-                Send a hint
-              </p>
-              <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                {hasSentToday
-                  ? `Nieuwe hint over ${timeLeft}`
-                  : !myCheckIn
-                  ? 'Stel eerst een bestemming in'
-                  : `Poke your ${myCheckIn.venue_name} matches`}
-              </p>
-            </div>
-          </div>
-          
-          <div 
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-[#FF8EA8] shadow-[0_0_15px_rgba(255,142,168,0.5)] active:scale-95 transition-transform flex-shrink-0"
+        <div className="mx-5 mt-3 mb-2">
+          <button
+            onClick={() => myCheckIn && !hasSentToday && setShowSheet(true)}
+            className="w-full flex items-center justify-between rounded-[22px] px-5 py-4 relative z-30 border border-l-[4px] border-l-[#FF4B72] shadow-lg active:scale-[0.98] transition-all"
+            style={{
+              background: isDark ? 'rgba(20,21,33,0.95)' : 'rgba(255,255,255,1)',
+              borderColor: isDark ? 'rgba(255, 75, 114, 0.3)' : 'rgba(255, 75, 114, 0.15)',
+              boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.25)' : '0 8px 32px rgba(0,0,0,0.06)',
+              opacity: (myCheckIn && !hasSentToday) ? 1 : 0.6,
+              cursor: (myCheckIn && !hasSentToday) ? 'pointer' : 'not-allowed',
+            }}
+            disabled={!myCheckIn || hasSentToday}
           >
-            <Send className="w-4 h-4 text-[#4A1225]" />
-          </div>
-        </button>
+            <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0">
+              <div 
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255, 75, 114, 0.15)' }}
+              >
+                <Sun className="w-4 h-4 text-[#FF4B72] fill-[#FF4B72]/10" />
+              </div>
+              <div className="text-left flex-1 min-w-0">
+                <p className="text-[10px] font-bold tracking-widest text-[#FF4B72] uppercase">SEND A HINT</p>
+                <p className={`text-base font-extrabold truncate mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Send a hint</p>
+                <p className={`text-xs mt-0.5 truncate ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {hasSentToday
+                    ? `Nieuwe hint over ${timeLeft}`
+                    : !myCheckIn
+                    ? 'Stel eerst een bestemming in'
+                    : `Poke your ${myCheckIn.venue_name} matches`}
+                </p>
+              </div>
+            </div>
+            
+            <div className="relative z-10 flex-shrink-0">
+              <div 
+                className={`w-9 h-9 rounded-xl border flex items-center justify-center active:scale-95 transition-all ${
+                  isDark 
+                    ? 'bg-white/5 border-white/10 text-gray-400' 
+                    : 'bg-black/5 border-black/10 text-gray-500'
+                }`}
+              >
+                <Send className="w-4 h-4 text-[#FF4B72]" />
+              </div>
+            </div>
+          </button>
+        </div>
 
         {/* Mijn hint van vandaag */}
         {myTodayHint && (
@@ -679,6 +682,17 @@ export default function Home() {
             } catch (e) {}
           }}
           isDark={isDark}
+          currentUserEmail={user?.email}
+          onStoryDeleted={(storyId) => {
+            setStories((prev) => prev.filter((s) => s.id !== storyId));
+            setSelectedStoryGroup((prev) => {
+              if (!prev) return null;
+              const updatedItems = prev.items.filter((item) => item.id !== storyId);
+              if (updatedItems.length === 0) return null;
+              return { ...prev, items: updatedItems };
+            });
+            loadData();
+          }}
         />
       )}
 

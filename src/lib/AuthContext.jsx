@@ -9,10 +9,11 @@ export const AuthProvider = ({ children }) => {
   // Synchronously initialize state from persistent store if available
   const initialUser = authStorage.getUserSync();
   const [user, setUser] = useState(initialUser);
-  const [isLoading, setIsLoading] = useState(!initialUser);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    let initialCheckCompleted = false;
 
     // Wrap in a global unhandledrejection suppressor for auth errors
     const handleUnhandledRejection = (event) => {
@@ -24,43 +25,6 @@ export const AuthProvider = ({ children }) => {
 
     console.log('[AuthContext] Initializing persistent check...');
 
-    // Async check via authStorage (includes IndexedDB fallback)
-    authStorage.getUserAsync().then((storedUser) => {
-      if (!cancelled && storedUser) {
-        setUser(storedUser);
-        setIsLoading(false);
-      }
-    });
-
-    // Initial check via base44 with async recovery
-    (async () => {
-      try {
-        const u = await base44.auth.me();
-        console.log('[AuthContext] base44.auth.me() resolved:', u);
-        if (!cancelled) {
-          if (u) {
-            setUser(u);
-            authStorage.saveUser(u);
-          } else {
-            const asyncUser = await authStorage.getUserAsync();
-            if (asyncUser) {
-              setUser(asyncUser);
-            } else {
-              setUser(null);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[AuthContext] base44.auth.me() rejected:', err);
-        if (!cancelled) {
-          const asyncUser = await authStorage.getUserAsync();
-          setUser(asyncUser);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-
     // Supabase auth change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log(`[AuthContext] onAuthStateChange event=${event} session=${session ? 'present' : 'null'}`);
@@ -70,7 +34,9 @@ export const AuthProvider = ({ children }) => {
       const activeStored = authStorage.getUserSync();
       if (activeStored) {
         setUser(activeStored);
-        setIsLoading(false);
+        if (initialCheckCompleted) {
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -78,8 +44,8 @@ export const AuthProvider = ({ children }) => {
         const supaUser = session.user;
         const userObj = {
           id: supaUser.id,
-          email: supaUser.email,
-          user_email: supaUser.email,
+          email: (supaUser.email || '').toLowerCase().trim(),
+          user_email: (supaUser.email || '').toLowerCase().trim(),
           ...supaUser.user_metadata
         };
         setUser(userObj);
@@ -105,8 +71,52 @@ export const AuthProvider = ({ children }) => {
       } else {
         setUser(prev => prev || authStorage.getUserSync());
       }
-      setIsLoading(false);
+
+      if (initialCheckCompleted) {
+        setIsLoading(false);
+      }
     });
+
+    // Run the main async recovery check (checks base44.auth.me + IndexedDB fallbacks)
+    (async () => {
+      try {
+        const u = await base44.auth.me();
+        console.log('[AuthContext] base44.auth.me() resolved:', u);
+        if (!cancelled) {
+          if (u) {
+            const cleaned = {
+              ...u,
+              email: (u.email || '').toLowerCase().trim(),
+              user_email: (u.user_email || u.email || '').toLowerCase().trim()
+            };
+            setUser(cleaned);
+            authStorage.saveUser(cleaned);
+          } else {
+            const asyncUser = await authStorage.getUserAsync();
+            if (asyncUser) {
+              setUser(asyncUser);
+            } else {
+              setUser(null);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[AuthContext] Recovery check error:', err);
+        if (!cancelled) {
+          const asyncUser = await authStorage.getUserAsync();
+          if (asyncUser) {
+            setUser(asyncUser);
+          } else {
+            setUser(null);
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          initialCheckCompleted = true;
+          setIsLoading(false);
+        }
+      }
+    })();
 
     return () => {
       cancelled = true;

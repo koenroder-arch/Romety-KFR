@@ -199,6 +199,15 @@ export default function NumberGame() {
       });
       setMyState(state);
       await base44.entities.GameSession.update(sessionId, { last_activity: new Date().toISOString() });
+
+      const partnerEmail = session.player1_email === user.email ? session.player2_email : session.player1_email;
+      await base44.entities.Notification.create({
+        to_email: partnerEmail,
+        from_email: user.email,
+        type: 'game',
+        from_name: myProfile?.display_name || 'Je match',
+      }).catch(err => console.error("Error creating game notification:", err));
+
       toast.success('Nummer opgeslagen! 🔒');
     } catch (e) {
       toast.error('Er ging iets mis');
@@ -219,6 +228,14 @@ export default function NumberGame() {
 
       await base44.entities.NumberGameState.update(myState.id, { guesses: newGuesses });
       await base44.entities.GameSession.update(sessionId, { last_activity: new Date().toISOString() });
+
+      const partnerEmail = session.player1_email === user.email ? session.player2_email : session.player1_email;
+      await base44.entities.Notification.create({
+        to_email: partnerEmail,
+        from_email: user.email,
+        type: 'game',
+        from_name: myProfile?.display_name || 'Je match',
+      }).catch(err => console.error("Error creating game notification:", err));
 
       const isWinner = result.filter(r => r.result === 'correct').length === 10;
       if (isWinner) {

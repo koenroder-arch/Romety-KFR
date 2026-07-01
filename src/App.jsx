@@ -10,6 +10,8 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { LanguageProvider } from '@/lib/LanguageContext';
 import { ThemeProvider } from '@/lib/ThemeContext';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import OfflineIndicator from '@/components/OfflineIndicator';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -23,17 +25,21 @@ const LayoutWrapper = ({ children, currentPageName }) => {
 };
 
 const OnboardingGate = ({ children }) => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [checking, setChecking] = React.useState(true);
-  const [needsOnboarding, setNeedsOnboarding] = React.useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = React.useState(false);
 
   React.useEffect(() => {
+    if (isLoading) return;
+
     if (!user) {
       setChecking(false);
+      setNeedsOnboarding(false);
       return;
     }
-    // Fetch profile and check onboarding status
-    base44.entities.UserProfile.filter({ user_email: user.email }).then((profiles) => {
+
+    // Fetch profile and check onboarding status case-insensitively
+    base44.entities.UserProfile.filter({ user_email: user.email.toLowerCase().trim() }).then((profiles) => {
       const done = profiles?.[0]?.onboarding_complete === true;
       setNeedsOnboarding(!done);
       setChecking(false);
@@ -42,9 +48,9 @@ const OnboardingGate = ({ children }) => {
       setNeedsOnboarding(false);
       setChecking(false);
     });
-  }, [user?.email]);
+  }, [user?.email, isLoading]);
 
-  if (checking) {
+  if (isLoading || checking) {
     return null;
   }
 
@@ -133,19 +139,22 @@ const MainAppContent = () => {
   };
 
   return (
-    <QueryClientProvider client={queryClientInstance}>
-      <AuthProvider>
-        {showSplash ? (
-          <SplashScreen onDone={handleSplashDone} />
-        ) : (
-          <Router>
-            <NavigationTracker />
-            <AuthenticatedApp />
-          </Router>
-        )}
-        <Toaster />
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClientInstance}>
+        <AuthProvider>
+          {showSplash ? (
+            <SplashScreen onDone={handleSplashDone} />
+          ) : (
+            <Router>
+              <NavigationTracker />
+              <AuthenticatedApp />
+            </Router>
+          )}
+          <Toaster />
+          <OfflineIndicator />
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

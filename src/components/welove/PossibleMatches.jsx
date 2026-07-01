@@ -67,7 +67,6 @@ export default function PossibleMatches({ allDestinations = [], allProfiles = []
       ]);
       toast.success(`🎉 Match met ${profile.display_name || 'iemand'}!`, { duration: 3000 });
     } else {
-      await base44.entities.Notification.create({ to_email: profile.user_email, from_email: currentUserEmail, type: 'like', venue_name: venueName, from_name: myName });
       toast.success(`Je hebt ${profile.display_name || 'iemand'} geliked! 💜`, { duration: 2000 });
     }
   };

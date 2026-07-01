@@ -413,7 +413,13 @@ export default function Pinpoint() {
 
   const showSearchPanel = searchFocused;
   const crosshairBottom = bottomSheet
-    ? (snapState === 'full' ? '90%' : snapState === 'peek' ? 360 : 40)
+    ? (snapState === 'full'
+        ? '90%'
+        : snapState === 'peek'
+        ? Math.round(window.innerHeight * 0.38) + 48
+        : snapState === 'collapsed'
+        ? 132
+        : 40)
     : (unlocked ? '55%' : 40);
 
   const pageBg = isDark ? '#0A0E21' : '#F8F9FB';

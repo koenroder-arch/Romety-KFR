@@ -225,6 +225,14 @@ export default function CardGame() {
 
       await base44.entities.GameSession.update(sessionId, { last_activity: new Date().toISOString() });
 
+      const partnerEmail = session.player1_email === user.email ? session.player2_email : session.player1_email;
+      await base44.entities.Notification.create({
+        to_email: partnerEmail,
+        from_email: user.email,
+        type: 'game',
+        from_name: myProfile?.display_name || 'Je match',
+      }).catch(err => console.error("Error creating game notification:", err));
+
       toast.success('Vraag verstuurd! ✅');
       setSelectedCard(null);
       setCards([]);
@@ -247,6 +255,14 @@ export default function CardGame() {
 
       await base44.entities.CardGameRound.update(round.id, updateData);
       await base44.entities.GameSession.update(sessionId, { last_activity: new Date().toISOString() });
+
+      const partnerEmail = session.player1_email === user.email ? session.player2_email : session.player1_email;
+      await base44.entities.Notification.create({
+        to_email: partnerEmail,
+        from_email: user.email,
+        type: 'game',
+        from_name: myProfile?.display_name || 'Je match',
+      }).catch(err => console.error("Error creating game notification:", err));
 
       const newRounds = [...rounds];
       const idx = newRounds.findIndex(r => r.id === round.id);
