@@ -17,10 +17,8 @@ const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 // translateY=SHEET_H → fully hidden below
 const SHEET_H = () => Math.round(window.innerHeight * 0.85);
 const PEEK_VISIBLE = () => Math.round(window.innerHeight * 0.38); // ~3/8 screen
-const COLLAPSED_VISIBLE = 84; // Show only drag handle, venue name, and close button
 const FULL_Y = 0;
 const getPeekY = () => SHEET_H() - PEEK_VISIBLE();
-const getCollapsedY = () => SHEET_H() - COLLAPSED_VISIBLE;
 const getHiddenY = () => SHEET_H() + 40;
 
 export default function VenueBottomSheet({
@@ -45,7 +43,6 @@ export default function VenueBottomSheet({
   const { theme } = useTheme();
   const isDark = theme !== 'light';
   const PEEK_Y = getPeekY();
-  const COLLAPSED_Y = getCollapsedY();
   const HIDDEN_Y = getHiddenY();
   const sheetHeight = SHEET_H();
 
@@ -59,8 +56,6 @@ export default function VenueBottomSheet({
         ? FULL_Y
         : snapState === 'peek'
         ? PEEK_Y
-        : snapState === 'collapsed'
-        ? COLLAPSED_Y
         : HIDDEN_Y;
     animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
   }, [snapState, venue]);
@@ -87,42 +82,26 @@ export default function VenueBottomSheet({
     const currentY = y.get();
     let targetState;
 
-    // Calculate midpoints between adjacent states
+    // Calculate midpoint between full and peek states
     const midFullPeek = PEEK_Y / 2;
-    const midPeekCollapsed = PEEK_Y + (COLLAPSED_Y - PEEK_Y) / 2;
 
     if (velocity > 300) {
       // Dragging down quickly
-      if (currentY < midFullPeek) {
-        targetState = 'peek';
-      } else {
-        targetState = 'collapsed';
-      }
+      targetState = 'peek';
     } else if (velocity < -300) {
       // Dragging up quickly
-      if (currentY > midPeekCollapsed) {
-        targetState = 'peek';
-      } else {
-        targetState = 'full';
-      }
+      targetState = 'full';
     } else {
       // Snapping to the closest state
       if (currentY < midFullPeek) {
         targetState = 'full';
-      } else if (currentY < midPeekCollapsed) {
-        targetState = 'peek';
       } else {
-        targetState = 'collapsed';
+        targetState = 'peek';
       }
     }
 
     if (targetState === snapState) {
-      const target =
-        targetState === 'full'
-          ? FULL_Y
-          : targetState === 'peek'
-          ? PEEK_Y
-          : COLLAPSED_Y;
+      const target = targetState === 'full' ? FULL_Y : PEEK_Y;
       animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
     } else {
       onSnapChange(targetState);
@@ -131,8 +110,8 @@ export default function VenueBottomSheet({
 
   const bgOpacity = useTransform(
     y,
-    [FULL_Y, PEEK_Y, COLLAPSED_Y, HIDDEN_Y],
-    [0.75, 0.15, 0.02, 0]
+    [FULL_Y, PEEK_Y, HIDDEN_Y],
+    [0.75, 0.15, 0]
   );
 
   if (!venue) return null;
@@ -148,7 +127,7 @@ export default function VenueBottomSheet({
       <motion.div
         ref={sheetRef}
         drag="y"
-        dragConstraints={{ top: FULL_Y, bottom: COLLAPSED_Y }}
+        dragConstraints={{ top: FULL_Y, bottom: PEEK_Y }}
         dragElastic={0.08}
         onDragEnd={handleDragEnd}
         style={{
@@ -180,8 +159,7 @@ export default function VenueBottomSheet({
           <div
             className="w-full flex flex-col items-center pt-3 pb-3 cursor-pointer select-none flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             onClick={() => {
-              if (snapState === 'collapsed') onSnapChange('peek');
-              else if (snapState === 'peek') onSnapChange('full');
+              if (snapState === 'peek') onSnapChange('full');
               else onSnapChange('peek');
             }}
           >
@@ -190,14 +168,7 @@ export default function VenueBottomSheet({
             <div className="w-full px-5 pb-1 flex items-center justify-between">
               <div className="flex-1 min-w-0 pr-2">
                 <p className="font-black text-xl truncate drop-shadow" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>{venue.name}</p>
-                <div 
-                  className="flex items-center gap-3 overflow-hidden transition-all duration-300"
-                  style={{
-                    height: snapState === 'collapsed' ? 0 : 22,
-                    opacity: snapState === 'collapsed' ? 0 : 1,
-                    marginTop: snapState === 'collapsed' ? 0 : 4,
-                  }}
-                >
+                <div className="flex items-center gap-3 overflow-hidden mt-1 h-5 opacity-100">
                   {venue.city && <p className="text-sm font-medium truncate" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)' }}>{venue.city}</p>}
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(255,107,74,0.15)', color: '#FF6B4A' }}>
                     {matchGoingCount} matches gaan
