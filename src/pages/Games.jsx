@@ -66,36 +66,40 @@ export default function Games() {
     if (!silent) setLoading(true);
     if (!user) { setLoading(false); return; }
 
-    const [asP1, asP2] = await Promise.all([
-      base44.entities.GameSession.filter({ player1_email: user.email }),
-      base44.entities.GameSession.filter({ player2_email: user.email }),
-    ]);
+    try {
+      const [asP1 = [], asP2 = []] = await Promise.all([
+        base44.entities.GameSession.filter({ player1_email: user.email }).catch(() => []),
+        base44.entities.GameSession.filter({ player2_email: user.email }).catch(() => []),
+      ]);
 
-    const allSessions = [...asP1, ...asP2];
-    const seen = new Set();
-    const unique = allSessions.filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
-    unique.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-    setSessions(unique);
+      const allSessions = [...asP1, ...asP2];
+      const seen = new Set();
+      const unique = allSessions.filter(s => { if (s && seen.has(s.id)) return false; if (s) seen.add(s.id); return true; });
+      unique.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+      setSessions(unique);
 
-    const emails = new Set();
-    unique.forEach(s => {
-      if (s.player1_email !== user.email) emails.add(s.player1_email);
-      if (s.player2_email !== user.email) emails.add(s.player2_email);
-    });
-    const profileMap = {};
-    await Promise.all([...emails].map(async (email) => {
-      try {
-        const p = await base44.entities.UserProfile.filter({ user_email: email });
-        if (p[0]) profileMap[email] = p[0];
-      } catch(e) {}
-    }));
-    setProfiles(profileMap);
+      const emails = new Set();
+      unique.forEach(s => {
+        if (s && s.player1_email !== user.email) emails.add(s.player1_email);
+        if (s && s.player2_email !== user.email) emails.add(s.player2_email);
+      });
+      const profileMap = {};
+      await Promise.all([...emails].map(async (email) => {
+        try {
+          const p = await base44.entities.UserProfile.filter({ user_email: email });
+          if (p && p[0]) profileMap[email] = p[0];
+        } catch(e) {}
+      }));
+      setProfiles(profileMap);
 
-    setPendingInvites(unique.filter(s => s.status === 'pending'));
-    setActiveGames(unique.filter(s => s.status === 'active'));
-    setFinishedGames(unique.filter(s => s.status === 'finished' || s.status === 'declined'));
-
-    if (!silent) setLoading(false);
+      setPendingInvites(unique.filter(s => s && s.status === 'pending'));
+      setActiveGames(unique.filter(s => s && s.status === 'active'));
+      setFinishedGames(unique.filter(s => s && (s.status === 'finished' || s.status === 'declined')));
+    } catch (e) {
+      console.error("[Games] Error loading games data:", e);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   };
 
   const handleAccept = async (session) => {

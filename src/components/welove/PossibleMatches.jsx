@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { isMatch } from '@/lib/matchUtils';
 import { Heart, Crown, MapPin, SlidersHorizontal, X, Check } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -12,6 +13,8 @@ export default function PossibleMatches({ allDestinations = [], allProfiles = []
   const [cityFilter, setCityFilter] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
   const [likedEmails, setLikedEmails] = useState(new Set());
+  const lastClickRef = useRef({});
+  const [hearts, setHearts] = useState([]);
 
   // Build match cards: users going somewhere, excluding self
   const matchCards = useMemo(() => {
@@ -68,6 +71,41 @@ export default function PossibleMatches({ allDestinations = [], allProfiles = []
       toast.success(`🎉 Match met ${profile.display_name || 'iemand'}!`, { duration: 3000 });
     } else {
       toast.success(`Je hebt ${profile.display_name || 'iemand'} geliked! 💜`, { duration: 2000 });
+    }
+  };
+
+  const handlePhotoClick = (e, profile, venueName, isBlurred) => {
+    if (isBlurred) {
+      if (onShowPremium) onShowPremium();
+      return;
+    }
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 300;
+    const lastClick = lastClickRef.current[profile.user_email] || 0;
+
+    if (now - lastClick < DOUBLE_PRESS_DELAY) {
+      // Double tap detected!
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const heartId = Math.random();
+      setHearts((prev) => [...prev, { id: heartId, x, y, userEmail: profile.user_email }]);
+
+      // Trigger the like action
+      if (!likedEmails.has(profile.user_email)) {
+        handleLike(profile, venueName);
+      }
+
+      // Cleanup heart animation after transition finishes
+      setTimeout(() => {
+        setHearts((prev) => prev.filter((h) => h.id !== heartId));
+      }, 700);
+
+      // Reset timestamp
+      lastClickRef.current[profile.user_email] = 0;
+    } else {
+      lastClickRef.current[profile.user_email] = now;
     }
   };
 
@@ -158,37 +196,70 @@ export default function PossibleMatches({ allDestinations = [], allProfiles = []
                 </div>
 
                 {/* Photo */}
-                <div className="relative h-28">
-                  {profile.photo_url ? (
-                    <img
-                      src={profile.photo_url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      style={!isPremium && idx >= FREE_LIMIT - 1 ? { filter: 'blur(10px)', transform: 'scale(1.1)' } : {}}
-                    />
-                  ) : (
+                {(() => {
+                  const isBlurred = !isPremium && idx >= FREE_LIMIT - 1;
+                  return (
                     <div 
-                      className="w-full h-full flex items-center justify-center text-4xl" 
-                      style={{ 
-                        background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)',
-                        filter: !isPremium && idx >= FREE_LIMIT - 1 ? 'blur(10px)' : 'none' 
-                      }}
+                      className="relative h-28 cursor-pointer select-none overflow-hidden"
+                      onClick={(e) => handlePhotoClick(e, profile, venueName, isBlurred)}
                     >
-                      {profile.avatar ? profile.avatar.split(' ')[0] : '👤'}
+                      {profile.photo_url ? (
+                        <img
+                          src={profile.photo_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          style={isBlurred ? { filter: 'blur(10px)', transform: 'scale(1.1)' } : {}}
+                        />
+                      ) : (
+                        <div 
+                          className="w-full h-full flex items-center justify-center text-4xl" 
+                          style={{ 
+                            background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)',
+                            filter: isBlurred ? 'blur(10px)' : 'none' 
+                          }}
+                        >
+                          {profile.avatar ? profile.avatar.split(' ')[0] : '👤'}
+                        </div>
+                      )}
+
+                      {/* Double Tap Animated Heart */}
+                      <AnimatePresence>
+                        {hearts
+                          .filter((h) => h.userEmail === profile.user_email)
+                          .map((h) => (
+                            <motion.div
+                              key={h.id}
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: [0, 1.4, 1.2], opacity: [0, 1, 1] }}
+                              exit={{ scale: 1.6, opacity: 0, y: -30 }}
+                              transition={{ duration: 0.6, ease: "easeOut" }}
+                              className="absolute pointer-events-none z-30"
+                              style={{
+                                left: h.x,
+                                top: h.y,
+                                x: '-50%',
+                                y: '-50%',
+                              }}
+                            >
+                              <Heart className="w-10 h-10 fill-[#FF4B72] text-white stroke-[1.5px] filter drop-shadow-[0_4px_12px_rgba(255,75,114,0.6)]" />
+                            </motion.div>
+                          ))}
+                      </AnimatePresence>
+
+                      {/* Age & Avatar */}
+                      <div className="absolute bottom-1 left-1.5 right-1.5 flex flex-col gap-0.5 items-start">
+                        {profile.avatar && (
+                          <span className="text-white text-[8px] font-black px-1.5 py-0.5 rounded bg-pink-500/90 truncate max-w-full">
+                            {profile.avatar.split(' ').slice(1).join(' ')}
+                          </span>
+                        )}
+                        {profile.age && (
+                          <span className="text-white text-[10px] font-bold drop-shadow">{profile.age}j</span>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  {/* Age & Avatar */}
-                  <div className="absolute bottom-1 left-1.5 right-1.5 flex flex-col gap-0.5 items-start">
-                    {profile.avatar && (
-                      <span className="text-white text-[8px] font-black px-1.5 py-0.5 rounded bg-pink-500/90 truncate max-w-full">
-                        {profile.avatar.split(' ').slice(1).join(' ')}
-                      </span>
-                    )}
-                    {profile.age && (
-                      <span className="text-white text-[10px] font-bold drop-shadow">{profile.age}j</span>
-                    )}
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* Like button */}
                 <div className="p-2 flex justify-center">

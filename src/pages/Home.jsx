@@ -98,153 +98,166 @@ export default function Home() {
     const u = user;
     if (!u) { setLoading(false); return; }
 
-    const now = new Date().toISOString();
-
-    // Round 1: user-specific data
-    const [myProfiles, subs, myCheckIns, myDestinations] = await Promise.all([
-      base44.entities.UserProfile.filter({ user_email: u.email }),
-      base44.entities.PremiumSubscription.filter({ user_email: u.email }),
-      base44.entities.VenueCheckIn.filter({ user_email: u.email }),
-      base44.entities.UserDestination.filter({ user_email: u.email }),
-    ]);
-
-    // Round 2: likes + global profiles
-    const [likesISent, likesIReceived, allProfiles] = await Promise.all([
-      base44.entities.Like.filter({ from_email: u.email }),
-      base44.entities.Like.filter({ to_email: u.email }),
-      base44.entities.UserProfile.list('-created_date', 100),
-    ]);
-
-    // Round 3: global venue data + hints + stories
-    const [allCheckIns, allDestinations, allClubs, allHints, allStories] = await Promise.all([
-      base44.entities.VenueCheckIn.list(),
-      base44.entities.UserDestination.list(),
-      base44.entities.Club.list(),
-      base44.entities.Hint.list('-created_date', 100),
-      base44.entities.Story.list('-created_date', 100),
-    ]);
-
-    const myProf = myProfiles[0] || null;
-
-    if (myProf?.onboarding_complete === false) {
-      window.location.href = createPageUrl('Onboarding');
-      return;
-    }
-
-    // Premium check
-    const activeSub = subs.find((s) => s.is_active && s.expires_at > now);
-    if (activeSub && myProf && !myProf.is_premium) {
-      await base44.entities.UserProfile.update(myProf.id, { is_premium: true });
-      myProf.is_premium = true;
-    }
-    setMyProfile(myProf);
-
-    // Check-in
-    const activeCheckIn = myCheckIns.find((c) => !c.expires_at || c.expires_at > now);
-    const activeDestination = myDestinations.find((d) => d.status === 'active' && (!d.expires_at || d.expires_at > now));
-    const myCI = activeCheckIn || activeDestination || null;
-    setMyCheckIn(myCI);
-
-    // Matches
-    const others = allProfiles.filter((p) => p.user_email !== u.email && p.onboarding_complete);
-    const matchData = others
-      .filter((p) => isMatch(myProf, p))
-      .map((p) => ({
-        profile: p,
-        compatibility: calculateCompatibility(myProf, p),
-        hasSameVenue: activeCheckIn
-          ? allCheckIns.some((c) => c.user_email === p.user_email && c.venue_id === activeCheckIn.venue_id && (!c.expires_at || c.expires_at > now))
-          : false,
-        is80: isMatch(myProf, p),
-      }));
-    matchData.sort((a, b) => {
-      if (a.hasSameVenue && !b.hasSameVenue) return -1;
-      if (!a.hasSameVenue && b.hasSameVenue) return 1;
-      return b.compatibility - a.compatibility;
-    });
-    setMatches(matchData);
-
-    // Super matches
-    const iLiked = new Set(likesISent.map((l) => l.to_email));
-    const likedMe = new Set(likesIReceived.map((l) => l.from_email));
-    const mutualEmails = [...iLiked].filter((e) => likedMe.has(e));
-    setSuperMatchCount(mutualEmails.length);
-
-    // Supermatch profiles for sheet
-    const superProfs = allProfiles.filter((p) => mutualEmails.includes(p.user_email));
-    setSuperMatchProfiles(superProfs);
-
-    // Mutual matches for SendHintSheet
-    setMutualMatches(superProfs);
-
-    // Active game count
     try {
-      const [gameSessP1, gameSessP2] = await Promise.all([
-        base44.entities.GameSession.filter({ player1_email: u.email }),
-        base44.entities.GameSession.filter({ player2_email: u.email }),
+      const now = new Date().toISOString();
+
+      // Round 1: user-specific data
+      const [
+        myProfiles = [],
+        subs = [],
+        myCheckIns = [],
+        myDestinations = []
+      ] = await Promise.all([
+        base44.entities.UserProfile.filter({ user_email: u.email }).catch(() => []),
+        base44.entities.PremiumSubscription.filter({ user_email: u.email }).catch(() => []),
+        base44.entities.VenueCheckIn.filter({ user_email: u.email }).catch(() => []),
+        base44.entities.UserDestination.filter({ user_email: u.email }).catch(() => []),
       ]);
-      const allGameSess = [...gameSessP1, ...gameSessP2];
-      const seen = new Set();
-      const uniq = allGameSess.filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
-      setActiveGameCount(uniq.filter(s => s.status === 'active' || s.status === 'pending').length);
-    } catch(e) { /* ignore */ }
 
-    // Hints (exp. after 9 hours)
-    const nineHoursAgo = new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString();
+      // Round 2: likes + global profiles
+      const [
+        likesISent = [],
+        likesIReceived = [],
+        allProfiles = []
+      ] = await Promise.all([
+        base44.entities.Like.filter({ from_email: u.email }).catch(() => []),
+        base44.entities.Like.filter({ to_email: u.email }).catch(() => []),
+        base44.entities.UserProfile.list('-created_date', 100).catch(() => []),
+      ]);
 
-    const activeHints = allHints.filter(h => h.created_date >= nineHoursAgo);
+      // Round 3: global venue data + hints + stories
+      const [
+        allCheckIns = [],
+        allDestinations = [],
+        allClubs = [],
+        allHints = [],
+        allStories = []
+      ] = await Promise.all([
+        base44.entities.VenueCheckIn.list().catch(() => []),
+        base44.entities.UserDestination.list().catch(() => []),
+        base44.entities.Club.list().catch(() => []),
+        base44.entities.Hint.list('-created_date', 100).catch(() => []),
+        base44.entities.Story.list('-created_date', 100).catch(() => []),
+      ]);
 
-    const mutualEmailsSet = new Set(mutualEmails);
-    const superHints = activeHints.filter(h => mutualEmailsSet.has(h.from_email) && h.from_email !== u.email);
-    setSuperMatchHints(superHints);
+      const myProf = myProfiles[0] || null;
+      setMyProfile(myProf);
 
-    const myVenueName = myCI?.venue_name || activeHints.find(h => h.from_email === u.email)?.venue_name;
-    const venueHints = myVenueName
-      ? activeHints.filter(h => h.venue_name === myVenueName && h.from_email !== u.email && !mutualEmailsSet.has(h.from_email))
-      : activeHints.filter(h => h.from_email !== u.email && !mutualEmailsSet.has(h.from_email));
-    setHints(venueHints);
+      // Check-in
+      const activeCheckIn = myCheckIns.find((c) => !c.expires_at || c.expires_at > now);
+      const activeDestination = myDestinations.find((d) => d.status === 'active' && (!d.expires_at || d.expires_at > now));
+      const myCI = activeCheckIn || activeDestination || null;
+      setMyCheckIn(myCI);
 
-    const myHintsRecent = activeHints.filter(h => h.from_email === u.email);
-    setHasSentToday(myHintsRecent.length > 0);
-    setMyTodayHint(myHintsRecent[0] || null);
-
-    // Non-blocking background pruning
-    setTimeout(() => {
-      const oldHints = allHints.filter(h => h.created_date < nineHoursAgo);
-      for (const oldHint of oldHints) {
-        base44.entities.Hint.delete(oldHint.id).catch(() => {});
-      }
-      const oldStories = allStories.filter(s => s.created_date < nineHoursAgo);
-      for (const oldStory of oldStories) {
-        if (oldStory.media_url) {
-          base44.integrations.Core.DeleteFile({ file_url: oldStory.media_url }).catch(() => {});
-        }
-        base44.entities.Story.delete(oldStory.id).catch(() => {});
-      }
-    }, 1000);
-
-    if (myCI) {
-      const activeStories = allStories.filter(story => {
-        const isRecent = story.created_date >= nineHoursAgo;
-        const isSameVenue = story.venue_name === myCI.venue_name;
-        const isMe = story.user_email === u.email;
-        const creatorProfile = allProfiles.find(p => p.user_email === story.user_email);
-        const isAMatch = creatorProfile && isMatch(myProf, creatorProfile);
-        return isRecent && isSameVenue && (isMe || isAMatch);
-      }).map(story => {
-        const creatorProfile = allProfiles.find(p => p.user_email === story.user_email);
-        return {
-          ...story,
-          user_avatar: creatorProfile?.avatar || null
-        };
+      // Matches
+      const others = allProfiles.filter((p) => p && p.user_email && p.user_email !== u.email && p.onboarding_complete);
+      const matchData = others
+        .filter((p) => isMatch(myProf, p))
+        .map((p) => ({
+          profile: p,
+          compatibility: calculateCompatibility(myProf, p),
+          hasSameVenue: activeCheckIn
+            ? allCheckIns.some((c) => c && c.user_email === p.user_email && c.venue_id === activeCheckIn.venue_id && (!c.expires_at || c.expires_at > now))
+            : false,
+          is80: isMatch(myProf, p),
+        }));
+      matchData.sort((a, b) => {
+        if (a.hasSameVenue && !b.hasSameVenue) return -1;
+        if (!a.hasSameVenue && b.hasSameVenue) return 1;
+        return b.compatibility - a.compatibility;
       });
-      setStories(activeStories);
-    } else {
-      setStories([]);
-    }
+      setMatches(matchData);
 
-    setAllDestinations(allDestinations);
-    setLoading(false);
+      // Super matches
+      const iLiked = new Set(likesISent.map((l) => l && l.to_email).filter(Boolean));
+      const likedMe = new Set(likesIReceived.map((l) => l && l.from_email).filter(Boolean));
+      const mutualEmails = [...iLiked].filter((e) => likedMe.has(e));
+      setSuperMatchCount(mutualEmails.length);
+
+      // Supermatch profiles for sheet
+      const superProfs = allProfiles.filter((p) => p && p.user_email && mutualEmails.includes(p.user_email));
+      setSuperMatchProfiles(superProfs);
+
+      // Mutual matches for SendHintSheet
+      setMutualMatches(superProfs);
+
+      // Active game count
+      try {
+        const [gameSessP1 = [], gameSessP2 = []] = await Promise.all([
+          base44.entities.GameSession.filter({ player1_email: u.email }).catch(() => []),
+          base44.entities.GameSession.filter({ player2_email: u.email }).catch(() => []),
+        ]);
+        const allGameSess = [...gameSessP1, ...gameSessP2];
+        const seen = new Set();
+        const uniq = allGameSess.filter(s => { if (s && seen.has(s.id)) return false; if (s) seen.add(s.id); return true; });
+        setActiveGameCount(uniq.filter(s => s && (s.status === 'active' || s.status === 'pending')).length);
+      } catch(e) { /* ignore */ }
+
+      // Hints (exp. after 9 hours)
+      const nineHoursAgo = new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString();
+
+      const activeHints = allHints.filter(h => h && h.created_date >= nineHoursAgo);
+
+      const mutualEmailsSet = new Set(mutualEmails);
+      const superHints = activeHints.filter(h => h && mutualEmailsSet.has(h.from_email) && h.from_email !== u.email);
+      setSuperMatchHints(superHints);
+
+      const myVenueName = myCI?.venue_name || activeHints.find(h => h && h.from_email === u.email)?.venue_name;
+      const venueHints = myVenueName
+        ? activeHints.filter(h => h && h.venue_name === myVenueName && h.from_email !== u.email && !mutualEmailsSet.has(h.from_email))
+        : activeHints.filter(h => h && h.from_email !== u.email && !mutualEmailsSet.has(h.from_email));
+      setHints(venueHints);
+
+      const myHintsRecent = activeHints.filter(h => h && h.from_email === u.email);
+      setHasSentToday(myHintsRecent.length > 0);
+      setMyTodayHint(myHintsRecent[0] || null);
+
+      // Non-blocking background pruning
+      setTimeout(() => {
+        try {
+          const oldHints = allHints.filter(h => h && h.created_date < nineHoursAgo);
+          for (const oldHint of oldHints) {
+            if (oldHint && oldHint.id) base44.entities.Hint.delete(oldHint.id).catch(() => {});
+          }
+          const oldStories = allStories.filter(s => s && s.created_date < nineHoursAgo);
+          for (const oldStory of oldStories) {
+            if (oldStory && oldStory.id) {
+              if (oldStory.media_url) {
+                base44.integrations.Core.DeleteFile({ file_url: oldStory.media_url }).catch(() => {});
+              }
+              base44.entities.Story.delete(oldStory.id).catch(() => {});
+            }
+          }
+        } catch (e) {}
+      }, 1000);
+
+      if (myCI) {
+        const activeStories = allStories.filter(story => {
+          if (!story) return false;
+          const isRecent = story.created_date >= nineHoursAgo;
+          const isSameVenue = story.venue_name === myCI.venue_name;
+          const isMe = story.user_email === u.email;
+          const creatorProfile = allProfiles.find(p => p && p.user_email === story.user_email);
+          const isAMatch = creatorProfile && isMatch(myProf, creatorProfile);
+          return isRecent && isSameVenue && (isMe || isAMatch);
+        }).map(story => {
+          const creatorProfile = allProfiles.find(p => p && p.user_email === story.user_email);
+          return {
+            ...story,
+            user_avatar: creatorProfile?.avatar || null
+          };
+        });
+        setStories(activeStories);
+      } else {
+        setStories([]);
+      }
+
+      setAllDestinations(allDestinations);
+    } catch (err) {
+      console.error("[Home] Error loading dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Group stories by user
