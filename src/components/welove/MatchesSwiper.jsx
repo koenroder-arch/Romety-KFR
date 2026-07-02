@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import MatchAnimation from './MatchAnimation';
@@ -78,19 +78,59 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     }
   };
 
-  const handleDoubleTap = (e, profile) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
+  const lastClickRef = useRef({});
+  const singleClickTimeoutRef = useRef({});
+
+  const handleDoubleTapAtCoord = (x, y, profile) => {
     const animId = Date.now() + Math.random();
     setDoubleTapAnims(prev => [...prev, { id: animId, profileId: profile.id, x, y }]);
     
-    handleLike(profile);
+    // Double tap only likes (it does not unlike)
+    if (!likedProfiles.has(profile.id)) {
+      handleLike(profile);
+    }
     
     setTimeout(() => {
       setDoubleTapAnims(prev => prev.filter(a => a.id !== animId));
     }, 1000);
+  };
+
+  const handleCardClick = (e, profile, isMenuOpen) => {
+    if (isMenuOpen) {
+      setOpenMenuProfileId(null);
+      return;
+    }
+
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 300;
+    const lastClick = lastClickRef.current[profile.id] || 0;
+
+    if (now - lastClick < DOUBLE_PRESS_DELAY) {
+      // Double tap!
+      if (singleClickTimeoutRef.current[profile.id]) {
+        clearTimeout(singleClickTimeoutRef.current[profile.id]);
+        singleClickTimeoutRef.current[profile.id] = null;
+      }
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      handleDoubleTapAtCoord(x, y, profile);
+      lastClickRef.current[profile.id] = 0;
+    } else {
+      lastClickRef.current[profile.id] = now;
+
+      if (singleClickTimeoutRef.current[profile.id]) {
+        clearTimeout(singleClickTimeoutRef.current[profile.id]);
+      }
+      singleClickTimeoutRef.current[profile.id] = setTimeout(() => {
+        handleSingleClick(profile);
+        singleClickTimeoutRef.current[profile.id] = null;
+      }, DOUBLE_PRESS_DELAY);
+    }
   };
 
   const handleSingleClick = async (profile) => {
@@ -205,18 +245,8 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
             {/* Photo Background */}
             <div 
               className="absolute inset-0 z-0 bg-gray-900 cursor-pointer"
-              onClick={(e) => {
-                // Close menu on background click
-                if (isMenuOpen) { setOpenMenuProfileId(null); return; }
-                // Prevent single click firing when double clicking
-                if (e.detail === 1) {
-                  setTimeout(() => {
-                    // Only open story if not double-tapped recently
-                    handleSingleClick(profile);
-                  }, 250);
-                }
-              }}
-              onDoubleClick={(e) => handleDoubleTap(e, profile)}
+              style={{ touchAction: 'none' }}
+              onClick={(e) => handleCardClick(e, profile, isMenuOpen)}
             >
               {profile.photo_url ? (
                 <img src={profile.photo_url} alt="" className="w-full h-full object-cover select-none pointer-events-none" />
