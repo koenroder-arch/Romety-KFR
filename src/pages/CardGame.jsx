@@ -309,6 +309,7 @@ export default function CardGame() {
 
   const sharedSocialRound = rounds.find(r => r.social_handle && r.answer === 'yes');
   const socialRoundData = sharedSocialRound ? { social_type: sharedSocialRound.social_type, social_handle: sharedSocialRound.social_handle } : null;
+  const didIShare = sharedSocialRound ? (sharedSocialRound.asker_email !== user?.email) : false;
 
   return (
     <div className={`min-h-screen w-full relative overflow-x-hidden flex flex-col justify-between select-none ${isDark ? 'bg-[#0D0E15] text-white' : 'bg-[#F8F9FB] text-gray-900'}`} style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -559,64 +560,87 @@ export default function CardGame() {
             )}
 
             {/* Finished State */}
+            {/* Finished State */}
             {isFinished && (
               socialRoundData ? (
-                <div className="py-4 text-center space-y-4">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-amber-400 flex items-center justify-center text-3xl shadow-lg animate-bounce">
-                    {socialRoundData.social_type === 'phone' ? '📞' : socialRoundData.social_type === 'instagram' ? '📸' : '👻'}
-                  </div>
-                  
-                  <div>
-                    <span className="inline-block text-[11px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full mb-2 bg-purple-500/10 text-purple-700">
-                      🎉 Supermatch Contact!
-                    </span>
-                    <h2 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight">
-                      {partnerName} heeft {socialRoundData.social_type === 'phone' ? 'telefoonnummer' : socialRoundData.social_type === 'instagram' ? 'Instagram' : 'Snapchat'} gedeeld!
-                    </h2>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-white border border-purple-200 shadow-md flex items-center justify-center gap-3 my-2">
-                    {socialRoundData.social_type === 'phone' ? (
-                      <Phone className="w-6 h-6 text-emerald-600" />
-                    ) : socialRoundData.social_type === 'instagram' ? (
-                      <Instagram className="w-6 h-6 text-pink-600" />
-                    ) : (
-                      <Camera className="w-6 h-6 text-amber-500" />
-                    )}
-                    <span className="text-xl font-black text-gray-900 tracking-wide select-all">
-                      {socialRoundData.social_type === 'phone' ? '' : '@'}{socialRoundData.social_handle}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(socialRoundData.social_handle);
-                        toast.success('Gekopieerd naar klembord!');
-                      }}
-                      className="flex-1 py-3 rounded-2xl font-black text-xs bg-gray-100 text-gray-800 hover:bg-gray-200 transition-all active:scale-95 shadow-sm"
+                didIShare ? (
+                  <div className="py-6 text-center space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center text-3xl shadow-lg animate-bounce">
+                      ✅
+                    </div>
+                    <div>
+                      <span className="inline-block text-[11px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full mb-2 bg-emerald-500/10 text-emerald-700">
+                        Antwoord verstuurd!
+                      </span>
+                      <h2 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight">
+                        Je hebt je {socialRoundData.social_type === 'phone' ? 'telefoonnummer' : socialRoundData.social_type === 'instagram' ? 'Instagram' : 'Snapchat'} gedeeld met {partnerName}!
+                      </h2>
+                    </div>
+                    <button 
+                      onClick={() => window.history.back()} 
+                      className="w-full py-4 rounded-2xl font-black text-white text-base bg-gradient-to-r from-emerald-500 to-teal-600 shadow-lg hover:brightness-105 transition-all active:scale-95"
                     >
-                      📋 Kopieer
+                      Terug naar spellen
                     </button>
-                    {socialRoundData.social_type === 'instagram' && (
-                      <a
-                        href={`https://instagram.com/${socialRoundData.social_handle.replace('@', '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 py-3 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:brightness-105 transition-all active:scale-95 text-center flex items-center justify-center shadow-md"
-                      >
-                        Open Insta ↗
-                      </a>
-                    )}
                   </div>
+                ) : (
+                  <div className="py-4 text-center space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-amber-400 flex items-center justify-center text-3xl shadow-lg animate-bounce">
+                      {socialRoundData.social_type === 'phone' ? '📞' : socialRoundData.social_type === 'instagram' ? '📸' : '👻'}
+                    </div>
+                    
+                    <div>
+                      <span className="inline-block text-[11px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full mb-2 bg-purple-500/10 text-purple-700">
+                        🎉 Supermatch Contact!
+                      </span>
+                      <h2 className="text-xl sm:text-2xl font-black text-gray-900 leading-tight">
+                        {partnerName} heeft {socialRoundData.social_type === 'phone' ? 'telefoonnummer' : socialRoundData.social_type === 'instagram' ? 'Instagram' : 'Snapchat'} gedeeld!
+                      </h2>
+                    </div>
 
-                  <button 
-                    onClick={() => window.history.back()} 
-                    className="mt-2 w-full py-3 rounded-2xl font-bold text-gray-500 text-xs hover:text-gray-900 transition-all"
-                  >
-                    Terug naar spellen
-                  </button>
-                </div>
+                    <div className="p-4 rounded-2xl bg-white border border-purple-200 shadow-md flex items-center justify-center gap-3 my-2">
+                      {socialRoundData.social_type === 'phone' ? (
+                        <Phone className="w-6 h-6 text-emerald-600" />
+                      ) : socialRoundData.social_type === 'instagram' ? (
+                        <Instagram className="w-6 h-6 text-pink-600" />
+                      ) : (
+                        <Camera className="w-6 h-6 text-amber-500" />
+                      )}
+                      <span className="text-xl font-black text-gray-900 tracking-wide select-all">
+                        {socialRoundData.social_type === 'phone' ? '' : '@'}{socialRoundData.social_handle}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(socialRoundData.social_handle);
+                          toast.success('Gekopieerd naar klembord!');
+                        }}
+                        className="flex-1 py-3 rounded-2xl font-black text-xs bg-gray-100 text-gray-800 hover:bg-gray-200 transition-all active:scale-95 shadow-sm"
+                      >
+                        📋 Kopieer
+                      </button>
+                      {socialRoundData.social_type === 'instagram' && (
+                        <a
+                          href={`https://instagram.com/${socialRoundData.social_handle.replace('@', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 py-3 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:brightness-105 transition-all active:scale-95 text-center flex items-center justify-center shadow-md"
+                        >
+                          Open Insta ↗
+                        </a>
+                      )}
+                    </div>
+
+                    <button 
+                      onClick={() => window.history.back()} 
+                      className="mt-2 w-full py-3 rounded-2xl font-bold text-gray-500 text-xs hover:text-gray-900 transition-all"
+                    >
+                      Terug naar spellen
+                    </button>
+                  </div>
+                )
               ) : (
                 <div className="py-6 text-center space-y-4">
                   <div className="text-5xl animate-bounce">🎉</div>

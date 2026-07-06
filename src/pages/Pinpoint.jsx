@@ -80,7 +80,7 @@ export default function Pinpoint() {
     const [allCheckIns, allDests, allProfs] = await Promise.all([
       base44.entities.VenueCheckIn.list(),
       base44.entities.UserDestination.list(),
-      base44.entities.UserProfile.list('-created_date', 200),
+      base44.entities.UserProfile.list('-created_date', 500),
     ]);
     setRecentSearches(searches);
     setAllProfiles(allProfs);
@@ -88,7 +88,12 @@ export default function Pinpoint() {
     const nowIso = new Date().toISOString();
     const activeDests = allDests.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > nowIso));
     setAllDestinations(activeDests);
-    setMyDestination(activeDests.find((d) => d.user_email === u.email) || null);
+    const myDest = activeDests.find((d) => d.user_email === u.email) || null;
+    if (myDest && !myDest.venue_city && allClubs.length > 0) {
+      const matched = allClubs.find((c) => c.id === myDest.venue_id || c.name === myDest.venue_name);
+      if (matched) myDest.venue_city = matched.city;
+    }
+    setMyDestination(myDest);
 
     const p = profiles[0] || null;
     setMyProfile(p);
@@ -122,7 +127,14 @@ export default function Pinpoint() {
     setClubs(venues);
 
     const active = checkIns.find((c) => !c.expires_at || c.expires_at > now);
-    if (active) { setMyCheckIn(active); unlock(); }
+    if (active) {
+      if (!active.venue_city && allClubs.length > 0) {
+        const matched = allClubs.find((c) => c.id === active.venue_id || c.name === active.venue_name);
+        if (matched) active.venue_city = matched.city;
+      }
+      setMyCheckIn(active);
+      unlock();
+    }
     else if (p?.location_enabled) { unlock(); startGPS(); }
 
     // Check URL param — open venue from hotspot click
@@ -147,7 +159,9 @@ export default function Pinpoint() {
     activeDests.forEach((d) => {
       const key = d.venue_id || d.venue_name;
       hotspotsCountMap[key] = (hotspotsCountMap[key] || 0) + 1;
-      if (!hotspotsMetaMap[key]) hotspotsMetaMap[key] = { venue_id: d.venue_id, venue_name: d.venue_name };
+      if (!hotspotsMetaMap[key] || (!hotspotsMetaMap[key].venue_city && d.venue_city)) {
+        hotspotsMetaMap[key] = { venue_id: d.venue_id, venue_name: d.venue_name, venue_city: d.venue_city };
+      }
     });
     const clubMap = {};
     allClubs.forEach((c) => { clubMap[c.id] = c; clubMap[c.name] = c; });
@@ -157,7 +171,7 @@ export default function Pinpoint() {
       .map(([key, count]) => {
         const meta = hotspotsMetaMap[key];
         const club = clubMap[meta.venue_id] || clubMap[meta.venue_name];
-        return { ...meta, count, city: club?.city || '' };
+        return { ...meta, count, city: club?.city || meta.venue_city || '' };
       });
     setHotspots(top5Hotspots);
 
@@ -207,15 +221,23 @@ export default function Pinpoint() {
           { headers: { 'Accept-Language': 'nl' } }
         );
         const data = await res.json();
-        const geoResults = data.map((item) => ({
-          type: 'location',
-          id: item.place_id,
-          label: item.display_name.split(',')[0],
-          sublabel: item.display_name.split(',').slice(1, 3).join(',').trim(),
-          lat: parseFloat(item.lat),
-          lng: parseFloat(item.lon),
-          venue: null
-        }));
+        const geoResults = data.map((item) => {
+          const roadPart = item.display_name.split(',').slice(1, 3).join(',').trim();
+          const cityPart = item.address?.city || item.address?.town || item.address?.village || item.address?.municipality || '';
+          let sublabel = roadPart;
+          if (cityPart && !roadPart.toLowerCase().includes(cityPart.toLowerCase())) {
+            sublabel = `${roadPart}, ${cityPart}`;
+          }
+          return {
+            type: 'location',
+            id: item.place_id,
+            label: item.display_name.split(',')[0],
+            sublabel,
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon),
+            venue: null
+          };
+        });
         setSearchSuggestions((prev) => {
           const existing = prev.filter((s) => s.type === 'club');
           return [...existing, ...geoResults].slice(0, 8);
@@ -231,6 +253,7 @@ export default function Pinpoint() {
       user_email: user.email,
       query: item.label,
       type: item.type,
+      sublabel: item.sublabel,
       lat: item.lat,
       lng: item.lng
     });
@@ -286,10 +309,18 @@ export default function Pinpoint() {
     if (myDestination) {
       await base44.entities.UserDestination.update(myDestination.id, { status: 'expired' });
     }
+
+    let resolvedCity = venue.city || '';
+    if (!resolvedCity && allDestinations.length > 0) {
+      const found = allDestinations.find(d => d.venue_city && (d.venue_id === venue.id || d.venue_name === venue.name));
+      if (found) resolvedCity = found.venue_city;
+    }
+
     const newDest = await base44.entities.UserDestination.create({
       user_email: user.email,
       venue_id: venue.id,
       venue_name: venue.name,
+      venue_city: resolvedCity,
       status: 'active',
       expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
     });
@@ -577,7 +608,7 @@ export default function Pinpoint() {
                       key={s.id || i}
                       onMouseDown={() => {
                         const club = s.type === 'club' ? clubs.find((c) => c.name === s.query) : null;
-                        handleSelectSuggestion({ type: s.type, id: s.id, label: s.query, sublabel: club?.city || '', lat: s.lat, lng: s.lng, venue: club || null });
+                        handleSelectSuggestion({ type: s.type, id: s.id, label: s.query, sublabel: s.sublabel || club?.city || '', lat: s.lat, lng: s.lng, venue: club || null });
                       }}
                       className="search-row w-full px-4 text-left flex items-center gap-3 border-b"
                       style={{ borderColor: rowBorderColor }}
@@ -589,7 +620,7 @@ export default function Pinpoint() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" style={{ color: labelColor }}>{s.query}</p>
-                        <p className="text-xs" style={{ color: subColor }}>{s.type === 'club' ? t.club : t.location}</p>
+                        <p className="text-xs truncate" style={{ color: subColor }}>{s.sublabel || (s.type === 'club' ? t.club : t.location)}</p>
                       </div>
                       {s.count > 1 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(255,75,114,0.15)', color: '#FF4B72' }}>{s.count}x</span>

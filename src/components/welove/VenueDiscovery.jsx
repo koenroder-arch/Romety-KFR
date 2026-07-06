@@ -38,7 +38,7 @@ export default function VenueDiscovery({ myProfile, currentUserEmail, isPremium,
     setSwipedToday(todayCount);
 
     // Fetch 100 profiles
-    const allProfiles = await base44.entities.UserProfile.list('-created_date', 100);
+    const allProfiles = await base44.entities.UserProfile.list('-created_date', 500);
 
     // Fetch active destinations to prioritise same-venue people
     const allDests = await base44.entities.UserDestination.list('-created_date', 200);

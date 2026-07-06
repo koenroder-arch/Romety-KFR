@@ -122,7 +122,7 @@ export default function Home() {
       ] = await Promise.all([
         base44.entities.Like.filter({ from_email: u.email }).catch(() => []),
         base44.entities.Like.filter({ to_email: u.email }).catch(() => []),
-        base44.entities.UserProfile.list('-created_date', 100).catch(() => []),
+        base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
       ]);
 
       // Round 3: global venue data + hints + stories
@@ -147,6 +147,16 @@ export default function Home() {
       const activeCheckIn = myCheckIns.find((c) => !c.expires_at || c.expires_at > now);
       const activeDestination = myDestinations.find((d) => d.status === 'active' && (!d.expires_at || d.expires_at > now));
       const myCI = activeCheckIn || activeDestination || null;
+      if (myCI && !myCI.venue_city) {
+        if (allClubs.length > 0) {
+          const matchedClub = allClubs.find((c) => c.id === myCI.venue_id || c.name === myCI.venue_name);
+          if (matchedClub) myCI.venue_city = matchedClub.city;
+        }
+        if (!myCI.venue_city && allDestinations.length > 0) {
+          const found = allDestinations.find((d) => d.venue_city && (d.venue_id === myCI.venue_id || d.venue_name === myCI.venue_name));
+          if (found) myCI.venue_city = found.venue_city;
+        }
+      }
       setMyCheckIn(myCI);
 
       // Matches
@@ -249,7 +259,21 @@ export default function Home() {
         });
         setStories(activeStories);
       } else {
-        setStories([]);
+        const activeStories = allStories.filter(story => {
+          if (!story) return false;
+          const isRecent = story.created_date >= nineHoursAgo;
+          const isMe = story.user_email === u.email;
+          const creatorProfile = allProfiles.find(p => p && p.user_email === story.user_email);
+          const isAMatch = creatorProfile && isMatch(myProf, creatorProfile);
+          return isRecent && (isMe || isAMatch);
+        }).map(story => {
+          const creatorProfile = allProfiles.find(p => p && p.user_email === story.user_email);
+          return {
+            ...story,
+            user_avatar: creatorProfile?.avatar || null
+          };
+        });
+        setStories(activeStories);
       }
 
       setAllDestinations(allDestinations);
@@ -344,75 +368,92 @@ export default function Home() {
       </div>
 
       {/* ── Stories (Verhalen) ── */}
-      {myCheckIn && (
-        <div className="pt-3 pb-3 border-b border-t mt-2 mb-2" style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
-          <div className="px-5 mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-orange-500">Verhalen van matches</span>
-            <span className="text-[10px]" style={{ color: textSub }}>{myCheckIn.venue_name}</span>
-          </div>
-          <div className="flex gap-4 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none' }}>
-            {/* User's own story addition bubble if they don't have stories */}
-            {!hasMyStories && (
-              <div 
-                className="flex flex-col items-center flex-shrink-0 cursor-pointer"
-                onClick={() => window.location.href = createPageUrl('Hints')}
-              >
-                <div className="relative w-16 h-16 rounded-full p-[3px] bg-gray-300 dark:bg-gray-800 flex items-center justify-center">
-                  <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                    {myProfile?.photo_url ? (
-                      <img src={myProfile.photo_url} alt="" className="w-full h-full object-cover opacity-60" />
-                    ) : (
-                      <span className="text-lg">{myProfile?.avatar ? myProfile.avatar.split(' ')[0] : '👤'}</span>
-                    )}
-                  </div>
-                  <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-orange-500 border-2 border-white dark:border-gray-900 flex items-center justify-center">
-                    <Plus className="w-3.5 h-3.5 text-white" />
-                  </div>
-                </div>
-                <span className="text-[10px] mt-1 font-semibold" style={{ color: textSub }}>Jouw verhaal</span>
-              </div>
+      <div 
+        className="pt-3 pb-3 border-b border-t mt-2 mb-2 relative" 
+        style={{ 
+          borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+          opacity: myCheckIn ? 1 : 0.55
+        }}
+      >
+        {!myCheckIn && (
+          <div 
+            className="absolute inset-0 z-20 cursor-pointer" 
+            onClick={() => alert("Stel eerst een locatie in om de verhalen te kunnen bekijken.")}
+          />
+        )}
+        <div className="px-5 mb-2 flex items-center justify-between">
+          <span className="text-xs font-black text-[#FF4B72]">
+            {myCheckIn ? (
+              <>
+                Verhalen bij <span className="text-[#EA3FD3] font-black ml-0.5">{myCheckIn.venue_name}</span>
+              </>
+            ) : (
+              "Verhalen op locaties"
             )}
+          </span>
+        </div>
+        <div className="flex gap-4 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none' }}>
+          {/* User's own story addition bubble if they don't have stories */}
+          {!hasMyStories && (
+            <div 
+              className="flex flex-col items-center flex-shrink-0 cursor-pointer"
+              onClick={() => window.location.href = createPageUrl('Hints')}
+            >
+              <div className="relative w-16 h-16 rounded-full p-[3px] bg-gray-300 dark:bg-gray-800 flex items-center justify-center">
+                <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                  {myProfile?.photo_url ? (
+                    <img src={myProfile.photo_url} alt="" className="w-full h-full object-cover opacity-60" />
+                  ) : (
+                    <span className="text-lg">{myProfile?.avatar ? myProfile.avatar.split(' ')[0] : '👤'}</span>
+                  )}
+                </div>
+                <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#FF4B72] border-2 border-white dark:border-gray-900 flex items-center justify-center">
+                  <Plus className="w-3.5 h-3.5 text-white" />
+                </div>
+              </div>
+              <span className="text-[10px] mt-1 font-semibold" style={{ color: textSub }}>Jouw verhaal</span>
+            </div>
+          )}
 
-            {/* List of active stories grouped by user */}
-            {sortedStoryUsers.map((group) => {
-              const isMe = group.user_email === user?.email;
-              const isGroupSeen = group.items.every(item => seenStoryIds.includes(item.id));
-              return (
-                <div
-                  key={group.user_email}
-                  className="flex flex-col items-center flex-shrink-0 cursor-pointer"
-                  onClick={() => {
-                    setSelectedStoryGroup(group);
-                    setActiveStoryIndex(0);
+          {/* List of active stories grouped by user */}
+          {sortedStoryUsers.map((group) => {
+            const isMe = group.user_email === user?.email;
+            const isGroupSeen = group.items.every(item => seenStoryIds.includes(item.id));
+            return (
+              <div
+                key={group.user_email}
+                className="flex flex-col items-center flex-shrink-0 cursor-pointer"
+                onClick={() => {
+                  setSelectedStoryGroup(group);
+                  setActiveStoryIndex(0);
+                }}
+              >
+                <div 
+                  className="w-16 h-16 rounded-full p-[3px] transition-transform active:scale-95"
+                  style={{
+                    background: isGroupSeen 
+                      ? (isDark ? '#374151' : '#E5E7EB')
+                      : 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
                   }}
                 >
-                  <div 
-                    className="w-16 h-16 rounded-full p-[3px] transition-transform active:scale-95"
-                    style={{
-                      background: isGroupSeen 
-                        ? (isDark ? '#374151' : '#E5E7EB')
-                        : 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-                    }}
-                  >
-                    <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-[#08090E] p-[2px]">
-                      <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                        {group.user_photo_url ? (
-                          <img src={group.user_photo_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-lg">{group.user_avatar ? group.user_avatar.split(' ')[0] : '👤'}</span>
-                        )}
-                      </div>
+                  <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-[#08090E] p-[2px]">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                      {group.user_photo_url ? (
+                        <img src={group.user_photo_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-lg">{group.user_avatar ? group.user_avatar.split(' ')[0] : '👤'}</span>
+                      )}
                     </div>
                   </div>
-                  <span className={`text-[10px] mt-1 font-semibold truncate max-w-[68px] ${textMain}`}>
-                    {isMe ? 'Jouw verhaal' : 'Verhaal'}
-                  </span>
                 </div>
-              );
-            })}
-          </div>
+                <span className={`text-[10px] mt-1 font-semibold truncate max-w-[68px] ${textMain}`}>
+                  {isMe ? 'Jouw verhaal' : 'Verhaal'}
+                </span>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       <div className="px-5 mt-4 space-y-4">
 

@@ -121,16 +121,13 @@ export default function Account() {
       const uniqGames = allGameSess.filter(s => { if (seenGames.has(s.id)) return false; seenGames.add(s.id); return true; });
       const activeAndPendingCount = uniqGames.filter(s => s.status === 'active' || s.status === 'pending').length;
 
-      // Calculate exact supermatches count matching Home.jsx & Matches.jsx
-      const iLiked = new Set((likesISent || []).map(l => l.to_email));
-      const likedMe = new Set((likesIReceived || []).map(l => l.from_email));
-      const mutualEmails = [...iLiked].filter(e => likedMe.has(e));
-      const supermatchCount = mutualEmails.length;
+      // Calculate exact likes received count
+      const receivedLikesCount = (likesIReceived || []).length;
 
       setStats({
         games: activeAndPendingCount,
         stories: (userStories || []).length,
-        matches: supermatchCount
+        matches: receivedLikesCount
       });
     } catch (e) {
       console.error('Failed to load profile data:', e);
@@ -702,7 +699,7 @@ export default function Account() {
               <Heart className="w-4 h-4" />
             </div>
             <span className={`text-lg font-black ${textMain}`}>{stats.matches}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: textSub }}>Super</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: textSub }}>Likes</span>
           </div>
         </div>
 

@@ -11,6 +11,9 @@
     "venue_name": {
       "type": "string"
     },
+    "venue_city": {
+      "type": "string"
+    },
     "venue_lat": {
       "type": "number"
     },

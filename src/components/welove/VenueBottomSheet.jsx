@@ -67,9 +67,10 @@ export default function VenueBottomSheet({
   };
 
   const handleCopyVenue = () => {
-    navigator.clipboard.writeText(venue.name)
+    const textToCopy = venue.city ? `${venue.name}, ${venue.city}` : venue.name;
+    navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        toast.success('Locatienaam gekopieerd! 📋');
+        toast.success('Locatie gekopieerd! 📋');
       })
       .catch((err) => {
         toast.error('Kopiëren mislukt.');
@@ -169,7 +170,9 @@ export default function VenueBottomSheet({
               <div className="flex-1 min-w-0 pr-2">
                 <p className="font-black text-xl truncate drop-shadow" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>{venue.name}</p>
                 <div className="flex items-center gap-3 overflow-hidden mt-1 h-5 opacity-100">
-                  {venue.city && <p className="text-sm font-medium truncate" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)' }}>{venue.city}</p>}
+                  <p className="text-sm font-medium truncate" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)' }}>
+                    {venue.city || 'Utrecht, NL'}
+                  </p>
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(255,107,74,0.15)', color: '#FF6B4A' }}>
                     {matchGoingCount} matches gaan
                   </span>

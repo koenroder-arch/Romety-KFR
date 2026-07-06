@@ -117,11 +117,9 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick }) 
                     {spot.venue_name}
                   </p>
                   
-                  {spot.city && (
-                    <p className="text-[11px] font-medium mt-0.5 truncate" style={{ color: subColor }}>
-                      {spot.city}
-                    </p>
-                  )}
+                  <p className="text-[11px] font-medium mt-0.5 truncate" style={{ color: subColor }}>
+                    {spot.city || 'Utrecht, NL'}
+                  </p>
                 </div>
 
                 {/* Footer Count */}

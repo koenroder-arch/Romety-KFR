@@ -245,7 +245,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
             {/* Photo Background */}
             <div 
               className="absolute inset-0 z-0 bg-gray-900 cursor-pointer"
-              style={{ touchAction: 'none' }}
+              style={{ touchAction: 'pan-y' }}
               onClick={(e) => handleCardClick(e, profile, isMenuOpen)}
             >
               {profile.photo_url ? (
@@ -402,14 +402,20 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                 {/* Action Buttons */}
                 <div className="flex gap-4">
                   <button 
-                    onClick={() => handleLike(profile)} 
+                    onClick={(e) => {
+                      e.currentTarget.blur();
+                      handleLike(profile);
+                    }} 
                     className="flex-1 py-3.5 px-4 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform shadow-lg"
                   >
                     <Heart className="w-5 h-5" color={isLiked ? '#FF5A43' : 'white'} fill={isLiked ? '#FF5A43' : 'transparent'} strokeWidth={2.4} />
                     Like
                   </button>
                   <button 
-                    onClick={() => !hasSentToday && onSendHint && onSendHint(profile)} 
+                    onClick={(e) => {
+                      e.currentTarget.blur();
+                      if (!hasSentToday && onSendHint) onSendHint(profile);
+                    }} 
                     disabled={hasSentToday}
                     className="flex-1 py-3.5 px-4 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
                   >

@@ -15,6 +15,9 @@
         "club"
       ]
     },
+    "sublabel": {
+      "type": "string"
+    },
     "lat": {
       "type": "number"
     },

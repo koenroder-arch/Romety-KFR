@@ -60,7 +60,7 @@ export default function Matches() {
 
     // Fetch all needed data in one batch
     const [allProfiles, allCheckIns, allDestinations, myLikes, myHints] = await Promise.all([
-      base44.entities.UserProfile.list('-created_date', 200),
+      base44.entities.UserProfile.list('-created_date', 500),
       base44.entities.VenueCheckIn.list(),
       base44.entities.UserDestination.list(),
       base44.entities.Like.filter({ from_email: u.email }),

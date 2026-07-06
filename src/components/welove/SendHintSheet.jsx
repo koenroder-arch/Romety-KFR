@@ -3,7 +3,7 @@ import { X, ChevronRight, Users, Heart, User, Info } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { motion, useMotionValue, useTransform, animate, useDragControls } from 'framer-motion';
 
-const MAX_CHARS = 15;
+const MAX_CHARS = 25;
 
 const SHEET_H = () => Math.round(window.innerHeight * 0.85);
 const PEEK_VISIBLE = () => Math.round(window.innerHeight * 0.70);

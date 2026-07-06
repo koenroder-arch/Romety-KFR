@@ -27,7 +27,7 @@ export default function WhoIsGoing({ myCheckIn, currentUserEmail, allDestination
     if (dests.length === 0) { setGoingProfiles([]); setLoading(false); return; }
 
     const emails = [...new Set(dests.map((d) => d.user_email))];
-    const allProfiles = await base44.entities.UserProfile.list('-created_date', 200);
+    const allProfiles = await base44.entities.UserProfile.list('-created_date', 500);
     const profiles = allProfiles.filter(
       (p) => emails.includes(p.user_email) && p.onboarding_complete
     );

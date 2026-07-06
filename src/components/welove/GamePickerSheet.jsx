@@ -51,8 +51,6 @@ export default function GamePickerSheet({ profile, currentUser, myProfile, isDar
         from_email: currentUser.email,
         type: 'game_invite',
         from_name: myProfile?.avatar?.split(' ').slice(1).join(' ') || 'Je supermatch',
-        game_type: gameType,
-        session_id: session.id,
       });
 
       toast.success(`Uitnodiging verstuurd! 🎮`);
