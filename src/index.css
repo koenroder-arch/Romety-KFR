@@ -124,3 +124,11 @@ html.dark, html.dark body {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes shimmer {
+  0% { transform: translateX(-150%); }
+  100% { transform: translateX(150%); }
+}
+.animate-shimmer {
+  animation: shimmer 3s infinite linear;
+}

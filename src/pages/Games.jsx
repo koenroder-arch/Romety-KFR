@@ -156,34 +156,48 @@ export default function Games() {
     const iAmInviter = iAmPlayer1;
     const isPending = session.status === 'pending';
     const isMyInvite = isPending && !iAmInviter;
+    const isFinished = session.status === 'finished' || session.status === 'declined';
 
     const partnerName = partner?.avatar?.split(' ').slice(1).join(' ') || partner?.full_name || 'je supermatch';
+
+    // Conditional classes/styles based on status
+    const underlayerClass = isFinished
+      ? (isDark ? 'bg-black/40 border border-gray-700/20' : 'bg-gray-100/60 border border-gray-200')
+      : (isDark ? 'bg-black/60 border border-blue-500/20' : 'bg-blue-100/60 border border-blue-200');
+
+    const cardBorderClass = isFinished
+      ? (isDark ? 'border-gray-700/50 shadow-none' : 'border-gray-300/50 shadow-none')
+      : (isDark ? 'border-blue-500/35 shadow-[0_8px_25px_rgba(59,130,246,0.18)]' : 'border-blue-300/60 shadow-[0_4px_20px_rgba(59,130,246,0.1)]');
+
+    const cardBgStyle = isFinished
+      ? (isDark ? 'linear-gradient(90deg, #1F2937 0%, #111827 100%)' : 'linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 50%, #E5E7EB 100%)')
+      : (isDark ? 'linear-gradient(90deg, #0F2027 0%, #203A43 45%, #2C5364 100%)' : 'linear-gradient(90deg, #FFFFFF 0%, #F0F7FF 50%, #E0F2FE 100%)');
+
+    const avatarBorderClass = isFinished
+      ? 'from-gray-400 to-gray-500 shadow-none'
+      : 'from-blue-500 via-sky-400 to-indigo-400 shadow-[0_0_12px_rgba(59,130,246,0.4)]';
+
+    const subtitleColor = isFinished
+      ? (isDark ? 'text-gray-400' : 'text-gray-500')
+      : (isDark ? 'text-blue-100/90' : 'text-gray-600');
 
     return (
       <div className="relative mb-2.5">
         {/* Stacked Card Underlayer / Shadow line */}
-        <div className={`absolute inset-0 translate-y-1 rounded-[22px] ${isDark ? 'bg-black/60 border border-pink-500/20' : 'bg-pink-100/60 border border-pink-200'} pointer-events-none`} />
+        <div className={`absolute inset-0 translate-y-1 rounded-[22px] ${underlayerClass} pointer-events-none`} />
 
-        {/* Main Romety Gradient Card */}
+        {/* Main Blue/Gray Gradient Card */}
         <motion.div
           whileTap={{ scale: 0.98 }}
-          className={`relative z-10 rounded-[20px] p-3.5 sm:p-4 cursor-pointer overflow-hidden border ${
-            isDark 
-              ? 'border-pink-500/35 shadow-[0_8px_25px_rgba(255,75,114,0.18)]' 
-              : 'border-pink-300/60 shadow-[0_4px_20px_rgba(255,75,114,0.1)]'
-          }`}
-          style={{ 
-            background: isDark 
-              ? 'linear-gradient(90deg, #2A0817 0%, #66123A 40%, #CF2765 85%, #E83ED3 100%)' 
-              : 'linear-gradient(90deg, #FFFFFF 0%, #FFF5F8 50%, #FFEBF3 100%)',
-          }}
+          className={`relative z-10 rounded-[20px] p-3.5 sm:p-4 cursor-pointer overflow-hidden border ${cardBorderClass}`}
+          style={{ background: cardBgStyle }}
           onClick={() => !showActions && session.status !== 'pending' && navigateToGame(session)}
         >
           <div className="flex items-center justify-between gap-3.5">
             
             {/* Left Section: Partner Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-pink-500 via-rose-400 to-purple-400 shadow-[0_0_12px_rgba(255,75,114,0.4)]">
+              <div className={`w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr ${avatarBorderClass}`}>
                 <div className={`w-full h-full rounded-full overflow-hidden flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
                   {partner?.photo_url ? (
                     <img src={partner.photo_url} alt="" className="w-full h-full object-cover" />
@@ -203,7 +217,7 @@ export default function Games() {
                 </h3>
               </div>
 
-              <p className={`text-xs font-bold truncate pl-0.5 ${isDark ? 'text-pink-100/90' : 'text-gray-600'}`}>
+              <p className={`text-xs font-bold truncate pl-0.5 ${subtitleColor}`}>
                 Met {partnerName}
               </p>
 
@@ -211,7 +225,9 @@ export default function Games() {
               <div className="mt-1.5 flex items-center">
                 <div className={`px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${isDark ? status.darkBg : status.lightBg} shadow-inner`}>
                   <StatusIcon className="w-3 h-3" />
-                  <span className="text-[10px] font-extrabold tracking-wide uppercase">{status.label}</span>
+                  <span className="text-[10px] font-extrabold tracking-wide uppercase">
+                    {isPending && iAmInviter ? 'Uitnodiging verstuurd' : status.label}
+                  </span>
                 </div>
               </div>
             </div>
@@ -226,16 +242,24 @@ export default function Games() {
 
           {/* Invite Actions if Pending */}
           {isMyInvite && (
-            <div className={`flex gap-2 mt-3 pt-2.5 border-t ${isDark ? 'border-white/15' : 'border-gray-200'}`}>
+            <div className={`flex justify-end gap-2 mt-3 pt-2.5 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDecline(session); }}
-                className={`flex-1 py-1.5 rounded-lg font-bold text-[11px] transition-all active:scale-95 ${isDark ? 'text-rose-200 bg-black/40 border border-rose-500/30 hover:bg-black/60' : 'text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100'}`}
+                className={`px-3 py-1 rounded-full font-bold text-[10px] transition-all active:scale-95 border ${
+                  isDark 
+                    ? 'text-rose-400 border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20' 
+                    : 'text-rose-600 border-rose-300 bg-rose-50 hover:bg-rose-100'
+                }`}
               >
                 Weigeren
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleAccept(session); }}
-                className="flex-1 py-1.5 rounded-lg font-bold text-[11px] text-white bg-gradient-to-r from-emerald-500 to-teal-600 shadow-md hover:brightness-105 transition-all active:scale-95"
+                className={`px-3 py-1 rounded-full font-bold text-[10px] transition-all active:scale-95 border ${
+                  isDark 
+                    ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20' 
+                    : 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                }`}
               >
                 Accepteren 🎮
               </button>
@@ -259,8 +283,8 @@ export default function Games() {
       {/* Ambient Background Glows */}
       {isDark && (
         <>
-          <div className="absolute top-[-5%] left-[-10%] w-[320px] h-[320px] rounded-full bg-gradient-to-br from-rose-600/15 via-orange-500/10 to-transparent blur-3xl pointer-events-none" />
-          <div className="absolute top-[20%] right-[-10%] w-[320px] h-[320px] rounded-full bg-gradient-to-bl from-amber-600/15 via-purple-600/10 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute top-[-5%] left-[-10%] w-[320px] h-[320px] rounded-full bg-gradient-to-br from-blue-600/15 via-sky-500/10 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute top-[20%] right-[-10%] w-[320px] h-[320px] rounded-full bg-gradient-to-bl from-indigo-600/15 via-blue-600/10 to-transparent blur-3xl pointer-events-none" />
         </>
       )}
 
@@ -273,7 +297,7 @@ export default function Games() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="font-black text-2xl tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600">
+          <h1 className="font-black text-2xl tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-500 to-indigo-600">
             🎮 Spellen
           </h1>
           <p className={`text-xs ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Jouw games met supermatches</p>

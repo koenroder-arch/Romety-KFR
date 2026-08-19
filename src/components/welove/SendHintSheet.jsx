@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, Users, Heart, User, Info } from 'lucide-react';
+import { X, ChevronRight, Users, Heart, User, Info, Sparkles, Lock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { motion, useMotionValue, useTransform, animate, useDragControls } from 'framer-motion';
+import HintCard from '@/components/welove/HintCard';
 
 const MAX_CHARS = 25;
 
@@ -11,7 +12,11 @@ const FULL_Y = 0;
 const getPeekY = () => SHEET_H() - PEEK_VISIBLE();
 const getHiddenY = () => SHEET_H() + 40;
 
-export default function SendHintSheet({ user, myProfile, myCheckIn, matches, mutualMatches, onClose, onSent, isDark, initialProfile = null }) {
+export default function SendHintSheet({ 
+  user, myProfile, myCheckIn, matches, mutualMatches, onClose, onSent, isDark, initialProfile = null,
+  myTodayHint = null, timeLeft = '', superMatchHints = [], hints = [], loadData = () => {}
+}) {
+  const [activeTab, setActiveTab] = useState('hints');
   const [step, setStep] = useState(initialProfile ? 'compose' : 'choose');
   const [targetType, setTargetType] = useState(initialProfile ? 'single' : null);
   const [selectedProfile, setSelectedProfile] = useState(initialProfile);
@@ -20,11 +25,51 @@ export default function SendHintSheet({ user, myProfile, myCheckIn, matches, mut
   const [sending, setSending] = useState(false);
   const [snapState, setSnapState] = useState('open');
 
+  const [superHintsCollapsed, setSuperHintsCollapsed] = useState(false);
+  const [regularHintsCollapsed, setRegularHintsCollapsed] = useState(false);
+
+  // Group hints by venue
+  const venueGroups = hints.reduce((acc, h) => {
+    const key = h.venue_name || 'Onbekend';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(h);
+    return acc;
+  }, {});
+
   const [allCheckIns, setAllCheckIns] = useState([]);
   const [allDestinations, setAllDestinations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
 
   const dragControls = useDragControls();
+
+  // Swipe logic for tabs
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEndHandler = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && activeTab === 'hints') {
+      setActiveTab('compose');
+    }
+    if (isRightSwipe && activeTab === 'compose') {
+      setActiveTab('hints');
+    }
+  };
 
   // Freeze background body scroll while the sheet is open
   useEffect(() => {
@@ -246,51 +291,57 @@ export default function SendHintSheet({ user, myProfile, myCheckIn, matches, mut
         >
           {/* Drag handle */}
           <div
-            className="w-full flex flex-col items-center pt-3 pb-2 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
+            className="w-full flex flex-col items-center pt-3 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
             onPointerDown={(e) => dragControls.start(e)}
             style={{ touchAction: 'none' }}
           >
             <div className="w-12 h-1.5 rounded-full mb-3 shadow-sm" style={{ background: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.25)' }} />
 
-            {/* Header */}
-            <div className="w-full px-5 pb-2 flex items-center justify-between" style={{ borderBottom: `1px solid ${divider}` }}>
-              <div>
-                {(step === 'compose' || step === 'pick') ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); step === 'compose' && targetType === 'single' ? setStep('pick') : setStep('choose'); }}
-                    className="text-sm font-semibold"
-                    style={{ color: '#FF6B4A' }}
-                  >
-                    ← Terug
-                  </button>
-                ) : (
-                  <p className="font-black text-base" style={{ color: textMain }}>
-                    Stuur je matches een hint
-                  </p>
-                )}
-                {step === 'pick' && (
-                  <p className="font-black text-base mt-0.5" style={{ color: textMain }}>
-                    Kies een match 💙
-                  </p>
-                )}
-                {step === 'compose' && (
-                  <p className="font-black text-base mt-0.5" style={{ color: textMain }}>
-                    Schrijf je hint ✨
-                  </p>
-                )}
+            {/* Tabs & Header */}
+            <div className="w-full px-5 flex items-start justify-between" style={{ borderBottom: `1px solid ${divider}` }}>
+              <div className="flex gap-5">
+                <button
+                  onClick={() => setActiveTab('hints')}
+                  className={`pb-3 text-base font-black transition-colors border-b-[3px] ${activeTab === 'hints' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-500 border-transparent'}`}
+                >
+                  Hints
+                </button>
+                <button
+                  onClick={() => setActiveTab('compose')}
+                  className={`pb-3 text-base font-black transition-colors border-b-[3px] ${activeTab === 'compose' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-500 border-transparent'}`}
+                >
+                  Hint sturen
+                </button>
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0"
+                className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 -mt-1"
                 style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
               >
                 <X className="w-4 h-4" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
               </button>
             </div>
+            
+            {activeTab === 'compose' && (step === 'compose' || step === 'pick') && (
+              <div className="w-full px-5 py-3 text-left" style={{ borderBottom: `1px solid ${divider}` }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); step === 'compose' && targetType === 'single' ? setStep('pick') : setStep('choose'); }}
+                  className="text-sm font-semibold"
+                  style={{ color: '#FF6B4A' }}
+                >
+                  ← Terug
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div 
+            className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEndHandler}
+          >
             {loadingLocations ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <div className="w-8 h-8 rounded-full border-4 border-orange-200 border-t-[#FF6B4A] animate-spin mb-3" />
@@ -298,6 +349,132 @@ export default function SendHintSheet({ user, myProfile, myCheckIn, matches, mut
               </div>
             ) : (
               <>
+                {activeTab === 'hints' && (
+                  <div className="space-y-4">
+                    {/* Mijn hint van vandaag */}
+                    {myTodayHint && (
+                      <div>
+                        <p className="text-xs font-bold mb-2 text-left" style={{ color: textSub }}>JOUW HINT VAN VANDAAG</p>
+                        <div
+                          className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl"
+                          style={{
+                            background: isDark ? 'rgba(255,75,114,0.12)' : 'rgba(255,75,114,0.08)',
+                            border: '1.5px solid rgba(255,75,114,0.35)',
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,75,114,0.2)' }}>
+                              <Sparkles className="w-4 h-4" style={{ color: '#FF4B72' }} />
+                            </div>
+                            <div>
+                              <p className={`text-sm font-black text-left ${textMain}`}>✨ {myTodayHint.message}</p>
+                              <p className="text-[10px] text-left mt-0.5 font-semibold" style={{ color: textSub }}>
+                                {myTodayHint.venue_name} · verloopt over {timeLeft}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full flex-shrink-0" style={{ background: 'rgba(255,75,110,0.15)', border: '1px solid rgba(255,75,110,0.3)' }}>
+                            <Heart className="w-3.5 h-3.5" fill="#FF4B6E" style={{ color: '#FF4B6E' }} />
+                            <span className="text-xs font-black" style={{ color: '#FF4B6E' }}>
+                              {(myTodayHint.heart_reactions || []).length}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Supermatch hints */}
+                    {superMatchHints.length > 0 && (
+                      <div>
+                        <button
+                          onClick={() => setSuperHintsCollapsed(!superHintsCollapsed)}
+                          className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-left focus:outline-none transition-all active:scale-[0.98]"
+                          style={{
+                            background: isDark ? 'rgba(234,63,211,0.07)' : 'rgba(234,63,211,0.04)',
+                            border: isDark ? '1.5px solid rgba(234,63,211,0.35)' : '1.5px solid rgba(234,63,211,0.2)',
+                          }}
+                        >
+                          <span className="text-xs font-black tracking-wide flex items-center gap-1.5" style={{ color: '#EA3FD3' }}>
+                            💜 HINTS VAN JE SUPERMATCHES ({superMatchHints.length})
+                          </span>
+                          {superHintsCollapsed ? <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: '#EA3FD3' }} /> : <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: '#EA3FD3' }} />}
+                        </button>
+                        {!superHintsCollapsed && (
+                          <div className="space-y-2 mt-3">
+                            {superMatchHints.map(hint => (
+                              <HintCard key={hint.id} hint={hint} isDark={isDark} onReacted={() => loadData()} isSuperMatch={true} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Lock or Hints lists */}
+                    {!myCheckIn ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                        <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ background: 'rgba(255,75,114,0.12)' }}>
+                          <Lock className="w-7 h-7" style={{ color: '#FF4B72' }} />
+                        </div>
+                        <p className={`font-black text-sm mb-1 ${textMain}`}>Geen bestemming ingesteld</p>
+                        <p className="text-xs mb-3 font-semibold text-pink-500">Je kunt geen hints van anderen zien zonder actieve bestemming</p>
+                        <p className="text-xs" style={{ color: textSub }}>
+                          Ga naar Pinpoint en stel je bestemming in om hints te zien en te sturen
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {Object.keys(venueGroups).length > 0 && (
+                          <div>
+                            <button
+                              onClick={() => setRegularHintsCollapsed(!regularHintsCollapsed)}
+                              className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-left focus:outline-none transition-all active:scale-[0.98]"
+                              style={{
+                                background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                                border: `1px solid ${divider}`,
+                              }}
+                            >
+                              <span className="text-xs font-black tracking-wide" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
+                                📍 HINTS IN JOUW OMGEVING ({hints.length})
+                              </span>
+                              {regularHintsCollapsed ? <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: textSub }} /> : <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: textSub }} />}
+                            </button>
+                            {!regularHintsCollapsed && (
+                              <div className="mt-3">
+                                {Object.entries(venueGroups).map(([venue, venueHints]) => (
+                                  <div key={venue} className="mb-5">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                      <MapPin className="w-3.5 h-3.5" style={{ color: '#FF4B72' }} />
+                                      <span className="text-xs font-bold" style={{ color: '#FF4B72' }}>{venue}</span>
+                                      <span className="text-xs" style={{ color: textSub }}>({venueHints.length})</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {venueHints.map(hint => (
+                                        <HintCard key={hint.id} hint={hint} isDark={isDark} onReacted={() => loadData()} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {Object.keys(venueGroups).length === 0 && !myTodayHint && superMatchHints.length === 0 && (
+                          <div className="flex flex-col items-center justify-center py-10 text-center">
+                            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ background: 'rgba(255,75,114,0.1)' }}>
+                              <Sparkles className="w-7 h-7" style={{ color: '#FF4B72' }} />
+                            </div>
+                            <p className={`font-black text-sm mb-1 ${textMain}`}>Nog geen hints</p>
+                            <p className="text-xs" style={{ color: textSub }}>Wees de eerste die een hint stuurt!</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'compose' && (
+                  <>
                 {step === 'choose' && (
                   <div className="space-y-3">
                     {options.map(({ type, icon: Icon, label, color, count }) => (
@@ -453,9 +630,11 @@ export default function SendHintSheet({ user, myProfile, myCheckIn, matches, mut
                 )}
               </>
             )}
-          </div>
-        </div>
-      </motion.div>
+          </>
+        )}
+      </div>
+    </div>
+  </motion.div>
 
       {/* Profile preview popup */}
       {previewProfile && (() => {
