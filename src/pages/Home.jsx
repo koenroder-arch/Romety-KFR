@@ -704,12 +704,12 @@ export default function Home() {
         </div>
 
         {/* Action Buttons List: Reveal Likes, Super Matches, Hints, Games, Discounts with Brand Logo Fade */}
-        <div className="mx-1 mt-4 mb-4 relative">
+        <div className="-mx-3.5 sm:-mx-2.5 mt-4 mb-4 relative">
           <div className={`space-y-3 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
             {/* 1. Onthul wie je heeft geliked (#FF4B72 - Felroze / Kersenrood) */}
             <button
               onClick={onRevealClick}
-              className={`w-full flex items-center justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm ${
+              className={`w-full flex items-center justify-between rounded-[24px] py-4.5 px-4 sm:py-5 sm:px-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm ${
                 unmatchedLikes.length > 0 ? '' : 'opacity-95'
               }`}
               style={{
@@ -735,27 +735,27 @@ export default function Home() {
               {/* Faint Watermark Background Icon */}
               <Eye className={`absolute -right-6 -bottom-6 w-24 h-24 sm:w-28 sm:h-28 ${isDark ? 'text-white/10' : 'text-pink-500/10'} pointer-events-none`} />
 
-              <div className="flex items-center gap-3 sm:gap-4 z-10 flex-1 min-w-0">
+              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0">
                 <div 
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: isDark ? 'rgba(255, 75, 114, 0.2)' : 'rgba(255, 75, 114, 0.12)' }}
                 >
-                  <Eye className={`w-5 h-5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
+                  <Eye className={`w-5.5 h-5.5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[8px] sm:text-[9px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
-                  <p className={`text-sm sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Onthul wie je heeft geliked</p>
-                  <p className={`text-[11px] sm:text-xs mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[8.5px] sm:text-[9.5px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
+                  <p className={`text-[15px] sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Onthul wie je heeft geliked</p>
+                  <p className={`text-xs sm:text-[13px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Bekijk wie jou leuk vindt
                   </p>
                 </div>
               </div>
               <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FF4B72] text-white text-xs font-black flex items-center justify-center shadow-md">
+                <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-[#FF4B72] text-white text-xs font-black flex items-center justify-center shadow-md">
                   {unmatchedLikes.length}
                 </div>
-                <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -763,7 +763,7 @@ export default function Home() {
             {/* 2. Super matches (#F9488A - Fade stap 1) */}
             <button
               onClick={() => setShowSuperMatchSheet(true)}
-              className="w-full flex items-center justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="w-full flex items-center justify-between rounded-[24px] py-4.5 px-4 sm:py-5 sm:px-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(249, 72, 138, 0.22) 0%, rgba(249, 72, 138, 0.08) 100%)'
@@ -777,27 +777,27 @@ export default function Home() {
               {/* Faint Watermark Background Icon */}
               <Flame className={`absolute -right-6 -bottom-6 w-24 h-24 sm:w-28 sm:h-28 ${isDark ? 'text-white/10' : 'text-pink-500/10'} pointer-events-none`} />
 
-              <div className="flex items-center gap-3 sm:gap-4 z-10 flex-1 min-w-0">
+              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0">
                 <div 
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: isDark ? 'rgba(249, 72, 138, 0.2)' : 'rgba(249, 72, 138, 0.12)' }}
                 >
-                  <Flame className={`w-5 h-5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
+                  <Flame className={`w-5.5 h-5.5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[8px] sm:text-[9px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#F9488A]'}`}>SUPER</p>
-                  <p className={`text-sm sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Super matches</p>
-                  <p className={`text-[11px] sm:text-xs mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[8.5px] sm:text-[9.5px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#F9488A]'}`}>SUPER</p>
+                  <p className={`text-[15px] sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Super matches</p>
+                  <p className={`text-xs sm:text-[13px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Ontdek je beste connecties
                   </p>
                 </div>
               </div>
               <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#F9488A] text-white text-xs font-black flex items-center justify-center shadow-md">
+                <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-[#F9488A] text-white text-xs font-black flex items-center justify-center shadow-md">
                   {superMatchCount}
                 </div>
-                <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -805,7 +805,7 @@ export default function Home() {
             {/* 3. Stuur een hint (#F445A3 - Fade stap 2) */}
             <button
               onClick={onHintClick}
-              className="w-full flex items-center justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="w-full flex items-center justify-between rounded-[24px] py-4.5 px-4 sm:py-5 sm:px-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(244, 69, 163, 0.22) 0%, rgba(244, 69, 163, 0.08) 100%)'
@@ -829,27 +829,27 @@ export default function Home() {
               {/* Faint Watermark Background Icon */}
               <Lightbulb className={`absolute -right-6 -bottom-6 w-24 h-24 sm:w-28 sm:h-28 ${isDark ? 'text-white/10' : 'text-pink-500/10'} pointer-events-none`} />
 
-              <div className="flex items-center gap-3 sm:gap-4 z-10 flex-1 min-w-0">
+              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0">
                 <div 
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: isDark ? 'rgba(244, 69, 163, 0.2)' : 'rgba(244, 69, 163, 0.12)' }}
                 >
-                  <Lightbulb className={`w-5 h-5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#F445A3]'}`} />
+                  <Lightbulb className={`w-5.5 h-5.5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#F445A3]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[8px] sm:text-[9px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#F445A3]'}`}>HINTS</p>
-                  <p className={`text-sm sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Stuur een hint</p>
-                  <p className={`text-[11px] sm:text-xs mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[8.5px] sm:text-[9.5px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#F445A3]'}`}>HINTS</p>
+                  <p className={`text-[15px] sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Stuur een hint</p>
+                  <p className={`text-xs sm:text-[13px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Laat anoniem je interesse weten
                   </p>
                 </div>
               </div>
               <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#F445A3] text-white text-xs font-black flex items-center justify-center shadow-md">
+                <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-[#F445A3] text-white text-xs font-black flex items-center justify-center shadow-md">
                   {hints.length + superMatchHints.length}
                 </div>
-                <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -857,7 +857,7 @@ export default function Home() {
             {/* 4. Spellen (#EE42BC - Fade stap 3) */}
             <button
               onClick={() => navigate(createPageUrl('Games'))}
-              className="w-full flex items-center justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="w-full flex items-center justify-between rounded-[24px] py-4.5 px-4 sm:py-5 sm:px-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(238, 66, 188, 0.22) 0%, rgba(238, 66, 188, 0.08) 100%)'
@@ -871,27 +871,27 @@ export default function Home() {
               {/* Faint Watermark Background Icon */}
               <Gamepad2 className={`absolute -right-6 -bottom-6 w-24 h-24 sm:w-28 sm:h-28 ${isDark ? 'text-white/10' : 'text-fuchsia-500/10'} pointer-events-none`} />
 
-              <div className="flex items-center gap-3 sm:gap-4 z-10 flex-1 min-w-0">
+              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0">
                 <div 
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: isDark ? 'rgba(238, 66, 188, 0.2)' : 'rgba(238, 66, 188, 0.12)' }}
                 >
-                  <Gamepad2 className={`w-5 h-5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
+                  <Gamepad2 className={`w-5.5 h-5.5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[8px] sm:text-[9px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>GAMES</p>
-                  <p className={`text-sm sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Spellen</p>
-                  <p className={`text-[11px] sm:text-xs mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[8.5px] sm:text-[9.5px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>GAMES</p>
+                  <p className={`text-[15px] sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Spellen</p>
+                  <p className={`text-xs sm:text-[13px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Speel games en verdien beloningen
                   </p>
                 </div>
               </div>
               <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#EE42BC] text-white text-xs font-black flex items-center justify-center shadow-md">
+                <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-[#EE42BC] text-white text-xs font-black flex items-center justify-center shadow-md">
                   {activeGameCount}
                 </div>
-                <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -899,7 +899,7 @@ export default function Home() {
             {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars) */}
             <button
               onClick={() => setShowDiscountsModal(true)}
-              className="w-full flex items-center justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="w-full flex items-center justify-between rounded-[24px] py-4.5 px-4 sm:py-5 sm:px-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(234, 63, 211, 0.22) 0%, rgba(234, 63, 211, 0.08) 100%)'
@@ -913,27 +913,27 @@ export default function Home() {
               {/* Faint Watermark Background Icon */}
               <Sparkles className={`absolute -right-6 -bottom-6 w-24 h-24 sm:w-28 sm:h-28 ${isDark ? 'text-white/10' : 'text-purple-500/10'} pointer-events-none`} />
 
-              <div className="flex items-center gap-3 sm:gap-4 z-10 flex-1 min-w-0">
+              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0">
                 <div 
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: isDark ? 'rgba(234, 63, 211, 0.2)' : 'rgba(234, 63, 211, 0.12)' }}
                 >
-                  <Sparkles className={`w-5 h-5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
+                  <Sparkles className={`w-5.5 h-5.5 sm:w-6 sm:h-6 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[8px] sm:text-[9px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
-                  <p className={`text-sm sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Bekijk VIP kortingen</p>
-                  <p className={`text-[11px] sm:text-xs mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[8.5px] sm:text-[9.5px] font-black tracking-wider uppercase ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
+                  <p className={`text-[15px] sm:text-base font-black leading-tight mt-0.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>Bekijk VIP kortingen</p>
+                  <p className={`text-xs sm:text-[13px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Exclusieve deals voor jou
                   </p>
                 </div>
               </div>
               <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#EA3FD3] text-white text-xs font-black flex items-center justify-center shadow-md">
+                <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-[#EA3FD3] text-white text-xs font-black flex items-center justify-center shadow-md">
                   {CLUB_DISCOUNTS.filter(d => !d.discount.includes('Geen actieve')).length}
                 </div>
-                <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>

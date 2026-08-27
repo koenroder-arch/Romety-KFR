@@ -56,12 +56,8 @@ export default function SplashScreen({ onDone }) {
             muted
             playsInline
             onEnded={handleVideoEnded}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
-          {/* Subtle click to skip indicator */}
-          <div className="absolute bottom-8 right-6 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] text-white/60 font-bold uppercase tracking-wider">
-            Tik om over te slaan
-          </div>
         </div>
       )}
 

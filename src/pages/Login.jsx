@@ -217,25 +217,22 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen max-w-md mx-auto relative shadow-2xl border-l border-r flex flex-col justify-center items-center px-4 py-12"
-      style={{ background: bg, fontFamily: "'Inter', sans-serif", borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}
+      className="min-h-screen w-full max-w-lg mx-auto relative shadow-2xl flex flex-col justify-center items-center px-4 sm:px-6 py-10"
+      style={{ background: bg, fontFamily: "'Inter', sans-serif" }}
     >
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full space-y-6">
         {/* Brand/Logo Header */}
-        <div className="text-center">
-          <div className="flex flex-col items-center gap-2 mb-6">
-            <h1
-              className="font-black tracking-tight leading-none"
+        <div className="text-center flex flex-col items-center">
+          <div className="flex flex-col items-center mb-3">
+            <img 
+              src="/romety-logo-transparent.png?v=3" 
+              alt="Romety" 
+              className="h-16 sm:h-20 w-auto object-contain select-none mb-1" 
               style={{
-                fontSize: '3rem',
-                background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                letterSpacing: '-0.02em',
+                mixBlendMode: isDark ? 'screen' : 'normal',
+                filter: isDark ? 'drop-shadow(0 0 16px rgba(234, 63, 211, 0.5))' : 'drop-shadow(0 4px 12px rgba(255, 75, 114, 0.3))'
               }}
-            >
-              ROMETY
-            </h1>
+            />
             <div className="flex items-center justify-center gap-2 mt-1">
               <div className="h-px w-8" style={{ background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
               <span className="text-[10px] font-semibold tracking-[0.2em] uppercase" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }}>Connect &amp; Meet</span>
@@ -247,10 +244,10 @@ export default function Login() {
 
         {/* Auth Card */}
         <div
-          className="rounded-[30px] p-8 shadow-2xl border transition-all duration-300"
+          className="rounded-[28px] p-6 sm:p-8 shadow-2xl border transition-all duration-300 w-full"
           style={{
             background: cardBg,
-            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
           }}
         >
           <h2 className={`text-2xl font-black mb-6 ${textMain}`}>
