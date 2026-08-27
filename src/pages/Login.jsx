@@ -217,8 +217,8 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex flex-col justify-center items-center px-4 py-12"
-      style={{ background: bg, fontFamily: "'Inter', sans-serif" }}
+      className="min-h-screen max-w-md mx-auto relative shadow-2xl border-l border-r flex flex-col justify-center items-center px-4 py-12"
+      style={{ background: bg, fontFamily: "'Inter', sans-serif", borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}
     >
       <div className="w-full max-w-md space-y-8">
         {/* Brand/Logo Header */}

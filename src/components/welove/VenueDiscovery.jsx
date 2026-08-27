@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -9,6 +10,7 @@ const FREE_DAILY_LIMIT = 5;
 const TICK_MS = 50;
 
 export default function VenueDiscovery({ myProfile, currentUserEmail, isPremium, onShowPremium }) {
+  const navigate = useNavigate();
   const [profiles, setProfiles] = useState([]);    // unseen, filtered
   const [currentIdx, setCurrentIdx] = useState(0);
   const [swipedToday, setSwipedToday] = useState(0);
@@ -193,7 +195,7 @@ export default function VenueDiscovery({ myProfile, currentUserEmail, isPremium,
               {venueName && (
                 <div className="absolute top-4 right-4 z-20">
                   <button
-                    onClick={(e) => { e.stopPropagation(); window.location.href = '/Pinpoint'; }}
+                    onClick={(e) => { e.stopPropagation(); navigate('/Pinpoint'); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white backdrop-blur-sm"
                     style={{ background: 'rgba(160,97,255,0.75)', border: '1px solid rgba(160,97,255,0.9)' }}
                   >

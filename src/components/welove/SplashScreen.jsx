@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useLang } from '@/lib/LanguageContext';
-
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -11,22 +10,19 @@ const LANGUAGES = [
 
 export default function SplashScreen({ onDone }) {
   const { setLang } = useLang();
-  // phase: 'logo' → 'zoom' → 'language'
-  const [phase, setPhase] = useState('logo');
+  // phase: 'video' → 'language'
+  const [phase, setPhase] = useState('video');
   const [selectedLang, setSelectedLang] = useState(null);
+  const videoRef = useRef(null);
 
-  useEffect(() => {
+  const handleVideoEnded = () => {
     const hasLang = localStorage.getItem('welove_lang');
-    const t1 = setTimeout(() => setPhase('zoom'), 1500);
-    const t2 = setTimeout(() => {
-      if (hasLang) {
-        onDone();
-      } else {
-        setPhase('language');
-      }
-    }, 2200);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [onDone]);
+    if (hasLang) {
+      onDone();
+    } else {
+      setPhase('language');
+    }
+  };
 
   const handleLangSelect = (code) => {
     setSelectedLang(code);
@@ -36,44 +32,38 @@ export default function SplashScreen({ onDone }) {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center"
-      style={{ background: '#08090E', zIndex: 2147483647, fontFamily: "'Inter', sans-serif" }}
+      className="fixed inset-0 flex items-center justify-center bg-black"
+      style={{ zIndex: 2147483647, fontFamily: "'Inter', sans-serif" }}
     >
       <style>{`
-        @keyframes zoomIn {
-          from { transform: scale(1); opacity: 1; }
-          to   { transform: scale(30); opacity: 0; }
-        }
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(24px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .splash-zoom { animation: zoomIn 0.7s ease-in forwards; }
         .lang-fadein { animation: fadeInUp 0.5s ease-out forwards; }
       `}</style>
 
-      {/* Logo phase */}
-       {phase !== 'language' && phase !== 'theme' && (
-         <div className={`flex flex-col items-center gap-2 ${phase === 'zoom' ? 'splash-zoom' : ''}`}>
-           <h1
-             className="font-black tracking-tight leading-none"
-             style={{
-               fontSize: '3.5rem',
-               background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-               WebkitBackgroundClip: 'text',
-               WebkitTextFillColor: 'transparent',
-               letterSpacing: '-0.02em',
-             }}
-           >
-             ROMETY
-           </h1>
-           <div className="flex items-center gap-2">
-             <div className="h-px w-8" style={{ background: 'rgba(255,255,255,0.25)' }} />
-             <span className="text-xs font-semibold tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.45)' }}>Connect &amp; Meet</span>
-             <div className="h-px w-8" style={{ background: 'rgba(255,255,255,0.25)' }} />
-           </div>
-         </div>
-       )}
+      {/* Video Phase */}
+      {phase === 'video' && (
+        <div 
+          className="absolute inset-0 w-full h-full flex items-center justify-center bg-black cursor-pointer"
+          onClick={handleVideoEnded}
+        >
+          <video
+            ref={videoRef}
+            src="/romety_splashscreen.mp4"
+            autoPlay
+            muted
+            playsInline
+            onEnded={handleVideoEnded}
+            className="w-full h-full object-cover"
+          />
+          {/* Subtle click to skip indicator */}
+          <div className="absolute bottom-8 right-6 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] text-white/60 font-bold uppercase tracking-wider">
+            Tik om over te slaan
+          </div>
+        </div>
+      )}
 
       {/* Language selection phase */}
       {phase === 'language' && (

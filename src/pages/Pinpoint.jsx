@@ -453,20 +453,20 @@ export default function Pinpoint() {
         : 40)
     : (unlocked ? '55%' : 40);
 
-  const pageBg = isDark ? '#0A0E21' : '#F8F9FB';
-  const searchBarBg = isDark ? 'rgba(20,20,40,0.92)' : 'rgba(255,255,255,0.95)';
+  const pageBg = isDark ? '#08090E' : '#F8F9FB';
+  const searchBarBg = isDark ? 'rgba(13,14,21,0.88)' : 'rgba(255,255,255,0.92)';
   const searchBarBorder = (focused) => focused
     ? 'rgba(255,107,74,0.9)'
     : isDark ? 'rgba(255,107,74,0.5)' : 'rgba(255,107,74,0.4)';
   const searchTextColor = isDark ? 'text-white' : 'text-gray-900';
   const searchPlaceholderColor = isDark ? 'placeholder-white/30' : 'placeholder-gray-400';
-  const dropdownBg = isDark ? 'rgba(14,14,28,0.92)' : 'rgba(255,255,255,0.98)';
+  const dropdownBg = isDark ? 'rgba(13,14,21,0.95)' : 'rgba(255,255,255,0.98)';
   const dropdownBorder = isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,0,0,0.08)';
   const rowBorderColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
   const labelColor = isDark ? '#FFFFFF' : '#111827';
   const subColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)';
   const sectionLabelColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.35)';
-  const crosshairBg = isDark ? 'rgba(18,18,35,0.92)' : 'rgba(255,255,255,0.95)';
+  const crosshairBg = isDark ? 'rgba(13,14,21,0.88)' : 'rgba(255,255,255,0.95)';
   const crosshairBorder = isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.1)';
 
   if (loading) {
@@ -478,7 +478,7 @@ export default function Pinpoint() {
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md overflow-hidden shadow-2xl border-l border-r" style={{ background: pageBg, fontFamily: "'Inter', sans-serif", borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
       <style>{`
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
         @keyframes borderPulse {

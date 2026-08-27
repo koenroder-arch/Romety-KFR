@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, Users, Heart, User, Info, Sparkles, Lock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Users, Heart, User, Info, Sparkles, Lock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { motion, useMotionValue, useTransform, animate, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import HintCard from '@/components/welove/HintCard';
 
 const MAX_CHARS = 25;
-
-const SHEET_H = () => Math.round(window.innerHeight * 0.85);
-const PEEK_VISIBLE = () => Math.round(window.innerHeight * 0.70);
-const FULL_Y = 0;
-const getPeekY = () => SHEET_H() - PEEK_VISIBLE();
-const getHiddenY = () => SHEET_H() + 40;
 
 export default function SendHintSheet({ 
   user, myProfile, myCheckIn, matches, mutualMatches, onClose, onSent, isDark, initialProfile = null,
@@ -23,12 +17,10 @@ export default function SendHintSheet({
   const [previewProfile, setPreviewProfile] = useState(null);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
-  const [snapState, setSnapState] = useState('open');
 
   const [superHintsCollapsed, setSuperHintsCollapsed] = useState(false);
   const [regularHintsCollapsed, setRegularHintsCollapsed] = useState(false);
 
-  // Group hints by venue
   const venueGroups = hints.reduce((acc, h) => {
     const key = h.venue_name || 'Onbekend';
     if (!acc[key]) acc[key] = [];
@@ -39,8 +31,6 @@ export default function SendHintSheet({
   const [allCheckIns, setAllCheckIns] = useState([]);
   const [allDestinations, setAllDestinations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
-
-  const dragControls = useDragControls();
 
   // Swipe logic for tabs
   const [touchStart, setTouchStart] = useState(null);
@@ -71,32 +61,13 @@ export default function SendHintSheet({
     }
   };
 
-  // Freeze background body scroll while the sheet is open
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    const originalHeight = document.body.style.height;
-    document.body.style.overflow = 'hidden';
-    document.body.style.height = '100vh';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.height = originalHeight;
-    };
-  }, []);
-
-  const HIDDEN_Y = getHiddenY();
-  const sheetHeight = SHEET_H();
-
-  const y = useMotionValue(HIDDEN_Y);
-  const bgOpacity = useTransform(y, [FULL_Y, HIDDEN_Y], [0.6, 0]);
-
-  // Load locations on mount
   useEffect(() => {
     let active = true;
     const loadLocations = async () => {
       try {
-        const [checkIns, dests] = await Promise.all([
-          base44.entities.VenueCheckIn.list(),
-          base44.entities.UserDestination.list(),
+        const [checkIns = [], dests = []] = await Promise.all([
+          base44.entities.VenueCheckIn.list().catch(() => []),
+          base44.entities.UserDestination.list().catch(() => []),
         ]);
         if (active) {
           setAllCheckIns(checkIns);
@@ -112,27 +83,7 @@ export default function SendHintSheet({
     return () => { active = false; };
   }, []);
 
-  // Animate in on mount and state changes
-  useEffect(() => {
-    const target = snapState === 'open' ? FULL_Y : HIDDEN_Y;
-    animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
-  }, [snapState]);
-
-  const handleDragEnd = (_, info) => {
-    const velocity = info.velocity.y;
-    const currentY = y.get();
-
-    // If dragged down or high velocity down, close it
-    if (velocity > 300 || currentY > sheetHeight * 0.4) {
-      onClose();
-    } else {
-      // Snap back to open state
-      setSnapState('open');
-      animate(y, FULL_Y, { type: 'spring', stiffness: 400, damping: 38 });
-    }
-  };
-
-  const bg = isDark ? 'rgba(14,14,28,1)' : 'rgba(255,255,255,1)';
+  const bg = isDark ? '#0E0E1C' : '#FFFFFF';
   const textMain = isDark ? '#FFFFFF' : '#111827';
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)';
   const divider = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
@@ -169,17 +120,8 @@ export default function SendHintSheet({
     return !!theirDest;
   };
 
-  // Filter matches and mutualMatches by current user's active check-in or destination
-  const filteredMatches = myCheckIn
-    ? matches.filter(m => {
-        const email = m.user_email || m.profile?.user_email;
-        return isAtSameVenue(email);
-      })
-    : matches;
-
-  const filteredMutualMatches = myCheckIn
-    ? mutualMatches.filter(p => isAtSameVenue(p.user_email))
-    : mutualMatches;
+  const filteredMatches = myCheckIn ? matches.filter(m => isAtSameVenue(m.user_email || m.profile?.user_email)) : matches;
+  const filteredMutualMatches = myCheckIn ? mutualMatches.filter(p => isAtSameVenue(p.user_email)) : mutualMatches;
 
   const options = [
     { type: 'supermatch', icon: Heart, label: 'Stuur een hint naar je supermatch', color: '#EA3FD3', count: mutualMatches.length },
@@ -198,45 +140,31 @@ export default function SendHintSheet({
 
   const getRecipients = () => {
     if (targetType === 'supermatch') return mutualMatches.map(p => p.user_email);
-    if (targetType === 'matches') return filteredMatches.map(m => m.user_email || m.profile?.user_email);
-    if (targetType === 'single' && selectedProfile) {
-      return [selectedProfile.user_email || selectedProfile.profile?.user_email];
-    }
+    if (targetType === 'matches') return filteredMatches.map(m => m.user_email || m.profile?.user_email).filter(Boolean);
+    if (targetType === 'single' && selectedProfile) return [selectedProfile.user_email];
     return [];
   };
 
-  // All matchable profiles for single pick
   const allMatchProfiles = [
     ...filteredMutualMatches,
     ...filteredMatches.filter(m => !filteredMutualMatches.find(mm => mm.user_email === (m.user_email || m.profile?.user_email)))
   ];
 
   const handleSend = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || sending) return;
     setSending(true);
-    const toEmails = getRecipients().filter(Boolean);
 
-    await base44.entities.Hint.create({
-      from_email: user.email,
-      from_name: myProfile?.display_name || user.full_name || 'Onbekend',
-      from_photo_url: myProfile?.photo_url || null,
-      from_avatar: myProfile?.avatar || null,
-      from_age: myProfile?.age || null,
-      from_traits: (myProfile?.traits || []).slice(0, 3),
-      venue_name: myCheckIn?.venue_name || '',
-      message: message.trim().slice(0, MAX_CHARS),
-      target_type: targetType,
-      to_emails: toEmails,
-    });
+    const recipients = getRecipients();
+    const venueName = myCheckIn?.venue_name || 'Geen locatie';
 
-    await Promise.all(toEmails.map(email =>
-      base44.entities.Notification.create({
-        to_email: email,
+    await Promise.all(recipients.map(to_email => 
+      base44.entities.Hint.create({
         from_email: user.email,
-        from_name: myProfile?.display_name || user.full_name || 'Onbekend',
-        type: 'hint',
-        venue_name: myCheckIn?.venue_name || '',
-      }).catch(() => {})
+        to_email,
+        venue_name: venueName,
+        message: message.trim(),
+        sender_avatar: myProfile?.avatar || '🦁 Leeuw'
+      }).catch(err => console.error("Failed to send hint:", err))
     ));
 
     setSending(false);
@@ -245,99 +173,92 @@ export default function SendHintSheet({
 
   return (
     <>
-      {/* Backdrop */}
       <motion.div
-        className="fixed inset-0"
-        style={{ zIndex: 100, background: 'rgba(0,0,0,1)', opacity: bgOpacity, pointerEvents: 'none' }}
-      />
-
-      {/* Tap backdrop to close */}
-      <div
-        className="fixed inset-0"
-        style={{ zIndex: 101 }}
+        className="fixed inset-0 z-[100]"
+        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         onClick={onClose}
       />
 
       <motion.div
-        drag="y"
-        dragControls={dragControls}
-        dragListener={false}
-        dragConstraints={{ top: FULL_Y, bottom: HIDDEN_Y }}
-        dragElastic={0.08}
-        onDragEnd={handleDragEnd}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={{ left: 0, right: 0.8 }}
+        onDragEnd={(_, info) => {
+          if (info.offset.x > 80 || info.velocity.x > 400) {
+            onClose();
+          }
+        }}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+        className="fixed inset-0 z-[102] max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
         style={{
-          y,
-          position: 'fixed',
-          bottom: 0,
-          left: '50%',
-          translateX: '-50%',
-          width: '100%',
-          maxWidth: 448,
-          zIndex: 102,
+          background: bg,
           touchAction: 'pan-y',
         }}
       >
-        <div
-          className="flex flex-col overflow-hidden"
-          style={{
-            background: bg,
-            backdropFilter: 'blur(40px)',
-            WebkitBackdropFilter: 'blur(40px)',
-            border: isDark ? '1.5px solid rgba(255,255,255,0.12)' : '1.5px solid rgba(0,0,0,0.08)',
-            borderRadius: '28px 28px 0 0',
-            boxShadow: isDark ? '0 -8px 40px rgba(255,107,74,0.2), 0 -2px 20px rgba(0,0,0,0.5)' : '0 -4px 30px rgba(0,0,0,0.1)',
-            height: sheetHeight,
-          }}
-        >
-          {/* Drag handle */}
-          <div
-            className="w-full flex flex-col items-center pt-3 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
-            onPointerDown={(e) => dragControls.start(e)}
-            style={{ touchAction: 'none' }}
+        <div className="flex flex-col h-full overflow-hidden">
+          {/* Header */}
+          <div 
+            className="w-full px-4 pb-3 flex items-center justify-between flex-shrink-0" 
+            style={{ 
+              paddingTop: 'max(16px, env(safe-area-inset-top, 16px))',
+              borderBottom: `1px solid ${divider}` 
+            }}
           >
-            <div className="w-12 h-1.5 rounded-full mb-3 shadow-sm" style={{ background: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.25)' }} />
-
-            {/* Tabs & Header */}
-            <div className="w-full px-5 flex items-start justify-between" style={{ borderBottom: `1px solid ${divider}` }}>
-              <div className="flex gap-5">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onClose}
+                className="w-10 h-10 -ml-1 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform"
+                style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
+                title="Terug"
+              >
+                <ChevronLeft className="w-6 h-6" style={{ color: textMain }} />
+              </button>
+              <div className="flex gap-4 ml-1">
                 <button
                   onClick={() => setActiveTab('hints')}
-                  className={`pb-3 text-base font-black transition-colors border-b-[3px] ${activeTab === 'hints' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-500 border-transparent'}`}
+                  className={`pb-1 text-base font-black transition-colors border-b-[3px] ${activeTab === 'hints' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-400 border-transparent'}`}
                 >
                   Hints
                 </button>
                 <button
                   onClick={() => setActiveTab('compose')}
-                  className={`pb-3 text-base font-black transition-colors border-b-[3px] ${activeTab === 'compose' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-500 border-transparent'}`}
+                  className={`pb-1 text-base font-black transition-colors border-b-[3px] ${activeTab === 'compose' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-400 border-transparent'}`}
                 >
                   Hint sturen
                 </button>
               </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0"
+              style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
+            >
+              <X className="w-4 h-4" style={{ color: textMain }} />
+            </button>
+          </div>
+
+          {activeTab === 'compose' && (step === 'compose' || step === 'pick') && (
+            <div className="w-full px-5 py-3 text-left flex-shrink-0" style={{ borderBottom: `1px solid ${divider}` }}>
               <button
-                onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 -mt-1"
-                style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
+                onClick={(e) => { e.stopPropagation(); step === 'compose' && targetType === 'single' ? setStep('pick') : setStep('choose'); }}
+                className="text-sm font-semibold"
+                style={{ color: '#FF6B4A' }}
               >
-                <X className="w-4 h-4" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
+                ← Terug
               </button>
             </div>
-            
-            {activeTab === 'compose' && (step === 'compose' || step === 'pick') && (
-              <div className="w-full px-5 py-3 text-left" style={{ borderBottom: `1px solid ${divider}` }}>
-                <button
-                  onClick={(e) => { e.stopPropagation(); step === 'compose' && targetType === 'single' ? setStep('pick') : setStep('choose'); }}
-                  className="text-sm font-semibold"
-                  style={{ color: '#FF6B4A' }}
-                >
-                  ← Terug
-                </button>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Scrollable content */}
           <div 
-            className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4"
+            className="flex-1 overflow-y-auto overflow-x-hidden px-5 pt-4"
+            style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEndHandler}

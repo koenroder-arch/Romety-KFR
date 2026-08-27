@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, CheckCircle2, Navigation, Users, XCircle, Copy } from 'lucide-react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { X, CheckCircle2, Navigation, Users, XCircle, Copy, Heart } from 'lucide-react';
+import { motion, useMotionValue, useTransform, animate, useDragControls } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
 
@@ -46,6 +46,7 @@ export default function VenueBottomSheet({
   const HIDDEN_Y = getHiddenY();
   const sheetHeight = SHEET_H();
 
+  const dragControls = useDragControls();
   const y = useMotionValue(HIDDEN_Y);
   const sheetRef = useRef(null);
 
@@ -128,6 +129,8 @@ export default function VenueBottomSheet({
       <motion.div
         ref={sheetRef}
         drag="y"
+        dragControls={dragControls}
+        dragListener={false}
         dragConstraints={{ top: FULL_Y, bottom: PEEK_Y }}
         dragElastic={0.08}
         onDragEnd={handleDragEnd}
@@ -147,7 +150,7 @@ export default function VenueBottomSheet({
         <div
           className="rounded-t-[32px] flex flex-col overflow-hidden"
           style={{
-            background: isDark ? 'rgba(14,14,28,1)' : 'rgba(255,255,255,1)',
+            background: isDark ? '#08090E' : 'rgba(255,255,255,1)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
             border: isDark ? '1.5px solid rgba(255,255,255,0.12)' : '1.5px solid rgba(0,0,0,0.08)',
@@ -159,6 +162,7 @@ export default function VenueBottomSheet({
           {/* ── Drag handle + header (always visible in peek) ── */}
           <div
             className="w-full flex flex-col items-center pt-3 pb-3 cursor-pointer select-none flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            onPointerDown={(e) => dragControls.start(e)}
             onClick={() => {
               if (snapState === 'peek') onSnapChange('full');
               else onSnapChange('peek');
@@ -180,6 +184,7 @@ export default function VenueBottomSheet({
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); handleCopyVenue(); }}
                   className="flex items-center justify-center w-9 h-9 rounded-full transition-transform active:scale-90"
                   style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
@@ -188,6 +193,7 @@ export default function VenueBottomSheet({
                   <Copy className="w-4 h-4" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
                 </button>
                 <button
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onClose(); }}
                   className="flex items-center justify-center w-9 h-9 rounded-full transition-transform active:scale-90"
                   style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
@@ -285,33 +291,22 @@ export default function VenueBottomSheet({
                  </div>
                )}
 
-               {/* Match profile photos — only if user is going */}
-               {isGoing && matchGoingProfiles.length > 0 && (
-                 <div className="mt-3 pt-3" style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.07)' }}>
-                   <button
-                     onClick={() => { navigate('/Matches'); onClose(); }}
-                     className="flex items-center gap-3 w-full"
-                   >
-                     <div className="flex -space-x-2">
-                       {matchGoingProfiles.slice(0, 6).map((p, i) => (
-                         <div
-                           key={p.user_email}
-                           className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0"
-                           style={{ border: isDark ? '2px solid rgba(14,14,28,0.97)' : '2px solid rgba(255,255,255,0.9)', zIndex: 6 - i }}
-                         >
-                           {p.photo_url
-                             ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
-                             : <div className="w-full h-full flex items-center justify-center text-sm" style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}>
-                                 {p.avatar ? p.avatar.split(' ')[0] : '👤'}
-                               </div>
-                           }
-                         </div>
-                       ))}
-                     </div>
-                     <span className="text-xs font-bold" style={{ color: '#FF4B72' }}>Bekijk matches →</span>
-                   </button>
-                 </div>
-               )}
+               {/* Match CTA button — if user is going or checked in */}
+                {(isGoing || isCheckedIn) && (
+                  <div className="mt-4 pt-3" style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.07)' }}>
+                    <button
+                      onClick={() => { navigate('/Matches'); onClose(); }}
+                      className="w-full py-3.5 px-5 rounded-[18px] text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+                      style={{
+                        background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+                        boxShadow: '0 6px 20px rgba(255, 75, 114, 0.35)',
+                      }}
+                    >
+                      <Heart className="w-4 h-4 fill-white text-white" />
+                      <span>Bekijk matches {matchGoingCount > 0 ? `(${matchGoingCount})` : ''}</span>
+                    </button>
+                  </div>
+                )}
               </div>
           </div>
         </div>

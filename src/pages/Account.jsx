@@ -338,7 +338,7 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen pb-36 select-none" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen max-w-md mx-auto relative shadow-2xl border-l border-r pb-36 select-none" style={{ background: bg, fontFamily: "'Inter', sans-serif", borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
       
       {/* Top Header Background */}
       <div className="px-5 pt-14 sm:pt-16 pb-20 relative overflow-hidden" style={{ background: headerBg }}>
@@ -816,7 +816,7 @@ export default function Account() {
 
       {/* ── MODAL: SAVE CONFIRMATION (NORMAL NOTIFICATION STYLE & SMALLER) ── */}
       {showSaveConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowSaveConfirm(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowSaveConfirm(false)}>
           <div className="bg-white rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-center gap-2 mb-2">
               <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
@@ -845,7 +845,7 @@ export default function Account() {
 
       {/* ── MODAL: PROFILE PREVIEW (MATCHES PAGE SWIPER CARD STYLE) ── */}
       {showPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setShowPreview(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setShowPreview(false)}>
           <div className="w-full max-w-sm h-[560px] rounded-[32px] overflow-hidden relative shadow-2xl flex flex-col justify-end" onClick={e => e.stopPropagation()}>
             
             {/* Close Button */}
@@ -922,7 +922,7 @@ export default function Account() {
 
       {/* ── MODAL: LOGOUT CONFIRM (NORMAL NOTIFICATION STYLE) ── */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowLogoutConfirm(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowLogoutConfirm(false)}>
           <div className="bg-white rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-center gap-2 mb-2">
               <LogOut className="w-4.5 h-4.5 text-rose-500 flex-shrink-0" />
@@ -951,7 +951,7 @@ export default function Account() {
 
       {/* ── MODAL: DELETE CONFIRM (NORMAL NOTIFICATION STYLE) ── */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowDeleteConfirm(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowDeleteConfirm(false)}>
           <div className="bg-white rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-center gap-2 mb-2">
               <Trash2 className="w-4.5 h-4.5 text-red-600 flex-shrink-0" />
@@ -980,7 +980,7 @@ export default function Account() {
 
       {/* ── MODAL: DELETE SURVEY ── */}
       {showDeleteSurvey && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-white rounded-[28px] w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
             <div className="text-4xl mb-2">👋</div>
             <h3 className="text-xl font-black text-gray-900 mb-1">Account Verwijderd</h3>

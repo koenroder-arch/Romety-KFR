@@ -106,7 +106,7 @@ export default function HomeInfoSheet({
         <div
           className="rounded-t-[32px] flex flex-col overflow-hidden"
           style={{
-            background: isDark ? 'rgba(14,14,28,1)' : 'rgba(255,255,255,1)',
+            background: isDark ? '#08090E' : 'rgba(255,255,255,1)',
             backdropFilter: 'blur(40px)',
             WebkitBackdropFilter: 'blur(40px)',
             border: isDark ? '1.5px solid rgba(255,255,255,0.12)' : '1.5px solid rgba(0,0,0,0.08)',

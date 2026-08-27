@@ -95,7 +95,7 @@ export default function Layout({ children, currentPageName }) {
 
       {showNav &&
         <nav
-          className="fixed bottom-0 left-0 right-0 z-50"
+          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[200]"
           style={{
             background: isDark ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)',
             borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)',

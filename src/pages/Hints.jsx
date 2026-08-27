@@ -355,7 +355,7 @@ export default function Hints() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col justify-between bg-black text-white" style={{ zIndex: 40 }}>
+    <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col justify-between bg-black text-white shadow-2xl border-l border-r border-white/10" style={{ zIndex: 40 }}>
       <div 
         className="flex-1 w-full h-full relative flex items-center justify-center overflow-hidden bg-black"
         onClick={handleDoubleTap}

@@ -210,7 +210,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
         Er is op dit moment niemand nieuw op jouw locatie die aan je voorkeuren voldoet.
       </p>
       <button
-        onClick={() => window.location.href = '/pinpoint'}
+        onClick={() => navigate('/Pinpoint')}
         className="px-6 py-3 rounded-full font-black text-sm text-white shadow-lg active:scale-95 transition-transform"
         style={{ background: GRAD, boxShadow: '0 8px 24px rgba(255,107,74,0.3)' }}
       >

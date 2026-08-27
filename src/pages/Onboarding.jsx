@@ -39,14 +39,14 @@ const AVATAR_CATEGORIES = {
   'Zeedieren': [
     { name: 'Haai', emoji: '🦈' },
     { name: 'Inktvis', emoji: '🐙' },
-    { name: 'Zeester', emoji: '⭐' },
+    { name: 'Zeester', emoji: '🐡' },
     { name: 'Koraalduivel', emoji: '🐠' },
     { name: 'Zwaardvis', emoji: '🐟' },
   ],
   'Overig': [
     { name: 'Vlinder', emoji: '🦋' },
     { name: 'Libelle', emoji: '🪲' },
-    { name: 'Vuurvliegje', emoji: '💡' },
+    { name: 'Vuurvliegje', emoji: '🪲' },
   ]
 };
 
@@ -262,7 +262,7 @@ export default function Onboarding() {
   const chipCls = (active, disabled) => `py-3 rounded-[14px] text-sm font-semibold transition-all ${active ? 'text-white' : disabled ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-white/5 border border-white/10 text-white/80 hover:border-[#FF4B72]/30 hover:text-white'}`;
 
   return (
-    <div className="min-h-screen flex flex-col items-center" style={{ background: '#08090E', fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen max-w-md mx-auto relative shadow-2xl border-l border-r flex flex-col items-center" style={{ background: '#08090E', fontFamily: "'Inter', sans-serif", borderColor: 'rgba(255,255,255,0.08)' }}>
 
       <div className="w-full max-w-md px-5 pt-10 pb-12">
         {/* Logo */}

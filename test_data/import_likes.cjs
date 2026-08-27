@@ -18,14 +18,18 @@ async function run() {
 
   // Filter out any existing likes associated with koen.roder@gmail.com first
   const cleanLikes = existingLikes.filter(l => 
-    l.from_email !== 'koen.roder@gmail.com' && l.to_email !== 'koen.roder@gmail.com'
+    l.from_email?.toLowerCase() !== 'koen.roder@gmail.com' && 
+    l.to_email?.toLowerCase() !== 'koen.roder@gmail.com'
   );
 
-  const targetUsers = [
+  const mutualUsers = [
     'lotte0@test.com',
     'maud1@test.com',
     'emma2@test.com',
-    'nina3@test.com',
+    'nina3@test.com'
+  ];
+
+  const singleLikedMeUsers = [
     'maud4@test.com',
     'nina5@test.com',
     'noa6@test.com',
@@ -35,9 +39,9 @@ async function run() {
   const newLikes = [];
   const nowStr = new Date().toISOString();
 
-  // Create mutual likes
-  targetUsers.forEach((email, index) => {
-    // Koen likes them
+  // Create mutual likes (Matches)
+  mutualUsers.forEach((email, index) => {
+    // Koen likes them (lowercase)
     newLikes.push({
       id: `a1111111-2222-3333-4444-${String(100000000000 + index)}`,
       from_email: 'koen.roder@gmail.com',
@@ -45,11 +49,48 @@ async function run() {
       created_date: nowStr
     });
 
-    // They like Koen
+    // They like Koen (lowercase)
     newLikes.push({
       id: `b1111111-2222-3333-4444-${String(100000000000 + index)}`,
       from_email: email,
       to_email: 'koen.roder@gmail.com',
+      created_date: nowStr
+    });
+
+    // Koen likes them (capitalized)
+    newLikes.push({
+      id: `c1111111-2222-3333-4444-${String(100000000000 + index)}`,
+      from_email: 'Koen.roder@gmail.com',
+      to_email: email,
+      created_date: nowStr
+    });
+
+    // They like Koen (capitalized)
+    newLikes.push({
+      id: `d1111111-2222-3333-4444-${String(100000000000 + index)}`,
+      from_email: email,
+      to_email: 'Koen.roder@gmail.com',
+      created_date: nowStr
+    });
+  });
+
+  // Create single likes (people who liked Koen, but Koen hasn't liked back yet)
+  singleLikedMeUsers.forEach((email, index) => {
+    const offset = mutualUsers.length + index;
+    
+    // They like Koen (lowercase)
+    newLikes.push({
+      id: `b1111111-2222-3333-4444-${String(100000000000 + offset)}`,
+      from_email: email,
+      to_email: 'koen.roder@gmail.com',
+      created_date: nowStr
+    });
+
+    // They like Koen (capitalized)
+    newLikes.push({
+      id: `d1111111-2222-3333-4444-${String(100000000000 + offset)}`,
+      from_email: email,
+      to_email: 'Koen.roder@gmail.com',
       created_date: nowStr
     });
   });

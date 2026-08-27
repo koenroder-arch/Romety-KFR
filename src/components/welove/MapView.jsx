@@ -19,6 +19,17 @@ function FlyToHandler({ flyToRef, onMapClick }) {
   return null;
 }
 
+function ResizeHandler() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
+
 function RecenterMap({ position }) {
   const map = useMap();
   useEffect(() => {
@@ -102,6 +113,7 @@ const MapView = forwardRef(function MapView({ venues, userPosition, myCheckIn, o
         />
 
         <FlyToHandler flyToRef={flyToRef} onMapClick={onMapClick} />
+        <ResizeHandler />
 
         {userPosition && (
           <>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { Lock, MapPin } from 'lucide-react';
@@ -9,13 +10,14 @@ import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
 
-import { calculateCompatibility } from '@/lib/matchUtils';
+import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import NotificationBell from '@/components/welove/NotificationBell';
 import SendHintSheet from '@/components/welove/SendHintSheet';
 
 
 
 export default function Matches() {
+  const navigate = useNavigate();
   const { lang } = useLang();
   const { theme } = useTheme();
   const isDark = theme !== 'light';
@@ -90,34 +92,8 @@ export default function Matches() {
       return !!theirDest;
     };
 
-    const getArray = (val) => {
-      if (Array.isArray(val)) return val;
-      if (typeof val === 'string') {
-        try { return JSON.parse(val); } catch(e) { return val.split(',').map(s=>s.replace(/^"|"$/g,'').trim()); }
-      }
-      return [];
-    };
-
-    const isLooseMatch = (me, other) => {
-      if (!me || !other) return false;
-      if (!me.gender || !me.looking_for || !other.gender || !other.looking_for) return false;
-      const iWantThem = me.looking_for === 'both' || me.looking_for === other.gender;
-      const theyWantMe = other.looking_for === 'both' || other.looking_for === me.gender;
-      if (!iWantThem || !theyWantMe) return false;
-      
-      const mInterests = getArray(me.interests);
-      const oInterests = getArray(other.interests);
-      const sharedInterests = mInterests.filter((i) => oInterests.includes(i)).length;
-      
-      const mTraits = getArray(me.traits);
-      const oTraits = getArray(other.traits);
-      const sharedTraits = mTraits.filter((tr) => oTraits.includes(tr)).length;
-      
-      return sharedInterests >= 1 || sharedTraits >= 1;
-    };
-
     const matchData = others
-      .filter((p) => isLooseMatch(myProf, p) && isAtSameVenue(p.user_email))
+      .filter((p) => isMatch(myProf, p) && isAtSameVenue(p.user_email))
       .map((p) => ({
         profile: p,
         compatibility: calculateCompatibility(myProf, p),
@@ -146,7 +122,7 @@ export default function Matches() {
   const myLocation = myCheckIn;
 
   return (
-    <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
+    <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col border-l border-r shadow-2xl" style={{ background: bg, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
       {/* Glassmorphic Header styled like SuperMatchesSheet */}
       <div 
         className="flex items-center justify-between pt-12 px-5 pb-4 flex-shrink-0 backdrop-blur-xl z-[100]" 
@@ -167,7 +143,7 @@ export default function Matches() {
               color: 'transparent',
             }}
           >
-            🔥 Matches
+            {myLocation?.venue_name ? `Matches - ${myLocation.venue_name}` : 'Matches'}
           </h1>
           <p className="text-[11px] font-medium mt-0.5" style={{ color: textSub }}>
             {matches.length} {matches.length === 1 ? 'match op je locatie' : 'matches op je locatie'}
@@ -186,7 +162,7 @@ export default function Matches() {
           <p className="text-sm mb-4" style={{ color: textSub }}>
             Zet je locatie aan of kies een bestemming op Pinpoint om je venue-matches te zien.
           </p>
-          <div className="rounded-[16px] p-4 w-full max-w-xs border-2 cursor-pointer active:scale-95 transition-transform" onClick={() => window.location.href = '/pinpoint'} style={{ background: isDark ? 'rgba(255,75,114,0.12)' : 'rgba(255,75,114,0.08)', borderColor: 'rgba(255,75,114,0.35)' }}>
+          <div className="rounded-[16px] p-4 w-full max-w-xs border-2 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('/Pinpoint')} style={{ background: isDark ? 'rgba(255,75,114,0.12)' : 'rgba(255,75,114,0.08)', borderColor: 'rgba(255,75,114,0.35)' }}>
             <p className="text-xs font-semibold text-pink-500 flex items-center justify-center gap-2">
               <MapPin className="w-4 h-4" />
               Ga naar Pinpoint en kies een bestemming
