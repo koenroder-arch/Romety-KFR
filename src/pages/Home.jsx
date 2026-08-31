@@ -614,8 +614,8 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="px-5 mt-4 space-y-4">
-
+      {/* Top 3 Stats Card */}
+      <div className="px-5 mt-4">
         {/* Stats / Matches live indicators — unified card */}
         <div
           className="mt-6 rounded-[24px] py-4 px-2 shadow-sm"
@@ -664,10 +664,11 @@ export default function Home() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Action Buttons List: Reveal Likes, Super Matches, Hints, Games, Discounts with Brand Logo Fade */}
-        <div className="mt-3.5 mb-4 relative">
-          <div className={`space-y-2 sm:space-y-2.5 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
+      {/* Action Buttons List: Reveal Likes, Super Matches, Hints, Games, Discounts with 3px side margin */}
+      <div className="px-[3px] mt-3.5 mb-4 relative">
+        <div className={`space-y-2 sm:space-y-2.5 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
             {/* 1. Onthul wie je heeft geliked (#FF4B72 - Felroze / Kersenrood) */}
             <button
               onClick={onRevealClick}
@@ -934,8 +935,6 @@ export default function Home() {
             </div>
           )}
         </div>
-
-      </div>
 
       {/* SendHintSheet */}
       {showSheet && (
