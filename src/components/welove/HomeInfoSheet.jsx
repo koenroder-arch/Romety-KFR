@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, AlertCircle, X } from 'lucide-react';
+import { MapPin, AlertCircle, X, Heart, Users, ChevronRight } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
+import { isMatch } from '@/lib/matchUtils';
 import HotspotSection from './HotspotSection';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -40,6 +41,51 @@ export default function HomeInfoSheet({
   const [snapState, setSnapState] = useState('peek'); // 'peek' | 'full'
   const y = useMotionValue(PEEK_Y);
   const sheetRef = useRef(null);
+
+  // Calculate the #1 venue where the most matching profiles for the current user are going tonight
+  const topMatchVenue = useMemo(() => {
+    if (!myProfile || !allProfiles.length || !allDestinations.length) return null;
+
+    const matchingProfiles = allProfiles.filter(
+      (p) => p.user_email && p.user_email !== myProfile.user_email && isMatch(myProfile, p)
+    );
+    const matchingEmailSet = new Set(matchingProfiles.map((p) => p.user_email));
+
+    // Filter active destinations for matches
+    const matchDests = allDestinations.filter((d) => matchingEmailSet.has(d.user_email));
+    if (!matchDests.length) return null;
+
+    const counts = {};
+    const metaMap = {};
+    matchDests.forEach((d) => {
+      const key = d.venue_id || d.venue_name;
+      counts[key] = (counts[key] || 0) + 1;
+      if (!metaMap[key]) {
+        metaMap[key] = {
+          venue_id: d.venue_id,
+          venue_name: d.venue_name,
+          venue_city: d.venue_city,
+          profiles: []
+        };
+      }
+      const prof = matchingProfiles.find((p) => p.user_email === d.user_email);
+      if (prof) metaMap[key].profiles.push(prof);
+    });
+
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (!sorted.length) return null;
+
+    const [topKey, count] = sorted[0];
+    const meta = metaMap[topKey];
+    const club = clubs.find((c) => c.id === meta.venue_id || c.name === meta.venue_name);
+
+    return {
+      ...meta,
+      count,
+      city: club?.city || meta.venue_city || '',
+      club: club || { id: meta.venue_id, name: meta.venue_name, city: meta.venue_city }
+    };
+  }, [myProfile, allProfiles, allDestinations, clubs]);
 
   useEffect(() => {
     const target = snapState === 'full' ? FULL_Y : PEEK_Y;
@@ -144,12 +190,12 @@ export default function HomeInfoSheet({
               <div 
                 className="rounded-[20px] p-4 flex items-center justify-between border" 
                 style={{ 
-                  background: isDark ? 'rgba(34, 197, 94, 0.15)' : 'rgba(240, 253, 244, 1)', 
-                  borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : 'rgba(187, 247, 208, 1)' 
+                  background: isDark ? 'rgba(34, 197, 94, 0.05)' : 'rgba(34, 197, 94, 0.03)', 
+                  borderColor: isDark ? 'rgba(34, 197, 94, 0.35)' : 'rgba(34, 197, 94, 0.25)' 
                 }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: isDark ? 'rgba(34,197,94,0.2)' : 'rgba(34,197,94,0.1)' }}>
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: isDark ? 'rgba(34,197,94,0.15)' : 'rgba(34,197,94,0.08)' }}>
                     <MapPin className="w-5 h-5 text-green-500" />
                   </div>
                   <div>
@@ -199,37 +245,81 @@ export default function HomeInfoSheet({
               }}
             />
 
-            {/* Potentiële Matches */}
-            {highMatches.length > 0 && (
-              <div className="rounded-[20px] p-4" style={{ background: cardBg, border: plainCardBorder, boxShadow: plainCardShadow }}>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h2 className={`font-black text-base ${textMain}`}>Potentiële Matches</h2>
-                    <p className="text-xs" style={{ color: textSub }}>Op basis van gedeelde interesses</p>
+            {/* Top Match-Locatie vanavond (Compact & strak) */}
+            {topMatchVenue ? (
+              <button 
+                onClick={() => {
+                  if (onVenueClick) {
+                    onVenueClick({
+                      venue_id: topMatchVenue.venue_id,
+                      venue_name: topMatchVenue.venue_name,
+                      venue_city: topMatchVenue.venue_city || topMatchVenue.city,
+                      city: topMatchVenue.city || topMatchVenue.venue_city,
+                      count: topMatchVenue.count
+                    });
+                  }
+                }}
+                className="w-full rounded-[18px] sm:rounded-[20px] p-3.5 px-4 flex items-center justify-between text-left transition-all active:scale-[0.98] shadow-sm relative overflow-hidden"
+                style={{ 
+                  background: isDark 
+                    ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.16) 0%, rgba(234, 63, 211, 0.08) 100%)' 
+                    : 'linear-gradient(135deg, rgba(255, 75, 114, 0.08) 0%, rgba(234, 63, 211, 0.03) 100%), #FFFFFF',
+                  border: isDark ? '1.5px solid rgba(255, 75, 114, 0.35)' : '1.5px solid rgba(255, 75, 114, 0.22)',
+                  boxShadow: isDark ? '0 4px 16px rgba(255, 75, 114, 0.10)' : '0 2px 12px rgba(255, 75, 114, 0.05)'
+                }}
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: isDark ? 'rgba(255, 75, 114, 0.22)' : 'rgba(255, 75, 114, 0.12)' }}
+                  >
+                    <Heart className="w-5 h-5 fill-pink-500 text-pink-500" />
                   </div>
-                  <div className="text-4xl font-black" style={{ background: GRAD, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    {highMatches.length}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-pink-500 mb-0.5 truncate">
+                      Jouw beste locatie
+                    </p>
+                    <h3 className={`font-black text-[15px] sm:text-base leading-tight truncate ${textMain}`}>
+                      {topMatchVenue.venue_name}
+                    </h3>
+                    {topMatchVenue.city && (
+                      <p className="text-[11px] font-bold text-pink-500/80 mt-0.5 truncate flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-pink-500" />
+                        <span>{topMatchVenue.city}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                  {highMatches.slice(0, 10).map(({ profile }) => {
-                    const avatarStr = profile.avatar;
-                    const emoji = avatarStr ? (avatarStr.includes(' ') ? avatarStr.split(' ')[0] : avatarStr) : '👤';
-                    return (
-                      <div key={profile.id} className="flex-shrink-0 w-14 h-14 rounded-2xl overflow-hidden border-2" style={{ borderColor: 'rgba(255,75,114,0.4)', background: 'rgba(255,75,114,0.15)' }}>
-                        {profile.photo_url ? (
-                          <img src={profile.photo_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div 
-                            className="w-full h-full flex items-center justify-center text-xl"
-                            style={avatarStr ? { background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' } : {}}
-                          >
-                            {emoji}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div 
+                    className="px-2.5 py-1 rounded-full text-[11.5px] sm:text-xs font-black text-white shadow-sm flex items-center gap-1"
+                    style={{ background: GRAD }}
+                  >
+                    <Users className="w-3 h-3" />
+                    <span>{topMatchVenue.count} {topMatchVenue.count === 1 ? 'match' : 'matches'}</span>
+                  </div>
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+            ) : (
+              <div 
+                className="rounded-[18px] p-3 px-4 flex items-center gap-3"
+                style={{ background: cardBg, border: plainCardBorder, boxShadow: plainCardShadow }}
+              >
+                <div 
+                  className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: isDark ? 'rgba(255, 75, 114, 0.15)' : 'rgba(255, 75, 114, 0.10)' }}
+                >
+                  <Heart className="w-4 h-4 text-pink-500" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className={`font-bold text-xs ${textMain}`}>Jouw beste locatie</h4>
+                  <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: textSub }}>
+                    Zodra matches kiezen zie je hier direct de populairste venue
+                  </p>
                 </div>
               </div>
             )}

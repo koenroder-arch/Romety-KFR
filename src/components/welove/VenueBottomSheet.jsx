@@ -210,15 +210,24 @@ export default function VenueBottomSheet({
             {/* CTA */}
             {isCheckedIn ? (
               <div className="flex items-center gap-2">
-                <div className="flex-1 py-4 rounded-[18px] flex items-center justify-center gap-2" style={{ background: 'rgba(34,197,94,0.12)', border: '1.5px solid rgba(34,197,94,0.35)' }}>
+                <div 
+                  className="flex-1 py-4 rounded-[18px] flex items-center justify-center gap-2" 
+                  style={{ 
+                    background: isDark ? 'rgba(34,197,94,0.05)' : 'rgba(34,197,94,0.03)', 
+                    border: isDark ? '1.5px solid rgba(34,197,94,0.4)' : '1.5px solid rgba(34,197,94,0.3)' 
+                  }}
+                >
                   <CheckCircle2 className="w-5 h-5 text-green-400" />
                   <span className="text-sm font-bold text-green-400">Je bent hier live ingecheckt!</span>
                 </div>
                 {onCancelGoing && (
                   <button
                     onClick={onCancelGoing}
-                    className="w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(239,68,68,0.12)', border: '1.5px solid rgba(239,68,68,0.35)' }}
+                    className="w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
+                    style={{ 
+                      background: isDark ? 'rgba(239,68,68,0.05)' : 'rgba(239,68,68,0.03)', 
+                      border: isDark ? '1.5px solid rgba(239,68,68,0.4)' : '1.5px solid rgba(239,68,68,0.3)' 
+                    }}
                   >
                     <XCircle className="w-5 h-5 text-red-400" />
                   </button>
@@ -226,15 +235,24 @@ export default function VenueBottomSheet({
               </div>
             ) : isGoing ? (
               <div className="flex items-center gap-2">
-                <div className="flex-1 py-4 rounded-[18px] flex items-center justify-center gap-2" style={{ background: 'rgba(34,197,94,0.12)', border: '1.5px solid rgba(34,197,94,0.35)' }}>
+                <div 
+                  className="flex-1 py-4 rounded-[18px] flex items-center justify-center gap-2" 
+                  style={{ 
+                    background: isDark ? 'rgba(34,197,94,0.05)' : 'rgba(34,197,94,0.03)', 
+                    border: isDark ? '1.5px solid rgba(34,197,94,0.4)' : '1.5px solid rgba(34,197,94,0.3)' 
+                  }}
+                >
                   <CheckCircle2 className="w-5 h-5 text-green-400" />
-                  <span className="text-sm font-bold text-green-300">Je gaat hiernaartoe vanavond!</span>
+                  <span className="text-sm font-bold text-green-400">Je gaat hiernaartoe vanavond!</span>
                 </div>
                 {onCancelGoing && (
                   <button
                     onClick={onCancelGoing}
-                    className="w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(239,68,68,0.12)', border: '1.5px solid rgba(239,68,68,0.35)' }}
+                    className="w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
+                    style={{ 
+                      background: isDark ? 'rgba(239,68,68,0.05)' : 'rgba(239,68,68,0.03)', 
+                      border: isDark ? '1.5px solid rgba(239,68,68,0.4)' : '1.5px solid rgba(239,68,68,0.3)' 
+                    }}
                   >
                     <XCircle className="w-5 h-5 text-red-400" />
                   </button>

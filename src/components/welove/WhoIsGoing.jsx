@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import ProfileSwiper from './ProfileSwiper';
+import { getLocalReportedEmails } from '@/lib/reportUtils';
 
 export default function WhoIsGoing({ myCheckIn, currentUserEmail, allDestinations = [], isDark = true }) {
   const [goingProfiles, setGoingProfiles] = useState([]);
@@ -16,12 +17,13 @@ export default function WhoIsGoing({ myCheckIn, currentUserEmail, allDestination
     const venueId = myCheckIn.venue_id;
     const venueName = myCheckIn.venue_name;
     const now = new Date().toISOString();
+    const reportedEmails = new Set(getLocalReportedEmails());
 
     // Get all destinations for this venue
     const dests = allDestinations.filter((d) => {
       const sameVenue = (venueId && d.venue_id === venueId) || d.venue_name === venueName;
       const active = d.status === 'active' && (!d.expires_at || d.expires_at > now);
-      return sameVenue && active && d.user_email !== currentUserEmail;
+      return sameVenue && active && d.user_email !== currentUserEmail && !reportedEmails.has(d.user_email);
     });
 
     if (dests.length === 0) { setGoingProfiles([]); setLoading(false); return; }
@@ -29,7 +31,7 @@ export default function WhoIsGoing({ myCheckIn, currentUserEmail, allDestination
     const emails = [...new Set(dests.map((d) => d.user_email))];
     const allProfiles = await base44.entities.UserProfile.list('-created_date', 500);
     const profiles = allProfiles.filter(
-      (p) => emails.includes(p.user_email) && p.onboarding_complete
+      (p) => emails.includes(p.user_email) && p.onboarding_complete && !reportedEmails.has(p.user_email)
     );
 
     setGoingProfiles(profiles);

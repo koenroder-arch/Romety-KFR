@@ -90,7 +90,7 @@ export default function HintCard({ hint, isDark, onReacted, isSuperMatch }) {
                 border: isDark ? '1px solid rgba(255,75,114,0.25)' : '1px solid rgba(255,75,114,0.15)'
               }}
             >
-              ✨ {hint.message}
+              {hint.message}
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: '#FF4B72' }} />
@@ -188,7 +188,7 @@ export default function HintCard({ hint, isDark, onReacted, isSuperMatch }) {
                   className="px-4 py-3 rounded-2xl rounded-tl-none text-base font-black border border-white/10 backdrop-blur-sm max-w-[85%] text-white" 
                   style={{ background: 'linear-gradient(135deg, rgba(255,75,114,0.35), rgba(234,63,211,0.25))' }}
                 >
-                  ✨ {hint.message}
+                  {hint.message}
                 </div>
                 <div className="flex items-center gap-1.5 mt-2 text-white/80 text-[11px] font-semibold pl-2">
                   <MapPin className="w-3.5 h-3.5" style={{ color: '#FF4B72' }} />

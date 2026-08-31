@@ -9,6 +9,7 @@ import MapView from '@/components/welove/MapView';
 import VenueBottomSheet from '@/components/welove/VenueBottomSheet';
 import HomeInfoSheet from '@/components/welove/HomeInfoSheet';
 import { useTheme } from '@/lib/ThemeContext';
+import { fetchReportedEmails } from '@/lib/reportUtils';
 
 const GRAD = 'linear-gradient(135deg, #8E54E9 0%, #EA3FD3 100%)';
 
@@ -82,11 +83,16 @@ export default function Pinpoint() {
       base44.entities.UserDestination.list(),
       base44.entities.UserProfile.list('-created_date', 500),
     ]);
+    const reportedEmails = await fetchReportedEmails(u.email);
+    const safeProfs = allProfs.filter(p => !reportedEmails.has(p.user_email));
+    const safeDests = allDests.filter(d => !reportedEmails.has(d.user_email));
+    const safeCheckIns = allCheckIns.filter(c => !reportedEmails.has(c.user_email));
+
     setRecentSearches(searches);
-    setAllProfiles(allProfs);
+    setAllProfiles(safeProfs);
 
     const nowIso = new Date().toISOString();
-    const activeDests = allDests.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > nowIso));
+    const activeDests = safeDests.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > nowIso));
     setAllDestinations(activeDests);
     const myDest = activeDests.find((d) => d.user_email === u.email) || null;
     if (myDest && !myDest.venue_city && allClubs.length > 0) {
@@ -100,7 +106,7 @@ export default function Pinpoint() {
 
     const countMap = {};
     const now = new Date().toISOString();
-    allCheckIns.forEach((c) => {
+    safeCheckIns.forEach((c) => {
       if (!c.expires_at || c.expires_at > now) {
         const key = c.venue_id || c.venue_name;
         countMap[key] = (countMap[key] || 0) + 1;
@@ -478,7 +484,7 @@ export default function Pinpoint() {
   }
 
   return (
-    <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md overflow-hidden shadow-2xl border-l border-r" style={{ background: pageBg, fontFamily: "'Inter', sans-serif", borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+    <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md overflow-hidden" style={{ background: pageBg, fontFamily: "'Inter', sans-serif" }}>
       <style>{`
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
         @keyframes borderPulse {
@@ -719,7 +725,15 @@ export default function Pinpoint() {
               setSnapState('peek');
             }}
             onVenueClick={(hotspot) => {
-              const target = clubs.find((c) => c.id === hotspot.venue_id || c.name === hotspot.venue_name);
+              const target = clubs.find(
+                (c) =>
+                  (hotspot.venue_id && c.id === hotspot.venue_id) ||
+                  (hotspot.id && c.id === hotspot.id) ||
+                  (hotspot.venue_name && c.name === hotspot.venue_name) ||
+                  (hotspot.name && c.name === hotspot.name) ||
+                  (c.name && hotspot.venue_name && c.name.toLowerCase() === hotspot.venue_name.toLowerCase()) ||
+                  (c.name && hotspot.name && c.name.toLowerCase() === hotspot.name.toLowerCase())
+              );
               
               setSearchFocused(false);
               searchInputRef.current?.blur();

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, Gamepad2, Clock, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Check } from 'lucide-react';
-import GamePickerSheet from './GamePickerSheet';
+import { X, ChevronLeft, Heart, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import ProfilePhotoCarousel from './ProfilePhotoCarousel';
+import MatchAnimation from './MatchAnimation';
 import { base44 } from '@/api/base44Client';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
 
@@ -17,54 +17,57 @@ const REPORT_REASONS = [
   { id: 'stalking', label: 'Stalking', emoji: '🚫' },
 ];
 
-export default function SuperMatchesSheet({ profiles, currentUser, myProfile, isDark, onClose }) {
-  const [showGamePicker, setShowGamePicker] = useState(false);
-  const [selectedProfileForGame, setSelectedProfileForGame] = useState(null);
-  const [activeSessions, setActiveSessions] = useState([]);
-  
-  // 3-dots menu & bio & report states
+export default function RevealedLikesSheet({
+  profiles = [],
+  currentUser,
+  myProfile,
+  isDark = true,
+  onClose,
+  onRefresh,
+}) {
+  const [matchAnim, setMatchAnim] = useState(null);
   const [openMenuProfileId, setOpenMenuProfileId] = useState(null);
   const [expandedBioId, setExpandedBioId] = useState(null);
+  const [likedEmails, setLikedEmails] = useState(new Set());
+  const [reportedEmails, setReportedEmails] = useState(new Set());
   const [reportState, setReportState] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
-  const [reportedEmails, setReportedEmails] = useState(new Set());
 
   const bg = isDark ? '#08090E' : '#F8F9FB';
-  const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+  const textSub = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)';
 
-  useEffect(() => {
-    if (currentUser) {
-      loadGameSessions();
-    }
-  }, [currentUser]);
+  const activeProfiles = profiles.filter((p) => !likedEmails.has(p.user_email) && !reportedEmails.has(p.user_email));
 
-  const loadGameSessions = async () => {
+  const handleLikeBack = async (profile) => {
+    if (!profile || !currentUser) return;
+    setLikedEmails((prev) => new Set(prev).add(profile.user_email));
+
     try {
-      const [asP1, asP2] = await Promise.all([
-        base44.entities.GameSession.filter({ player1_email: currentUser.email }),
-        base44.entities.GameSession.filter({ player2_email: currentUser.email }),
-      ]);
-      const allSessions = [...asP1, ...asP2];
-      const seen = new Set();
-      const unique = allSessions.filter(s => {
-        if (seen.has(s.id)) return false;
-        seen.add(s.id);
-        return true;
+      await base44.entities.Like.create({
+        from_email: currentUser.email,
+        to_email: profile.user_email,
       });
-      setActiveSessions(unique);
-    } catch (e) {
-      console.error('Error loading game sessions:', e);
-    }
-  };
 
-  const getSessionForProfile = (email) => {
-    return activeSessions.find(s =>
-      s.status !== 'declined' &&
-      (
-        (s.player1_email === currentUser.email && s.player2_email === email) ||
-        (s.player2_email === currentUser.email && s.player1_email === email)
-      )
-    );
+      await Promise.all([
+        base44.entities.Notification.create({
+          to_email: profile.user_email,
+          from_email: currentUser.email,
+          type: 'match',
+          from_name: myProfile?.display_name || 'Iemand',
+        }).catch(() => {}),
+        base44.entities.Notification.create({
+          to_email: currentUser.email,
+          from_email: profile.user_email,
+          type: 'match',
+          from_name: profile.display_name || 'Een Match',
+        }).catch(() => {}),
+      ]);
+
+      setMatchAnim({ myProfile, matchedProfile: profile });
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('Error liking revealed profile:', err);
+    }
   };
 
   const handleSubmitReport = async () => {
@@ -72,7 +75,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
     setReportLoading(true);
     try {
       addLocalReportedEmail(reportState.profile.user_email);
-      setReportedEmails(prev => new Set(prev).add(reportState.profile.user_email));
+      setReportedEmails((prev) => new Set(prev).add(reportState.profile.user_email));
       await base44.entities.Report.create({
         reporter_email: currentUser.email,
         reporter_name: myProfile?.display_name || '',
@@ -82,15 +85,14 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
         details: reportState.details || '',
         created_date: new Date().toISOString(),
       });
-      setReportState(prev => ({ ...prev, step: 'done' }));
+      setReportState((prev) => ({ ...prev, step: 'done' }));
+      if (onRefresh) onRefresh();
     } catch (err) {
-      console.error('Error submitting report:', err);
+      console.error('Error reporting profile:', err);
     } finally {
       setReportLoading(false);
     }
   };
-
-  const activeProfiles = (profiles || []).filter((p) => !reportedEmails.has(p.user_email));
 
   if (!profiles || profiles.length === 0 || activeProfiles.length === 0) {
     return createPortal(
@@ -101,12 +103,16 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.8)' }} onClick={onClose} />
-          <div className="relative z-10 flex flex-col items-center gap-4 px-8 text-center">
-            <span className="text-5xl">💜</span>
-            <p className="text-white font-black text-xl">Nog geen supermatches</p>
-            <p className="text-white/60 text-sm">Like iemand terug en ze worden je supermatch!</p>
-            <button onClick={onClose} className="mt-4 px-6 py-2.5 rounded-full font-bold text-white text-sm" style={{ background: GRAD }}>
+          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }} onClick={onClose} />
+          <div className="relative z-10 flex flex-col items-center gap-4 px-8 text-center max-w-sm">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg bg-pink-500/20 border border-pink-500/30">
+              <Heart className="w-8 h-8 text-pink-500 fill-pink-500" />
+            </div>
+            <p className="text-white font-black text-xl">Geen nieuwe likes</p>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Zodra iemand jou leuk vindt, kun je hier door al hun profielen scrollen en direct terugliken!
+            </p>
+            <button onClick={onClose} className="mt-3 px-7 py-3 rounded-full font-bold text-white text-sm active:scale-95 transition-transform" style={{ background: GRAD }}>
               Sluiten
             </button>
           </div>
@@ -132,9 +138,9 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 320 }}
         className="fixed inset-0 z-50 max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
-        style={{ 
-          background: bg, 
-          touchAction: 'pan-y' 
+        style={{
+          background: bg,
+          touchAction: 'pan-y',
         }}
       >
         <style>{`
@@ -143,16 +149,13 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
           }
         `}</style>
 
-        {/* Profile Swiper Area (Full screen scrolling snap feed) */}
+        {/* Profile Swiper Area (Full screen snap-scrolling feed like Matches page) */}
         <div className="absolute inset-0 z-0">
-          <div 
-            className="w-full h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col no-scrollbar" 
+          <div
+            className="w-full h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col no-scrollbar"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {activeProfiles.map((profile) => {
-              const session = getSessionForProfile(profile.user_email);
-              const isPending = session?.status === 'pending';
-              const isActive = session?.status === 'active';
               const isMenuOpen = openMenuProfileId === profile.id;
               const isBioExpanded = expandedBioId === profile.id;
 
@@ -165,8 +168,20 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                     dotsClassName="bottom-[210px] sm:bottom-[220px]"
                   />
 
+                  {/* "HEEFT JOU GELIKED!" Badge */}
+                  <div
+                    className="absolute left-4 z-20 px-3 py-1.5 rounded-full text-[9px] font-black text-white tracking-widest shadow-md"
+                    style={{
+                      top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 58px)',
+                      background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+                      boxShadow: '0 4px 12px rgba(255, 75, 114, 0.4)',
+                    }}
+                  >
+                    HEEFT JOU GELIKED! 💖
+                  </div>
+
                   {/* ── Three-dots options button (top right) ── */}
-                  <div 
+                  <div
                     className="absolute right-4 z-30 pointer-events-auto"
                     style={{ top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 58px)' }}
                   >
@@ -229,13 +244,13 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   </div>
 
                   {/* Foreground Content */}
-                  <div 
+                  <div
                     className="relative z-10 flex flex-col h-full p-6 justify-end pointer-events-none"
                     style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
                   >
                     <div className="mt-auto pointer-events-auto flex flex-col">
-                      {/* Name/Age/Height */}
-                      <h2 className="text-[26px] sm:text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide text-left">
+                      {/* Name / Age / Height */}
+                      <h2 className="text-[28px] sm:text-[30px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide text-left">
                         {profile.age} jaar {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                       </h2>
 
@@ -258,7 +273,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                         )}
                       </AnimatePresence>
 
-                      {/* Tags (Avatar first, then interests/traits) */}
+                      {/* Tags (Avatar, Interests, Traits) */}
                       <div className="flex flex-wrap gap-1.5 mb-5 items-center">
                         {profile.avatar && (
                           <span className="px-3.5 py-1 rounded-full text-[12px] font-bold text-white bg-black/45 backdrop-blur-md border border-pink-500/40 shadow-sm flex items-center gap-1.5">
@@ -273,30 +288,18 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                         ))}
                       </div>
 
-                      {/* Play Game Button / Pending Status */}
-                      {isActive ? (
-                        <div className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-green-400 bg-green-500/10 border border-green-500/30 backdrop-blur-md shadow-lg">
-                          <Gamepad2 className="w-5 h-5 text-green-400" />
-                          <span>Game actief! Ga naar Spellen</span>
-                        </div>
-                      ) : isPending ? (
-                        <div className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 backdrop-blur-md shadow-lg">
-                          <Clock className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '3s' }} />
-                          <span>Uitnodiging verstuurd...</span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setSelectedProfileForGame(profile);
-                            setShowGamePicker(true);
-                          }}
-                          className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-white transition-transform active:scale-95 shadow-lg"
-                          style={{ background: GRAD, boxShadow: '0 6px 20px rgba(234, 63, 211, 0.4)' }}
-                        >
-                          <Gamepad2 className="w-5 h-5 text-white" />
-                          Speel een spel
-                        </button>
-                      )}
+                      {/* Action Button: Like Terug */}
+                      <button
+                        onClick={() => handleLikeBack(profile)}
+                        className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 font-black text-sm sm:text-base text-white transition-transform active:scale-95 shadow-xl"
+                        style={{
+                          background: GRAD,
+                          boxShadow: '0 8px 24px rgba(255, 75, 114, 0.45)',
+                        }}
+                      >
+                        <Heart className="w-5 h-5 fill-white text-white animate-pulse" />
+                        <span>Like terug & match direct!</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -305,14 +308,14 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
           </div>
         </div>
 
-        {/* Floating WhatsApp-Style Header */}
+        {/* Floating Top Header */}
         <div
           className="absolute top-0 left-0 w-full z-20 flex items-center justify-between px-4 pb-3.5 backdrop-blur-xl"
-          style={{ 
+          style={{
             paddingTop: 'max(14px, env(safe-area-inset-top, 14px))',
             background: isDark ? 'rgba(13,14,21,0.85)' : 'rgba(255,255,255,0.85)',
             borderBottom: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           }}
         >
           <div className="flex items-center gap-2">
@@ -333,10 +336,10 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                💜 Supermatches
+                💖 Ontvangen Likes
               </h2>
               <p className="text-[11px] font-medium" style={{ color: textSub }}>
-                {profiles.length} {profiles.length === 1 ? 'supermatch' : 'supermatches'} • Jullie hebben elkaar geliked!
+                {activeProfiles.length} {activeProfiles.length === 1 ? 'persoon heeft jou geliked' : 'mensen hebben jou geliked'}
               </p>
             </div>
           </div>
@@ -427,24 +430,16 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
             </div>
           </div>
         )}
-      </motion.div>
 
-      {/* Game Picker Sheet */}
-      {showGamePicker && selectedProfileForGame && (
-        <GamePickerSheet
-          profile={selectedProfileForGame}
-          currentUser={currentUser}
-          myProfile={myProfile}
-          isDark={isDark}
-          onClose={() => {
-            setShowGamePicker(false);
-            setSelectedProfileForGame(null);
-          }}
-          onInviteSent={() => {
-            loadGameSessions();
-          }}
-        />
-      )}
+        {/* Match Animation Overlay */}
+        {matchAnim && (
+          <MatchAnimation
+            myProfile={matchAnim.myProfile}
+            matchedProfile={matchAnim.matchedProfile}
+            onClose={() => setMatchAnim(null)}
+          />
+        )}
+      </motion.div>
     </AnimatePresence>,
     document.body
   );

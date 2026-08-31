@@ -132,3 +132,21 @@ html.dark, html.dark body {
 .animate-shimmer {
   animation: shimmer 3s infinite linear;
 }
+
+@keyframes goldSweep {
+  0% {
+    background-position: -250% 0;
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 250% 0;
+    opacity: 0.35;
+  }
+}
+
+.animate-gold-sweep {
+  animation: goldSweep 8s ease-in-out infinite;
+}

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
+import { addLocalReportedEmail } from '@/lib/reportUtils';
 
 const REPORT_REASONS = [
   { id: 'ongepaste_foto', label: 'Ongepaste foto', emoji: '🖼️' },
@@ -225,6 +226,7 @@ export default function StoriesViewer({
     if (!reportState || !reportState.reason || !activeStory) return;
     setIsLoadingAction(true);
     try {
+      addLocalReportedEmail(activeStory.user_email);
       let myProf = null;
       if (currentUserEmail) {
         const myProfs = await base44.entities.UserProfile.filter({ user_email: currentUserEmail });
@@ -255,16 +257,21 @@ export default function StoriesViewer({
   return (
     <div className="fixed inset-0 bg-black z-[3000] flex flex-col justify-between select-none">
       {/* Top bars & Header */}
-      <div className="absolute top-0 left-0 right-0 z-50 px-4 pt-4 pb-10 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-        <div className="flex gap-1 mb-4">
+      <div 
+        className="absolute top-0 left-0 right-0 z-50 px-4 pb-10 bg-gradient-to-b from-black/90 via-black/50 to-transparent pointer-events-none"
+        style={{
+          paddingTop: 'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))'
+        }}
+      >
+        <div className="flex gap-1.5 mb-3.5">
           {group.items.map((item, idx) => {
             let barProgress = 0;
             if (idx < currentIndex) barProgress = 100;
             else if (idx === currentIndex) barProgress = progress;
             return (
-              <div key={item.id} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
+              <div key={item.id} className="flex-1 h-1.5 bg-white/35 rounded-full overflow-hidden shadow-sm">
                 <div 
-                  className="h-full bg-white transition-all duration-75"
+                  className="h-full bg-white transition-all duration-75 rounded-full shadow-md"
                   style={{ width: `${barProgress}%` }}
                 />
               </div>

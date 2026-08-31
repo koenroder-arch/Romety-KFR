@@ -5,6 +5,8 @@ import MatchAnimation from './MatchAnimation';
 import StoriesViewer from './StoriesViewer';
 import { Heart, MessageCircle, MoreVertical, AlertTriangle, X, ChevronDown, ChevronUp, Send, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ProfilePhotoCarousel from './ProfilePhotoCarousel';
+import { addLocalReportedEmail } from '@/lib/reportUtils';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -22,6 +24,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
   const [myProfileCache, setMyProfileCache] = useState(null);
   const [likedProfiles, setLikedProfiles] = useState(new Set(initialLikedIds));
   const [doubleTapAnims, setDoubleTapAnims] = useState([]);
+  const [reportedEmails, setReportedEmails] = useState(new Set());
   
   // Story viewer state
   const [selectedStoryGroup, setSelectedStoryGroup] = useState(null);
@@ -177,6 +180,8 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     if (!reportState || !reportState.reason) return;
     setReportLoading(true);
     try {
+      addLocalReportedEmail(reportState.profile.user_email);
+      setReportedEmails(prev => new Set(prev).add(reportState.profile.user_email));
       let myProf = myProfileCache;
       if (!myProf) {
         const myProfs = await base44.entities.UserProfile.filter({ user_email: currentUserEmail });
@@ -200,7 +205,9 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     }
   };
 
-  if (profiles.length === 0) return (
+  const visibleProfiles = profiles.filter((p) => !reportedEmails.has(p.user_email));
+
+  if (visibleProfiles.length === 0) return (
     <div className="h-full flex flex-col items-center justify-center py-10 px-6 text-center" style={{ background: bg }}>
       <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ background: isDark ? 'rgba(255,107,74,0.1)' : 'rgba(255,107,74,0.05)' }}>
         <p className="text-4xl">📭</p>
@@ -233,7 +240,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
 
   return (
     <div className="h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col" style={{ background: bg }}>
-      {profiles.map((profile, index) => {
+      {visibleProfiles.map((profile, index) => {
         const isLiked = likedProfiles.has(profile.id);
         const activeAnims = doubleTapAnims.filter(a => a.profileId === profile.id);
         const isMenuOpen = openMenuProfileId === profile.id;
@@ -242,32 +249,14 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
         return (
           <div key={profile.id} className="w-full h-full flex-shrink-0 snap-start snap-always relative">
             
-            {/* Photo Background */}
-            <div 
-              className="absolute inset-0 z-0 bg-gray-900 cursor-pointer"
-              style={{ touchAction: 'pan-y' }}
-              onClick={(e) => handleCardClick(e, profile, isMenuOpen)}
+            {/* Photo Background Carousel with Swipe & Indicator Dots */}
+            <ProfilePhotoCarousel
+              profile={profile}
+              isDark={isDark}
+              onDoubleTap={(x, y, p) => handleDoubleTapAtCoord(x, y, p)}
+              onClick={() => handleSingleClick(profile)}
+              dotsClassName="bottom-[210px] sm:bottom-[220px]"
             >
-              {profile.photo_url ? (
-                <img src={profile.photo_url} alt="" className="w-full h-full object-cover select-none pointer-events-none" />
-              ) : (
-                <div 
-                  className="w-full h-full flex flex-col items-center justify-center relative" 
-                  style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 50%, #8A2387 100%)' }}
-                >
-                  <div className="text-[120px] animate-bounce select-none pointer-events-none drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]">
-                    {profile.avatar ? profile.avatar.split(' ')[0] : '👤'}
-                  </div>
-                  {profile.avatar && (
-                    <div className="absolute bottom-32 text-center text-white/50 text-xs font-bold tracking-widest uppercase bg-black/30 px-3.5 py-1.5 rounded-full">
-                      {profile.avatar.split(' ').slice(1).join(' ')}
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* Gradient overlay to make text readable */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-              
               {/* Double Tap Hearts Animation */}
               <AnimatePresence>
                 {activeAnims.map(anim => (
@@ -284,7 +273,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                   </motion.div>
                 ))}
               </AnimatePresence>
-            </div>
+            </ProfilePhotoCarousel>
 
             {/* ── Three-dots button (top right) ── */}
             <div className="absolute top-4 right-3 z-30 pointer-events-auto">
@@ -406,9 +395,13 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                       e.currentTarget.blur();
                       handleLike(profile);
                     }} 
-                    className="flex-1 py-3.5 px-4 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform shadow-lg"
+                    className={`flex-1 py-3.5 px-4 rounded-full border-2 backdrop-blur-md flex items-center justify-center gap-2.5 font-bold text-[16px] active:scale-95 transition-all shadow-lg ${
+                      isLiked 
+                        ? 'border-[#FF4B72] text-[#FF4B72] bg-[#FF4B72]/15 shadow-[#FF4B72]/20' 
+                        : 'border-white/35 text-white bg-black/40'
+                    }`}
                   >
-                    <Heart className="w-5 h-5" color={isLiked ? '#FF5A43' : 'white'} fill={isLiked ? '#FF5A43' : 'transparent'} strokeWidth={2.4} />
+                    <Heart className="w-5 h-5" color={isLiked ? '#FF4B72' : 'white'} fill={isLiked ? '#FF4B72' : 'transparent'} strokeWidth={2.4} />
                     Like
                   </button>
                   <button 

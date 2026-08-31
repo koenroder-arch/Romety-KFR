@@ -279,7 +279,7 @@ export default function Games() {
   }
 
   return (
-    <div className={`min-h-screen w-full max-w-md mx-auto relative overflow-x-hidden flex flex-col select-none shadow-2xl border-l border-r ${isDark ? 'bg-[#0D0E15] text-white' : 'bg-[#F8F9FB] text-gray-900'}`} style={{ fontFamily: "'Inter', sans-serif", borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+    <div className={`min-h-screen w-full max-w-md mx-auto relative overflow-x-hidden flex flex-col select-none ${isDark ? 'bg-[#0D0E15] text-white' : 'bg-[#F8F9FB] text-gray-900'}`} style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Ambient Background Glows */}
       {isDark && (
         <>

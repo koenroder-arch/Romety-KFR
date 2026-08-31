@@ -87,6 +87,13 @@
     "photo_url": {
       "type": "string"
     },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of up to 3 photo URLs for profile gallery"
+    },
     "bio": {
       "type": "string"
     },

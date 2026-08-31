@@ -3,10 +3,11 @@ import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
 import { 
-  LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, 
+  LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus,
   RefreshCw, Moon, Sun, Eye, Heart, Gamepad2, Sparkles, MapPin,
   Bell, HelpCircle, User, MessageCircle, ArrowRightLeft, AlertTriangle
 } from 'lucide-react';
+import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import { compressImage } from '@/utils/imageUtils';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
@@ -112,7 +113,8 @@ export default function Account() {
         relationship_status: p?.relationship_status || p?.relationship_goal || 'Relatie',
         bio: p?.bio || '',
         traits: Array.isArray(p?.traits) ? p.traits : [],
-        interests: Array.isArray(p?.interests) ? p.interests : []
+        interests: Array.isArray(p?.interests) ? p.interests : [],
+        photos: Array.isArray(p?.photos) ? p.photos.filter(Boolean) : (p?.photo_url ? [p.photo_url] : [])
       });
 
       // Calculate exact games count (active + pending) matching Home.jsx & Games.jsx
@@ -135,21 +137,79 @@ export default function Account() {
     setLoading(false);
   };
 
-  const handlePhotoChange = async (e) => {
-    const file = e.target.files[0];
+  const handlePhotoUpload = async (file, slotIndex) => {
     if (!file || !myProfile) return;
     setUploading(true);
     try {
       const compressedFile = await compressImage(file, 800, 800, 0.85);
       const { file_url } = await base44.integrations.Core.UploadFile({ file: compressedFile });
-      await base44.entities.UserProfile.update(myProfile.id, { photo_url: file_url });
-      setMyProfile(p => ({ ...p, photo_url: file_url }));
-      toast.success('Profielfoto bijgewerkt! 📸');
+      
+      const currentPhotos = getProfilePhotos(myProfile);
+      let updatedPhotos = [...currentPhotos];
+
+      if (slotIndex !== undefined && slotIndex < updatedPhotos.length) {
+        // Replace existing slot
+        updatedPhotos[slotIndex] = file_url;
+      } else {
+        // Append new photo (max 3)
+        if (updatedPhotos.length < 3) {
+          updatedPhotos.push(file_url);
+        } else {
+          updatedPhotos[2] = file_url;
+        }
+      }
+
+      updatedPhotos = updatedPhotos.slice(0, 3);
+      const primaryPhoto = updatedPhotos[0] || null;
+
+      try {
+        await base44.entities.UserProfile.update(myProfile.id, {
+          photos: updatedPhotos,
+          photo_url: primaryPhoto
+        });
+      } catch (dbErr) {
+        console.warn('Photos column not in DB yet, updating photo_url fallback:', dbErr);
+        await base44.entities.UserProfile.update(myProfile.id, {
+          photo_url: primaryPhoto
+        });
+      }
+
+      setMyProfile(p => ({ ...p, photos: updatedPhotos, photo_url: primaryPhoto }));
+      setForm(f => ({ ...f, photos: updatedPhotos }));
+      toast.success('Foto succesvol toegevoegd! 📸');
     } catch (err) {
-      console.error(err);
-      toast.error('Kan foto niet uploaden');
+      console.error('Upload error:', err);
+      toast.error('Kan foto niet uploaden. Voeg de "photos" kolom toe in Supabase.');
     }
     setUploading(false);
+  };
+
+  const handlePhotoDelete = async (indexToDelete) => {
+    if (!myProfile) return;
+    try {
+      const currentPhotos = getProfilePhotos(myProfile);
+      const updatedPhotos = currentPhotos.filter((_, idx) => idx !== indexToDelete);
+      const primaryPhoto = updatedPhotos[0] || null;
+
+      try {
+        await base44.entities.UserProfile.update(myProfile.id, {
+          photos: updatedPhotos,
+          photo_url: primaryPhoto
+        });
+      } catch (dbErr) {
+        console.warn('Photos column not in DB yet, updating photo_url fallback:', dbErr);
+        await base44.entities.UserProfile.update(myProfile.id, {
+          photo_url: primaryPhoto
+        });
+      }
+
+      setMyProfile(p => ({ ...p, photos: updatedPhotos, photo_url: primaryPhoto }));
+      setForm(f => ({ ...f, photos: updatedPhotos }));
+      toast.success('Foto verwijderd');
+    } catch (err) {
+      console.error('Delete photo error:', err);
+      toast.error('Kan foto niet verwijderen');
+    }
   };
 
   // Initiates checkmark click -> triggers modal
@@ -176,6 +236,7 @@ export default function Account() {
       const existing = await base44.entities.UserProfile.filter({ user_email: u.email });
       const targetProfile = existing[0] || myProfile;
 
+      const photosList = form.photos || myProfile?.photos || [];
       const updatedData = {
         display_name: form.display_name || u.full_name || '',
         age: form.age ? parseInt(form.age, 10) : null,
@@ -183,15 +244,30 @@ export default function Account() {
         bio: form.bio || '',
         traits: form.traits || [],
         interests: form.interests || [],
+        photos: photosList,
+        photo_url: photosList[0] || myProfile?.photo_url || null,
         user_email: u.email
       };
 
       if (targetProfile && targetProfile.id) {
-        await base44.entities.UserProfile.update(targetProfile.id, updatedData);
+        try {
+          await base44.entities.UserProfile.update(targetProfile.id, updatedData);
+        } catch (dbErr) {
+          console.warn('Photos column not in DB yet, saving without photos array:', dbErr);
+          const { photos, ...fallbackData } = updatedData;
+          await base44.entities.UserProfile.update(targetProfile.id, fallbackData);
+        }
         setMyProfile(p => ({ ...p, ...updatedData }));
       } else {
-        const created = await base44.entities.UserProfile.create({ ...updatedData, onboarding_complete: true });
-        setMyProfile(created);
+        try {
+          const created = await base44.entities.UserProfile.create({ ...updatedData, onboarding_complete: true });
+          setMyProfile(created);
+        } catch (dbErr) {
+          console.warn('Photos column not in DB yet, creating without photos array:', dbErr);
+          const { photos, ...fallbackData } = updatedData;
+          const created = await base44.entities.UserProfile.create({ ...fallbackData, onboarding_complete: true });
+          setMyProfile(created);
+        }
       }
 
       setEditing(false);
@@ -338,7 +414,7 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen max-w-md mx-auto relative shadow-2xl border-l border-r pb-36 select-none" style={{ background: bg, fontFamily: "'Inter', sans-serif", borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+    <div className="min-h-screen max-w-md mx-auto relative pb-36 select-none" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
       
       {/* Top Header Background */}
       <div className="px-5 pt-14 sm:pt-16 pb-20 relative overflow-hidden" style={{ background: headerBg }}>
@@ -407,13 +483,21 @@ export default function Account() {
           <div className="flex items-center gap-4">
             {/* Avatar Photo */}
             <label className="relative flex-shrink-0 cursor-pointer group">
-              <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} disabled={uploading} />
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handlePhotoUpload(e.target.files[0], 0);
+                }} 
+                disabled={uploading} 
+              />
               <div className="w-20 h-20 rounded-2xl overflow-hidden p-[2.5px] bg-gradient-to-tr from-pink-500 via-rose-400 to-purple-400 shadow-md transition-transform group-active:scale-95">
                 <div className={`w-full h-full rounded-2xl overflow-hidden flex items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
                   {uploading ? (
                     <div className="w-6 h-6 border-2 border-pink-300 border-t-pink-600 rounded-full animate-spin" />
-                  ) : myProfile?.photo_url ? (
-                    <img src={myProfile.photo_url} alt="profile" className="w-full h-full object-cover" />
+                  ) : (myProfile?.photos?.[0] || myProfile?.photo_url) ? (
+                    <img src={myProfile?.photos?.[0] || myProfile?.photo_url} alt="profile" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-3xl">{myProfile?.avatar ? myProfile.avatar.split(' ')[0] : '👤'}</span>
                   )}
@@ -473,6 +557,96 @@ export default function Account() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+
+          {/* ── Multi-Photo Upload Section (Max 3 Foto's) ── */}
+          <div className="mt-5 pt-4" style={{ borderTop: divider }}>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-pink-500" />
+                <span className="text-xs font-black uppercase tracking-wider" style={{ color: textMain }}>
+                  Mijn Foto's <span className="text-pink-500">({getProfilePhotos(myProfile).length}/3)</span>
+                </span>
+              </div>
+              <span className="text-[10px] font-semibold text-white/50">
+                Max. 3 foto's
+              </span>
+            </div>
+
+            {/* 3 Photo Slots Grid */}
+            <div className="grid grid-cols-3 gap-2.5">
+              {[0, 1, 2].map((slotIdx) => {
+                const photos = getProfilePhotos(myProfile);
+                const photoUrl = photos[slotIdx];
+                const isFirst = slotIdx === 0;
+
+                return (
+                  <div 
+                    key={slotIdx} 
+                    className="relative aspect-[3/4] rounded-2xl overflow-hidden border transition-all"
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                      borderColor: photoUrl 
+                        ? (isDark ? 'rgba(255,75,114,0.4)' : 'rgba(255,75,114,0.3)')
+                        : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
+                      borderStyle: photoUrl ? 'solid' : 'dashed'
+                    }}
+                  >
+                    {photoUrl ? (
+                      <>
+                        <img src={photoUrl} alt={`Foto ${slotIdx + 1}`} className="w-full h-full object-cover select-none" />
+                        
+                        {/* Slot Badge */}
+                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[9px] font-bold text-white shadow">
+                          {isFirst ? 'Hoofd' : `#${slotIdx + 1}`}
+                        </div>
+
+                        {/* Replace button */}
+                        <label className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center cursor-pointer text-white shadow active:scale-90 transition-transform">
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handlePhotoUpload(e.target.files[0], slotIdx);
+                            }} 
+                            disabled={uploading} 
+                          />
+                          <Camera className="w-3 h-3" />
+                        </label>
+
+                        {/* Delete button */}
+                        <button
+                          onClick={() => handlePhotoDelete(slotIdx)}
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-600/80 backdrop-blur-sm flex items-center justify-center text-white shadow active:scale-90 transition-transform"
+                          title="Foto verwijderen"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <label className="w-full h-full flex flex-col items-center justify-center gap-1.5 cursor-pointer p-2 text-center group active:scale-95 transition-transform">
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) handlePhotoUpload(e.target.files[0], slotIdx);
+                          }} 
+                          disabled={uploading} 
+                        />
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-pink-500/15 text-pink-500 group-hover:bg-pink-500/25 transition-colors">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                        <span className="text-[10px] font-bold text-white/60">
+                          {isFirst ? 'Hoofdfoto' : `Foto ${slotIdx + 1}`}
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -863,56 +1037,52 @@ export default function Account() {
               </span>
             </div>
 
-            {/* Photo Background */}
-            <div className="absolute inset-0 z-0 bg-gray-900">
-              {myProfile?.photo_url ? (
-                <img src={myProfile.photo_url} alt="" className="w-full h-full object-cover select-none pointer-events-none" />
-              ) : (
-                <div 
-                  className="w-full h-full flex flex-col items-center justify-center relative" 
-                  style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 50%, #8A2387 100%)' }}
-                >
-                  <div className="text-[100px] animate-bounce select-none pointer-events-none drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]">
-                    {myProfile?.avatar ? myProfile.avatar.split(' ')[0] : '👤'}
-                  </div>
-                </div>
-              )}
-              {/* Gradient overlay to make text readable */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
-            </div>
+            {/* Photo Background Carousel with Indicator Dots */}
+            <ProfilePhotoCarousel 
+              profile={{
+                ...myProfile,
+                ...form,
+                photos: (form.photos && form.photos.length > 0) 
+                  ? form.photos 
+                  : (myProfile?.photos || (myProfile?.photo_url ? [myProfile.photo_url] : []))
+              }} 
+              dotsClassName="bottom-[180px]" 
+            />
 
             {/* Foreground Card Content matching MatchesSwiper */}
-            <div className="relative z-10 p-6 flex flex-col pointer-events-auto">
-              {/* Name / Age / Height */}
-              <h2 className="text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide">
-                {myProfile?.age || '24'} jaar {myProfile?.height_cm ? `• ${myProfile.height_cm} cm` : ''}
-              </h2>
+            <div className="relative z-10 p-6 flex flex-col pointer-events-none">
+              <div className="pointer-events-auto flex flex-col">
+                {/* Name / Age / Height */}
+                <h2 className="text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide">
+                  {form.age || myProfile?.age || '24'} jaar {form.height_cm || myProfile?.height_cm ? `• ${form.height_cm || myProfile.height_cm} cm` : ''}
+                </h2>
 
-              {/* Tags (Avatar first, then interests/traits) */}
-              <div className="flex flex-wrap gap-1.5 mb-5 items-center">
-                {myProfile?.avatar && (
-                  <span className="px-3.5 py-1 rounded-full text-[13px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5">
-                    <span className="text-sm">{myProfile.avatar.split(' ')[0]}</span>
-                    <span className="text-pink-100">{myProfile.avatar.split(' ').slice(1).join(' ')}</span>
-                  </span>
-                )}
-                {[...(myProfile?.interests || []).slice(0, 2), ...(myProfile?.traits || []).slice(0, 1)].map((tag) => (
-                  <span key={tag} className="px-3.5 py-1 rounded-full text-[13px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
-                    {tag}
-                  </span>
-                ))}
-              </div>
+                {/* Tags (Avatar first, then interests/traits) */}
+                <div className="flex flex-wrap gap-1.5 mb-5 items-center">
+                  {myProfile?.avatar && (
+                    <span className="px-3.5 py-1 rounded-full text-[13px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5">
+                      <span className="text-sm">{myProfile.avatar.split(' ')[0]}</span>
+                      <span className="text-pink-100">{myProfile.avatar.split(' ').slice(1).join(' ')}</span>
+                    </span>
+                  )}
+                  {[...(form.interests || myProfile?.interests || []).slice(0, 2), ...(form.traits || myProfile?.traits || []).slice(0, 1)].map((tag) => (
+                    <span key={tag} className="px-3.5 py-1 rounded-full text-[13px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
 
-              {/* Fake Action Buttons (Like & Hint) */}
-              <div className="flex gap-3">
-                <button className="flex-1 py-3 px-3 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg active:scale-95 transition-transform">
-                  <Heart className="w-4.5 h-4.5" color="white" fill="transparent" strokeWidth={2.4} />
-                  Like
-                </button>
-                <button className="flex-1 py-3 px-3 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg active:scale-95 transition-transform">
-                  <MessageCircle className="w-4.5 h-4.5" color="white" strokeWidth={2.4} />
-                  Hint
-                </button>
+                {/* Fake Action Buttons (Like & Hint) */}
+                <div className="flex gap-3">
+                  <button className="flex-1 py-3 px-3 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg active:scale-95 transition-transform">
+                    <Heart className="w-4.5 h-4.5" color="white" fill="transparent" strokeWidth={2.4} />
+                    Like
+                  </button>
+                  <button className="flex-1 py-3 px-3 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg active:scale-95 transition-transform">
+                    <MessageCircle className="w-4.5 h-4.5" color="white" strokeWidth={2.4} />
+                    Hint
+                  </button>
+                </div>
               </div>
             </div>
 

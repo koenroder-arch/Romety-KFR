@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, Users, Heart, User, Info, Sparkles, Lock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Users, Heart, User, Info, MessageCircle, Lock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { motion, AnimatePresence } from 'framer-motion';
 import HintCard from '@/components/welove/HintCard';
+import ProfilePhotoCarousel from '@/components/welove/ProfilePhotoCarousel';
+import { authStorage } from '@/lib/authStorage';
+import { toast } from 'sonner';
 
 const MAX_CHARS = 25;
 
@@ -10,7 +13,8 @@ export default function SendHintSheet({
   user, myProfile, myCheckIn, matches, mutualMatches, onClose, onSent, isDark, initialProfile = null,
   myTodayHint = null, timeLeft = '', superMatchHints = [], hints = [], loadData = () => {}
 }) {
-  const [activeTab, setActiveTab] = useState('hints');
+  const [currentInitialProfile, setCurrentInitialProfile] = useState(initialProfile);
+  const [activeTab, setActiveTab] = useState(initialProfile ? 'compose' : 'hints');
   const [step, setStep] = useState(initialProfile ? 'compose' : 'choose');
   const [targetType, setTargetType] = useState(initialProfile ? 'single' : null);
   const [selectedProfile, setSelectedProfile] = useState(initialProfile);
@@ -32,6 +36,16 @@ export default function SendHintSheet({
   const [allDestinations, setAllDestinations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
 
+  useEffect(() => {
+    if (initialProfile) {
+      setCurrentInitialProfile(initialProfile);
+      setActiveTab('compose');
+      setStep('compose');
+      setTargetType('single');
+      setSelectedProfile(initialProfile);
+    }
+  }, [initialProfile]);
+
   // Swipe logic for tabs
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
@@ -48,6 +62,7 @@ export default function SendHintSheet({
   };
 
   const onTouchEndHandler = () => {
+    if (initialProfile) return;
     if (!touchStart || !touchEnd) return;
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
@@ -139,9 +154,10 @@ export default function SendHintSheet({
   };
 
   const getRecipients = () => {
-    if (targetType === 'supermatch') return mutualMatches.map(p => p.user_email);
+    if (initialProfile?.user_email) return [initialProfile.user_email];
+    if (targetType === 'single' && selectedProfile?.user_email) return [selectedProfile.user_email];
+    if (targetType === 'supermatch') return mutualMatches.map(p => p.user_email || p.profile?.user_email).filter(Boolean);
     if (targetType === 'matches') return filteredMatches.map(m => m.user_email || m.profile?.user_email).filter(Boolean);
-    if (targetType === 'single' && selectedProfile) return [selectedProfile.user_email];
     return [];
   };
 
@@ -154,21 +170,66 @@ export default function SendHintSheet({
     if (!message.trim() || sending) return;
     setSending(true);
 
-    const recipients = getRecipients();
-    const venueName = myCheckIn?.venue_name || 'Geen locatie';
+    try {
+      const senderEmail = user?.email || myProfile?.user_email || authStorage.getUserEmail();
+      if (!senderEmail) {
+        toast.error('Je moet ingelogd zijn om een hint te sturen.');
+        setSending(false);
+        return;
+      }
 
-    await Promise.all(recipients.map(to_email => 
-      base44.entities.Hint.create({
-        from_email: user.email,
-        to_email,
+      const recipients = getRecipients();
+      const venueName = myCheckIn?.venue_name || 'Geen locatie';
+      const senderAvatar = myProfile?.avatar || '🦁 Leeuw';
+      const senderName = myProfile?.display_name || user?.full_name || 'Iemand';
+      const senderAge = myProfile?.age || null;
+      const senderTraits = myProfile?.traits || [];
+      const senderPhotoUrl = myProfile?.photo_url || (myProfile?.photos && myProfile?.photos[0]) || null;
+      const targetTypeVal = targetType || (initialProfile ? 'single' : 'matches');
+
+      // Create hint record in Supabase
+      await base44.entities.Hint.create({
+        from_email: senderEmail,
+        from_name: senderName,
+        from_avatar: senderAvatar,
+        from_age: senderAge,
+        from_traits: senderTraits,
+        from_photo_url: senderPhotoUrl,
         venue_name: venueName,
         message: message.trim(),
-        sender_avatar: myProfile?.avatar || '🦁 Leeuw'
-      }).catch(err => console.error("Failed to send hint:", err))
-    ));
+        target_type: targetTypeVal,
+        to_emails: recipients,
+        heart_reactions: []
+      });
 
-    setSending(false);
-    onSent();
+      // Send in-app notification to recipients if any
+      if (recipients.length > 0) {
+        await Promise.all(recipients.map(to_email =>
+          base44.entities.Notification.create({
+            to_email,
+            from_email: senderEmail,
+            type: 'hint',
+            from_name: senderName,
+            venue_name: venueName
+          }).catch(() => {})
+        ));
+      }
+
+      toast.success('Hint succesvol verstuurd!');
+      setMessage('');
+      setCurrentInitialProfile(null);
+      setSelectedProfile(null);
+      setTargetType(null);
+      setStep('choose');
+      setActiveTab('hints');
+      if (onSent) onSent();
+      if (loadData) loadData();
+    } catch (err) {
+      console.error("Failed to send hint:", err);
+      toast.error('Er is iets misgegaan bij het versturen van je hint.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -215,24 +276,32 @@ export default function SendHintSheet({
                 onClick={onClose}
                 className="w-10 h-10 -ml-1 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform"
                 style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
-                title="Terug"
+                title="Sluiten"
               >
                 <ChevronLeft className="w-6 h-6" style={{ color: textMain }} />
               </button>
-              <div className="flex gap-4 ml-1">
-                <button
-                  onClick={() => setActiveTab('hints')}
-                  className={`pb-1 text-base font-black transition-colors border-b-[3px] ${activeTab === 'hints' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-400 border-transparent'}`}
-                >
-                  Hints
-                </button>
-                <button
-                  onClick={() => setActiveTab('compose')}
-                  className={`pb-1 text-base font-black transition-colors border-b-[3px] ${activeTab === 'compose' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-400 border-transparent'}`}
-                >
-                  Hint sturen
-                </button>
-              </div>
+              {currentInitialProfile ? (
+                <div className="ml-1">
+                  <h2 className="text-base font-black text-[#FF4B72]">
+                    Hints sturen
+                  </h2>
+                </div>
+              ) : (
+                <div className="flex gap-4 ml-1">
+                  <button
+                    onClick={() => setActiveTab('hints')}
+                    className={`pb-1 text-base font-black transition-colors border-b-[3px] ${activeTab === 'hints' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-400 border-transparent'}`}
+                  >
+                    Hints
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('compose')}
+                    className={`pb-1 text-base font-black transition-colors border-b-[3px] ${activeTab === 'compose' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-400 border-transparent'}`}
+                  >
+                    Hints sturen
+                  </button>
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -243,7 +312,7 @@ export default function SendHintSheet({
             </button>
           </div>
 
-          {activeTab === 'compose' && (step === 'compose' || step === 'pick') && (
+          {activeTab === 'compose' && !currentInitialProfile && !myTodayHint && (step === 'compose' || step === 'pick') && (
             <div className="w-full px-5 py-3 text-left flex-shrink-0" style={{ borderBottom: `1px solid ${divider}` }}>
               <button
                 onClick={(e) => { e.stopPropagation(); step === 'compose' && targetType === 'single' ? setStep('pick') : setStep('choose'); }}
@@ -285,10 +354,10 @@ export default function SendHintSheet({
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,75,114,0.2)' }}>
-                              <Sparkles className="w-4 h-4" style={{ color: '#FF4B72' }} />
+                              <MessageCircle className="w-4 h-4" style={{ color: '#FF4B72' }} />
                             </div>
                             <div>
-                              <p className={`text-sm font-black text-left ${textMain}`}>✨ {myTodayHint.message}</p>
+                              <p className={`text-sm font-black text-left ${textMain}`}>"{myTodayHint.message}"</p>
                               <p className="text-[10px] text-left mt-0.5 font-semibold" style={{ color: textSub }}>
                                 {myTodayHint.venue_name} · verloopt over {timeLeft}
                               </p>
@@ -383,7 +452,7 @@ export default function SendHintSheet({
                         {Object.keys(venueGroups).length === 0 && !myTodayHint && superMatchHints.length === 0 && (
                           <div className="flex flex-col items-center justify-center py-10 text-center">
                             <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ background: 'rgba(255,75,114,0.1)' }}>
-                              <Sparkles className="w-7 h-7" style={{ color: '#FF4B72' }} />
+                              <MessageCircle className="w-7 h-7" style={{ color: '#FF4B72' }} />
                             </div>
                             <p className={`font-black text-sm mb-1 ${textMain}`}>Nog geen hints</p>
                             <p className="text-xs" style={{ color: textSub }}>Wees de eerste die een hint stuurt!</p>
@@ -396,166 +465,213 @@ export default function SendHintSheet({
 
                 {activeTab === 'compose' && (
                   <>
-                {step === 'choose' && (
-                  <div className="space-y-3">
-                    {options.map(({ type, icon: Icon, label, color, count }) => (
-                      <button
-                        key={type}
-                        onClick={() => handleChoose(type)}
-                        className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left"
-                        style={{
-                          background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                          border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+                    {myTodayHint ? (
+                      <div 
+                        className="p-6 rounded-[28px] text-center my-2" 
+                        style={{ 
+                          background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)', 
+                          border: `1px solid ${divider}` 
                         }}
                       >
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + '22' }}>
-                          <Icon className="w-5 h-5" style={{ color }} />
+                        <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 bg-pink-500/15 text-pink-500 shadow-inner">
+                          <MessageCircle className="w-8 h-8" />
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold" style={{ color: textMain }}>{label}</p>
-                          {count !== null && (
-                            <p className="text-xs mt-0.5" style={{ color: textSub }}>{count} {type === 'supermatch' ? 'supermatches' : 'matches'}</p>
-                          )}
-                        </div>
-                        <ChevronRight className="w-4 h-4" style={{ color: textSub }} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {step === 'pick' && (
-                  <div className="space-y-3">
-                    <p className="text-xs mb-3 text-center" style={{ color: textSub }}>
-                      Kies een profiel bij <span style={{ color: '#FF6B4A', fontWeight: 700 }}>{myCheckIn?.venue_name}</span>
-                    </p>
-                    {allMatchProfiles.length === 0 && (
-                      <p className="text-sm text-center py-6" style={{ color: textSub }}>Geen matches gevonden bij deze venue</p>
-                    )}
-                    {allMatchProfiles.map((profile, idx) => {
-                      const email = profile.user_email || profile.profile?.user_email;
-                      const photo = profile.photo_url || profile.profile?.photo_url;
-                      const age = profile.age || profile.profile?.age;
-                      const selectedEmail = selectedProfile?.user_email || selectedProfile?.profile?.user_email;
-                      const isSelected = selectedEmail === email;
-                      const avatarStr = profile.avatar || profile.profile?.avatar;
-                      const emoji = avatarStr ? (avatarStr.includes(' ') ? avatarStr.split(' ')[0] : avatarStr) : '👤';
-                      return (
-                        <div
-                          key={email}
-                          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all"
-                          style={{
-                            background: isSelected
-                              ? 'linear-gradient(135deg, rgba(255,75,114,0.2), rgba(234,63,211,0.15))'
-                              : isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                            border: `1.5px solid ${isSelected ? 'rgba(255,75,114,0.6)' : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+                        <h3 className={`text-lg font-black mb-1.5 ${textMain}`}>Je hint is actief!</h3>
+                        <p className="text-xs mb-5 leading-relaxed font-medium" style={{ color: textSub }}>
+                          Je kunt 1 hint per ronde (9 uur) versturen. Zodra je huidige hint verloopt, kun je weer een nieuwe sturen.
+                        </p>
+                        
+                        {/* Current hint summary card */}
+                        <div 
+                          className="p-4 rounded-2xl mb-6 text-left" 
+                          style={{ 
+                            background: isDark ? 'rgba(255,75,114,0.12)' : 'rgba(255,75,114,0.06)', 
+                            border: '1.5px solid rgba(255,75,114,0.35)' 
                           }}
                         >
-                          {/* Avatar — click to select */}
-                          <button
-                            onClick={() => setSelectedProfile(profile)}
-                            className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0"
-                            style={{ background: 'rgba(255,75,114,0.15)' }}
-                          >
-                            {photo ? (
-                              <img src={photo} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div 
-                                className="w-full h-full flex items-center justify-center text-xl"
-                                style={avatarStr ? { background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' } : {}}
-                              >
-                                {emoji}
-                              </div>
-                            )}
-                          </button>
-
-                          {/* Anonymous label */}
-                          <button
-                            onClick={() => setSelectedProfile(profile)}
-                            className="flex-1 min-w-0 text-left"
-                          >
-                            <p className="text-sm font-black" style={{ color: textSub }}>
-                              Match #{idx + 1} {avatarStr ? `(${avatarStr})` : ''}
-                            </p>
-                            {age && <p className="text-xs" style={{ color: textSub }}>{age} jaar</p>}
-                          </button>
-
-                          {/* Info button */}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setPreviewProfile(profile); }}
-                            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-1"
-                            style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
-                          >
-                            <Info className="w-4 h-4" style={{ color: textSub }} />
-                          </button>
-
-                          {isSelected && (
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#FF6B4A' }}>
-                              <span className="text-white text-[10px] font-black">✓</span>
-                            </div>
-                          )}
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest">JOUW ACTIEVE HINT</p>
+                            <span className="text-[10px] font-bold text-pink-400">⏳ {timeLeft || '9u'}</span>
+                          </div>
+                          <p className={`text-sm font-black ${textMain}`}>"{myTodayHint.message}"</p>
+                          <p className="text-[11px] mt-1.5 font-semibold" style={{ color: textSub }}>
+                            📍 {myTodayHint.venue_name}
+                          </p>
                         </div>
-                      );
-                    })}
-                    <button
-                      onClick={() => selectedProfile && setStep('compose')}
-                      disabled={!selectedProfile}
-                      className="w-full py-3.5 rounded-2xl text-white font-black text-sm mt-2 disabled:opacity-40"
-                      style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
-                    >
-                      Stuur een hint →
-                    </button>
-                  </div>
-                )}
 
-                {step === 'compose' && (
-                  <div>
-                    <p className="text-xs mb-4 text-center" style={{ color: textSub }}>
-                      Max {MAX_CHARS} tekens • 1x per dag • Wordt verstuurd naar{' '}
-                      <span style={{ color: '#FF4B72', fontWeight: 700 }}>
-                        {targetType === 'supermatch' ? 'je supermatches' : targetType === 'matches' ? 'je matches' : 'je match'}
-                      </span>{' '}
-                      bij <span style={{ color: '#FF4B72', fontWeight: 700 }}>{myCheckIn?.venue_name}</span>
-                    </p>
+                        <button
+                          onClick={() => setActiveTab('hints')}
+                          className="w-full py-4 rounded-2xl text-white font-black text-sm active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2"
+                          style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
+                        >
+                          <span>Bekijk hints overzicht</span>
+                          <span>→</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {step === 'choose' && (
+                          <div className="space-y-3">
+                            {options.map(({ type, icon: Icon, label, color, count }) => (
+                              <button
+                                key={type}
+                                onClick={() => handleChoose(type)}
+                                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left"
+                                style={{
+                                  background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+                                }}
+                              >
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + '22' }}>
+                                  <Icon className="w-5 h-5" style={{ color }} />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold" style={{ color: textMain }}>{label}</p>
+                                  {count !== null && (
+                                    <p className="text-xs mt-0.5" style={{ color: textSub }}>{count} {type === 'supermatch' ? 'supermatches' : 'matches'}</p>
+                                  )}
+                                </div>
+                                <ChevronRight className="w-4 h-4" style={{ color: textSub }} />
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
-                    <div className="relative mb-4">
-                      <textarea
-                        value={message}
-                        onChange={e => setMessage(e.target.value.slice(0, MAX_CHARS))}
-                        placeholder="Schrijf je hint..."
-                        className="w-full rounded-2xl px-4 py-3 text-sm resize-none outline-none"
-                        style={{
-                          background: inputBg,
-                          color: textMain,
-                          border: `1.5px solid ${message.length === MAX_CHARS ? '#EA3FD3' : 'rgba(255,75,114,0.3)'}`,
-                          minHeight: '80px',
-                        }}
-                        rows={3}
-                      />
-                      <span
-                        className="absolute bottom-3 right-3 text-xs font-bold"
-                        style={{ color: message.length === MAX_CHARS ? '#EA3FD3' : textSub }}
-                      >
-                        {message.length}/{MAX_CHARS}
-                      </span>
-                    </div>
+                        {step === 'pick' && (
+                          <div className="space-y-3">
+                            <p className="text-xs mb-3 text-center" style={{ color: textSub }}>
+                              Kies een profiel bij <span style={{ color: '#FF6B4A', fontWeight: 700 }}>{myCheckIn?.venue_name}</span>
+                            </p>
+                            {allMatchProfiles.length === 0 && (
+                              <p className="text-sm text-center py-6" style={{ color: textSub }}>Geen matches gevonden bij deze venue</p>
+                            )}
+                            {allMatchProfiles.map((profile, idx) => {
+                              const email = profile.user_email || profile.profile?.user_email;
+                              const photo = profile.photo_url || profile.profile?.photo_url;
+                              const age = profile.age || profile.profile?.age;
+                              const selectedEmail = selectedProfile?.user_email || selectedProfile?.profile?.user_email;
+                              const isSelected = selectedEmail === email;
+                              const avatarStr = profile.avatar || profile.profile?.avatar;
+                              const emoji = avatarStr ? (avatarStr.includes(' ') ? avatarStr.split(' ')[0] : avatarStr) : '👤';
+                              return (
+                                <div
+                                  key={email}
+                                  className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all"
+                                  style={{
+                                    background: isSelected
+                                      ? 'linear-gradient(135deg, rgba(255,75,114,0.2), rgba(234,63,211,0.15))'
+                                      : isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                    border: `1.5px solid ${isSelected ? 'rgba(255,75,114,0.6)' : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+                                  }}
+                                >
+                                  {/* Avatar — click to select */}
+                                  <button
+                                    onClick={() => setSelectedProfile(profile)}
+                                    className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0"
+                                    style={{ background: 'rgba(255,75,114,0.15)' }}
+                                  >
+                                    {photo ? (
+                                      <img src={photo} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div
+                                        className="w-full h-full flex items-center justify-center text-lg"
+                                        style={avatarStr ? { background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' } : {}}
+                                      >
+                                        {emoji}
+                                      </div>
+                                    )}
+                                  </button>
 
-                    <button
-                      onClick={handleSend}
-                      disabled={!message.trim() || sending}
-                      className="w-full py-3.5 rounded-2xl text-white font-black text-sm disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
-                    >
-                      {sending ? 'Versturen...' : 'Verstuur hint ✨'}
-                    </button>
-                  </div>
+                                  {/* Anonymous label */}
+                                  <button
+                                    onClick={() => setSelectedProfile(profile)}
+                                    className="flex-1 min-w-0 text-left"
+                                  >
+                                    <p className="text-sm font-black" style={{ color: textSub }}>
+                                      Match #{idx + 1} {avatarStr ? `(${avatarStr})` : ''}
+                                    </p>
+                                    {age && <p className="text-xs" style={{ color: textSub }}>{age} jaar</p>}
+                                  </button>
+
+                                  {/* Info button */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setPreviewProfile(profile); }}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-1"
+                                    style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+                                  >
+                                    <Info className="w-4 h-4" style={{ color: textSub }} />
+                                  </button>
+
+                                  {isSelected && (
+                                    <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#FF6B4A' }}>
+                                      <span className="text-white text-[10px] font-black">✓</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            <button
+                              onClick={() => selectedProfile && setStep('compose')}
+                              disabled={!selectedProfile}
+                              className="w-full py-3.5 rounded-2xl text-white font-black text-sm mt-2 disabled:opacity-40"
+                              style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
+                            >
+                              Stuur een hint →
+                            </button>
+                          </div>
+                        )}
+
+                        {step === 'compose' && (
+                          <div>
+                            <p className="text-xs mb-4 text-center" style={{ color: textSub }}>
+                              Max {MAX_CHARS} tekens • 1x per dag • Wordt verstuurd naar{' '}
+                              <span style={{ color: '#FF4B72', fontWeight: 700 }}>
+                                {targetType === 'supermatch' ? 'je supermatches' : targetType === 'matches' ? 'je matches' : 'je match'}
+                              </span>{' '}
+                              bij <span style={{ color: '#FF4B72', fontWeight: 700 }}>{myCheckIn?.venue_name}</span>
+                            </p>
+
+                            <div className="relative mb-4">
+                              <textarea
+                                value={message}
+                                onChange={e => setMessage(e.target.value.slice(0, MAX_CHARS))}
+                                placeholder="Schrijf je hint..."
+                                className="w-full rounded-2xl px-4 py-3 text-sm resize-none outline-none"
+                                style={{
+                                  background: inputBg,
+                                  color: textMain,
+                                  border: `1.5px solid ${message.length === MAX_CHARS ? '#EA3FD3' : 'rgba(255,75,114,0.3)'}`,
+                                  minHeight: '80px',
+                                }}
+                                rows={3}
+                              />
+                              <span
+                                className="absolute bottom-3 right-3 text-xs font-bold"
+                                style={{ color: message.length === MAX_CHARS ? '#EA3FD3' : textSub }}
+                              >
+                                {message.length}/{MAX_CHARS}
+                              </span>
+                            </div>
+
+                            <button
+                              onClick={handleSend}
+                              disabled={!message.trim() || sending}
+                              className="w-full py-3.5 rounded-2xl text-white font-black text-sm disabled:opacity-50"
+                              style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
+                            >
+                              {sending ? 'Versturen...' : 'Verstuur hint'}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
                 )}
               </>
             )}
-          </>
-        )}
-      </div>
-    </div>
-  </motion.div>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Profile preview popup */}
       {previewProfile && (() => {
@@ -600,23 +716,11 @@ export default function SendHintSheet({
               {/* Photo */}
               <div className="px-5 pb-4">
                 <div className="w-full rounded-2xl overflow-hidden mb-4 relative" style={{ height: 220, background: 'rgba(255,75,114,0.1)' }}>
-                  {photo ? (
-                    <img src={photo} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div 
-                      className="w-full h-full flex flex-col items-center justify-center"
-                      style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 50%, #8A2387 100%)' }}
-                    >
-                      <div className="text-7xl animate-bounce select-none pointer-events-none drop-shadow-md">
-                        {emoji}
-                      </div>
-                      {avatarStr && (
-                        <div className="text-white font-bold text-xs mt-3 bg-black/30 px-3 py-1 rounded-full">
-                          {avatarStr.split(' ').slice(1).join(' ')}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <ProfilePhotoCarousel
+                    profile={previewProfile}
+                    isDark={isDark}
+                    dotsClassName="bottom-2"
+                  />
                 </div>
 
                 {/* Age + height */}

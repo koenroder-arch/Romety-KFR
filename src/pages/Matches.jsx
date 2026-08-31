@@ -11,6 +11,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
 
 import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
+import { fetchReportedEmails } from '@/lib/reportUtils';
 import NotificationBell from '@/components/welove/NotificationBell';
 import SendHintSheet from '@/components/welove/SendHintSheet';
 
@@ -36,6 +37,9 @@ export default function Matches() {
   const [hintingProfile, setHintingProfile] = useState(null);
   const [initialLikedIds, setInitialLikedIds] = useState([]);
   const [hasSentToday, setHasSentToday] = useState(false);
+  const [myTodayHint, setMyTodayHint] = useState(null);
+  const [timeLeft, setTimeLeft] = useState('');
+  const [hints, setHints] = useState([]);
 
   useEffect(() => { if (user !== undefined) loadData(); }, [user]); // undefined = still loading auth
   useEffect(() => {markAllRead();}, []);
@@ -69,9 +73,10 @@ export default function Matches() {
       base44.entities.Hint.filter({ from_email: u.email }),
     ]);
 
+    const reportedEmails = await fetchReportedEmails(u.email);
     const likedEmails = new Set(myLikes.map(l => l.to_email));
 
-    const others = allProfiles.filter((p) => p.user_email !== u.email && p.onboarding_complete);
+    const others = allProfiles.filter((p) => p.user_email !== u.email && p.onboarding_complete && !reportedEmails.has(p.user_email));
 
     const myLocation = activeCheckIn || activeDestination;
     const myVenueId = myLocation?.venue_id;
@@ -109,6 +114,30 @@ export default function Matches() {
     const nineHoursAgo = new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString();
     const myHintsRecent = myHints.filter(h => h.created_date >= nineHoursAgo);
     setHasSentToday(myHintsRecent.length > 0);
+    setMyTodayHint(myHintsRecent[0] || null);
+
+    if (myHintsRecent[0]) {
+      const expiresAt = new Date(new Date(myHintsRecent[0].created_date).getTime() + 9 * 60 * 60 * 1000);
+      const diffMs = expiresAt - new Date();
+      if (diffMs > 0) {
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        setTimeLeft(`${hours}u ${mins}m`);
+      } else {
+        setTimeLeft('0m');
+      }
+    } else {
+      setTimeLeft('');
+    }
+
+    // Load active hints for venue
+    try {
+      const allActiveHints = await base44.entities.Hint.list('-created_date', 100);
+      const filteredVenueHints = allActiveHints.filter(h => h.created_date >= nineHoursAgo && h.from_email !== u.email);
+      setHints(filteredVenueHints);
+    } catch (e) {
+      setHints([]);
+    }
 
     setLoading(false);
   };
@@ -122,7 +151,7 @@ export default function Matches() {
   const myLocation = myCheckIn;
 
   return (
-    <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col border-l border-r shadow-2xl" style={{ background: bg, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}>
+    <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
       {/* Glassmorphic Header styled like SuperMatchesSheet */}
       <div 
         className="flex items-center justify-between pt-12 px-5 pb-4 flex-shrink-0 backdrop-blur-xl z-[100]" 
@@ -195,9 +224,13 @@ export default function Matches() {
           matches={matches.map(m => m.profile)}
           mutualMatches={[]}
           onClose={() => setHintingProfile(null)}
-          onSent={() => { setHintingProfile(null); loadData(); }}
+          onSent={() => { loadData(); }}
           isDark={isDark}
           initialProfile={hintingProfile}
+          myTodayHint={myTodayHint}
+          timeLeft={timeLeft}
+          hints={hints}
+          loadData={() => loadData()}
         />
       )}
     </div>);

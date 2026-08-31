@@ -11,11 +11,14 @@ import SendHintSheet from '@/components/welove/SendHintSheet';
 import HintCard from '@/components/welove/HintCard';
 import StoriesViewer from '@/components/welove/StoriesViewer';
 import SuperMatchesSheet from '@/components/welove/SuperMatchesSheet';
+import RevealedLikesSheet from '@/components/welove/RevealedLikesSheet';
 import MatchAnimation from '@/components/welove/MatchAnimation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
+import ProfilePhotoCarousel from '@/components/welove/ProfilePhotoCarousel';
+import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
 
 const REPORT_REASONS = [
   { id: 'ongepaste_foto', label: 'Ongepaste foto', emoji: '🖼️' },
@@ -192,6 +195,10 @@ export default function Home() {
         base44.entities.Story.list('-created_date', 100).catch(() => []),
       ]);
 
+      // Fetch reported users
+      const reportedEmails = await fetchReportedEmails(u.email);
+      const safeProfiles = allProfiles.filter((p) => p && p.user_email && !reportedEmails.has(p.user_email));
+
       const myProf = myProfiles[0] || null;
       setMyProfile(myProf);
 
@@ -212,7 +219,7 @@ export default function Home() {
       setMyCheckIn(myCI);
 
       // Matches
-      const others = allProfiles.filter((p) => p && p.user_email && p.user_email !== u.email && p.onboarding_complete);
+      const others = safeProfiles.filter((p) => p.user_email !== u.email && p.onboarding_complete);
       const matchData = others
         .filter((p) => isMatch(myProf, p))
         .map((p) => ({
@@ -233,16 +240,16 @@ export default function Home() {
       // Super matches
       const iLiked = new Set(likesISent.map((l) => l && l.to_email).filter(Boolean));
       const likedMe = new Set(likesIReceived.map((l) => l && l.from_email).filter(Boolean));
-      const mutualEmails = [...iLiked].filter((e) => likedMe.has(e));
+      const mutualEmails = [...iLiked].filter((e) => likedMe.has(e) && !reportedEmails.has(e));
       setSuperMatchCount(mutualEmails.length);
 
-      // Unmatched likes (who liked me but I haven't liked back)
-      const unmatched = likesIReceived.filter((l) => l && l.from_email && !iLiked.has(l.from_email));
+      // Unmatched likes (who liked me but I haven't liked back, excluding reported)
+      const unmatched = likesIReceived.filter((l) => l && l.from_email && !iLiked.has(l.from_email) && !reportedEmails.has(l.from_email));
       setUnmatchedLikes(unmatched);
-      setAllProfiles(allProfiles);
+      setAllProfiles(safeProfiles);
 
       // Supermatch profiles for sheet
-      const superProfs = allProfiles.filter((p) => p && p.user_email && mutualEmails.includes(p.user_email));
+      const superProfs = safeProfiles.filter((p) => p && p.user_email && mutualEmails.includes(p.user_email));
       setSuperMatchProfiles(superProfs);
 
       // Mutual matches for SendHintSheet
@@ -387,65 +394,19 @@ export default function Home() {
     { name: 'Café Flater', city: 'Utrecht', discount: 'Geen actieve kortingen momenteel' }
   ];
 
-  const handleRevealLikeClick = async () => {
+  const revealedProfiles = React.useMemo(() => {
+    if (!unmatchedLikes.length || !allProfiles.length) return [];
+    return unmatchedLikes
+      .map((l) => allProfiles.find((p) => p.user_email === l.from_email))
+      .filter(Boolean);
+  }, [unmatchedLikes, allProfiles]);
+
+  const handleRevealLikeClick = () => {
     if (unmatchedLikes.length === 0) {
       alert("Je hebt nog geen likes ontvangen.");
       return;
     }
-
-    const nextLike = unmatchedLikes[0];
-    const targetEmail = nextLike.from_email;
-
-    const foundProfile = allProfiles.find(p => p.user_email === targetEmail);
-    if (foundProfile) {
-      setRevealedProfile(foundProfile);
-      setShowRevealModal(true);
-    } else {
-      alert("Profiel kon niet geladen worden.");
-    }
-  };
-
-  const handleLikeRevealedProfile = async () => {
-    if (!revealedProfile) return;
-    try {
-      await base44.entities.Like.create({
-        from_email: user.email,
-        to_email: revealedProfile.user_email
-      });
-
-      await Promise.all([
-        base44.entities.Notification.create({
-          to_email: revealedProfile.user_email,
-          from_email: user.email,
-          type: 'match',
-          from_name: myProfile?.display_name || 'Iemand'
-        }).catch(() => {}),
-        base44.entities.Notification.create({
-          to_email: user.email,
-          from_email: revealedProfile.user_email,
-          type: 'match',
-          from_name: revealedProfile.display_name || 'Een Match'
-        }).catch(() => {})
-      ]);
-
-      setShowRevealModal(false);
-      const matched = revealedProfile;
-      setRevealedProfile(null);
-      setMatchAnim({ myProfile, matchedProfile: matched });
-      loadData(true);
-    } catch (e) {
-      alert("Er ging iets mis met het liken van het profiel.");
-    }
-  };
-
-  const handleConfirmCloseReveal = (confirm) => {
-    if (confirm) {
-      setShowRevealModal(false);
-      setRevealedProfile(null);
-      setShowConfirmClose(false);
-    } else {
-      setShowConfirmClose(false);
-    }
+    setShowRevealModal(true);
   };
 
   const handleOpenReport = (e, profile) => {
@@ -465,6 +426,7 @@ export default function Home() {
   const handleSubmitReport = async () => {
     if (!reportState || !reportState.reason) return;
     try {
+      addLocalReportedEmail(reportState.profile.user_email);
       await base44.entities.Report.create({
         reporter_email: user.email,
         reporter_name: myProfile?.display_name || '',
@@ -475,6 +437,7 @@ export default function Home() {
         created_date: new Date().toISOString(),
       });
       setReportState(prev => ({ ...prev, step: 'done' }));
+      loadData(true);
     } catch (err) {
       console.error('Error submitting report:', err);
     }
@@ -528,14 +491,13 @@ export default function Home() {
 
   return (
     <div 
-      className="min-h-screen max-w-md mx-auto relative shadow-2xl border-l border-r pb-32" 
+      className="min-h-screen max-w-md mx-auto relative pb-32" 
       style={{ 
         background: bg, 
         fontFamily: "'Inter', sans-serif", 
         overflow: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'hidden' : 'auto',
         height: showSheet || showSuperMatchSheet || selectedStoryGroup ? '100vh' : 'auto',
-        position: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'relative' : 'static',
-        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
+        position: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'relative' : 'static'
       }}
     >
       {/* Header Container with Romety Fade */}
@@ -704,8 +666,8 @@ export default function Home() {
         </div>
 
         {/* Action Buttons List: Reveal Likes, Super Matches, Hints, Games, Discounts with Brand Logo Fade */}
-        <div className="mt-4 mb-4 relative">
-          <div className={`space-y-3 sm:space-y-3.5 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
+        <div className="mt-3.5 mb-4 relative">
+          <div className={`space-y-2 sm:space-y-2.5 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
             {/* 1. Onthul wie je heeft geliked (#FF4B72 - Felroze / Kersenrood) */}
             <button
               onClick={onRevealClick}
@@ -717,21 +679,9 @@ export default function Home() {
                   ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.22) 0%, rgba(255, 75, 114, 0.08) 100%)'
                   : 'linear-gradient(135deg, rgba(255, 75, 114, 0.10) 0%, rgba(255, 75, 114, 0.02) 100%), #FFFFFF',
                 border: isDark ? '1.5px solid rgba(255, 75, 114, 0.48)' : '1.5px solid rgba(255, 75, 114, 0.30)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
                 boxShadow: isDark ? '0 8px 24px rgba(255, 75, 114, 0.14)' : '0 4px 18px rgba(255, 75, 114, 0.08)',
               }}
             >
-              {/* Shimmer wave */}
-              {showRevealWave && (
-                <div 
-                  className="absolute inset-0 w-[200%] animate-shimmer pointer-events-none"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)'
-                  }}
-                />
-              )}
-
               <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0 pr-2">
                 <div 
                   className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
@@ -741,7 +691,7 @@ export default function Home() {
                 </div>
                 <div className="text-left flex-1 min-w-0">
                   <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
-                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Onthul wie je heeft geliked</p>
+                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Ontvangen likes</p>
                   <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Bekijk wie jou leuk vindt
                   </p>
@@ -766,8 +716,6 @@ export default function Home() {
                   ? 'linear-gradient(135deg, rgba(249, 72, 138, 0.22) 0%, rgba(249, 72, 138, 0.08) 100%)'
                   : 'linear-gradient(135deg, rgba(249, 72, 138, 0.10) 0%, rgba(249, 72, 138, 0.02) 100%), #FFFFFF',
                 border: isDark ? '1.5px solid rgba(249, 72, 138, 0.48)' : '1.5px solid rgba(249, 72, 138, 0.30)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
                 boxShadow: isDark ? '0 8px 24px rgba(249, 72, 138, 0.14)' : '0 4px 18px rgba(249, 72, 138, 0.08)',
               }}
             >
@@ -796,47 +744,65 @@ export default function Home() {
               </div>
             </button>
 
-            {/* 3. Stuur een hint (#F445A3 - Fade stap 2) */}
+            {/* 3. Hints button (Vibrant when available, muted/less colorful when hasSentToday is active) */}
             <button
               onClick={onHintClick}
               className="w-full flex items-center justify-between rounded-[22px] sm:rounded-[26px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(244, 69, 163, 0.22) 0%, rgba(244, 69, 163, 0.08) 100%)'
-                  : 'linear-gradient(135deg, rgba(244, 69, 163, 0.10) 0%, rgba(244, 69, 163, 0.02) 100%), #FFFFFF',
-                border: isDark ? '1.5px solid rgba(244, 69, 163, 0.48)' : '1.5px solid rgba(244, 69, 163, 0.30)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                boxShadow: isDark ? '0 8px 24px rgba(244, 69, 163, 0.14)' : '0 4px 18px rgba(244, 69, 163, 0.08)',
+                background: hasSentToday
+                  ? (isDark
+                    ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)'
+                    : 'linear-gradient(135deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.01) 100%), #FFFFFF')
+                  : (isDark
+                    ? 'linear-gradient(135deg, rgba(244, 69, 163, 0.22) 0%, rgba(244, 69, 163, 0.08) 100%)'
+                    : 'linear-gradient(135deg, rgba(244, 69, 163, 0.10) 0%, rgba(244, 69, 163, 0.02) 100%), #FFFFFF'),
+                border: hasSentToday
+                  ? (isDark ? '1.5px solid rgba(255, 255, 255, 0.14)' : '1.5px solid rgba(0, 0, 0, 0.09)')
+                  : (isDark ? '1.5px solid rgba(244, 69, 163, 0.48)' : '1.5px solid rgba(244, 69, 163, 0.30)'),
+                boxShadow: hasSentToday
+                  ? 'none'
+                  : (isDark ? '0 8px 24px rgba(244, 69, 163, 0.14)' : '0 4px 18px rgba(244, 69, 163, 0.08)'),
               }}
             >
-              {/* Shimmer wave */}
-              {showHintWave && (
-                <div 
-                  className="absolute inset-0 w-[200%] animate-shimmer pointer-events-none"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)'
-                  }}
-                />
-              )}
-
               <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0 pr-2">
                 <div 
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ background: isDark ? 'rgba(244, 69, 163, 0.25)' : 'rgba(244, 69, 163, 0.12)' }}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm transition-all"
+                  style={{ 
+                    background: hasSentToday
+                      ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)')
+                      : (isDark ? 'rgba(244, 69, 163, 0.25)' : 'rgba(244, 69, 163, 0.12)') 
+                  }}
                 >
-                  <Lightbulb className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#F445A3]'}`} />
+                  <Lightbulb className={`w-6 h-6 sm:w-7 sm:h-7 ${
+                    hasSentToday 
+                      ? (isDark ? 'text-white/60' : 'text-gray-500') 
+                      : (isDark ? 'text-white' : 'text-[#F445A3]')
+                  }`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#F445A3]'}`}>HINTS</p>
-                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Stuur een hint</p>
-                  <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
-                    Laat anoniem je interesse weten
+                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${
+                    hasSentToday 
+                      ? (isDark ? 'text-white/45' : 'text-gray-400') 
+                      : (isDark ? 'text-white/60' : 'text-[#F445A3]')
+                  }`}>
+                    HINTS
+                  </p>
+                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Hints sturen
+                  </p>
+                  <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/70' : 'text-gray-500'}`}>
+                    {hasSentToday 
+                      ? (timeLeft ? `Verloopt over ${timeLeft} • Bekijk hints` : 'Laat anoniem je interesse weten') 
+                      : 'Laat anoniem je interesse weten'}
                   </p>
                 </div>
               </div>
               <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full bg-[#F445A3] text-white text-xs sm:text-sm font-black flex items-center justify-center shadow-md">
+                <div className={`min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full text-xs sm:text-sm font-black flex items-center justify-center shadow-md ${
+                  hasSentToday 
+                    ? (isDark ? 'bg-white/15 text-white/80' : 'bg-gray-200 text-gray-700') 
+                    : 'bg-[#F445A3] text-white'
+                }`}>
                   {hints.length + superMatchHints.length}
                 </div>
                 <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
@@ -854,8 +820,6 @@ export default function Home() {
                   ? 'linear-gradient(135deg, rgba(238, 66, 188, 0.22) 0%, rgba(238, 66, 188, 0.08) 100%)'
                   : 'linear-gradient(135deg, rgba(238, 66, 188, 0.10) 0%, rgba(238, 66, 188, 0.02) 100%), #FFFFFF',
                 border: isDark ? '1.5px solid rgba(238, 66, 188, 0.48)' : '1.5px solid rgba(238, 66, 188, 0.30)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
                 boxShadow: isDark ? '0 8px 24px rgba(238, 66, 188, 0.14)' : '0 4px 18px rgba(238, 66, 188, 0.08)',
               }}
             >
@@ -884,7 +848,7 @@ export default function Home() {
               </div>
             </button>
 
-            {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars) */}
+            {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars met rustig van links naar rechts pulserend lichtgoud randje) */}
             <button
               onClick={() => setShowDiscountsModal(true)}
               className="w-full flex items-center justify-between rounded-[22px] sm:rounded-[26px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
@@ -892,12 +856,23 @@ export default function Home() {
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(234, 63, 211, 0.22) 0%, rgba(234, 63, 211, 0.08) 100%)'
                   : 'linear-gradient(135deg, rgba(234, 63, 211, 0.10) 0%, rgba(234, 63, 211, 0.02) 100%), #FFFFFF',
-                border: isDark ? '1.5px solid rgba(234, 63, 211, 0.48)' : '1.5px solid rgba(234, 63, 211, 0.30)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
+                border: isDark ? '1.5px solid rgba(234, 63, 211, 0.35)' : '1.5px solid rgba(234, 63, 211, 0.22)',
                 boxShadow: isDark ? '0 8px 24px rgba(234, 63, 211, 0.14)' : '0 4px 18px rgba(234, 63, 211, 0.08)',
               }}
             >
+              {/* Rustig van links naar rechts pulserend lichtgoud randje in een vloeiende loop */}
+              <div 
+                className="absolute inset-0 rounded-[22px] sm:rounded-[26px] pointer-events-none p-[1.5px] animate-gold-sweep"
+                style={{
+                  background: isDark
+                    ? 'linear-gradient(90deg, transparent 0%, rgba(255, 245, 205, 0.2) 20%, rgba(255, 235, 160, 0.95) 50%, rgba(255, 245, 205, 0.2) 80%, transparent 100%)'
+                    : 'linear-gradient(90deg, transparent 0%, rgba(235, 205, 120, 0.2) 20%, rgba(245, 215, 125, 0.95) 50%, rgba(235, 205, 120, 0.2) 80%, transparent 100%)',
+                  backgroundSize: '300% 100%',
+                  WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                  WebkitMaskComposite: 'xor',
+                  maskComposite: 'exclude',
+                }}
+              />
               <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0 pr-2">
                 <div 
                   className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
@@ -1020,213 +995,17 @@ export default function Home() {
         />
       )}
 
-      {/* ── Revealed Profile Sheet ── */}
-      <AnimatePresence>
-        {showRevealModal && revealedProfile && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              className="fixed inset-0 z-[100]"
-              style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowConfirmClose(true)}
-            />
-
-            <motion.div
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={{ left: 0, right: 0.8 }}
-              onDragEnd={(_, info) => {
-                if (info.offset.x > 80 || info.velocity.x > 400) {
-                  setShowConfirmClose(true);
-                }
-              }}
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-              className="fixed inset-0 z-[102] max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
-              style={{
-                background: isDark ? '#141521' : '#FFFFFF',
-                touchAction: 'pan-y',
-              }}
-            >
-              {/* Photo Background */}
-              <div className="absolute inset-0 z-0 bg-gray-900 cursor-pointer">
-                {revealedProfile.photo_url ? (
-                  <img src={revealedProfile.photo_url} alt="" className="w-full h-full object-cover select-none pointer-events-none" />
-                ) : (
-                  <div 
-                    className="w-full h-full flex flex-col items-center justify-center relative" 
-                    style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 50%, #8A2387 100%)' }}
-                  >
-                    <div className="text-[120px] animate-bounce select-none pointer-events-none drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]">
-                      {revealedProfile.avatar ? revealedProfile.avatar.split(' ')[0] : '👤'}
-                    </div>
-                    {revealedProfile.avatar && (
-                      <div className="absolute bottom-32 text-center text-white/50 text-xs font-bold tracking-widest uppercase bg-black/30 px-3.5 py-1.5 rounded-full">
-                        {revealedProfile.avatar.split(' ').slice(1).join(' ')}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
-              </div>
-
-              {/* Top Bar Navigation (WhatsApp-style back button and Options) */}
-              <div className="absolute left-4 right-4 z-20 flex justify-between items-center pointer-events-auto" style={{ top: 'max(16px, env(safe-area-inset-top, 16px))' }}>
-                {/* Back Button */}
-                <button
-                  onClick={() => setShowConfirmClose(true)}
-                  className="w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
-                  title="Terug"
-                >
-                  <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
-                </button>
-
-                {/* Three dots menu */}
-                <div className="relative">
-                  <button
-                    onClick={() => setRevealedBioExpanded(!revealedBioExpanded)}
-                    className="w-11 h-11 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
-                  >
-                    <MoreVertical className="w-5.5 h-5.5 text-white" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Pink Match Badge */}
-              <div 
-                className="absolute left-4 z-20 px-3 py-1.5 rounded-full text-[9px] font-black text-white tracking-widest shadow-md"
-                style={{
-                  top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 54px)',
-                  background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-                  boxShadow: '0 4px 12px rgba(255, 75, 114, 0.4)'
-                }}
-              >
-                HEEFT JOU GELIKED! 💖
-              </div>
-
-              {/* Foreground Content */}
-              <div 
-                className="relative z-10 flex flex-col h-full p-6 pointer-events-none mt-auto"
-                style={{ paddingBottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' }}
-              >
-                <div className="mt-auto pointer-events-auto flex flex-col">
-                  {/* Age & Height */}
-                  <h2 className="text-[32px] font-black text-white drop-shadow-md leading-none mb-4 tracking-wide text-left">
-                    {revealedProfile.age} jaar {revealedProfile.height_cm ? `• ${revealedProfile.height_cm} cm` : ''}
-                  </h2>
-
-                  {/* Bio expandable section */}
-                  <AnimatePresence>
-                    {revealedBioExpanded && revealedProfile.bio && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                        animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
-                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden text-left"
-                      >
-                        <div className="rounded-2xl px-4 py-3 border border-white/20" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)' }}>
-                          <p className="text-sm text-white/90 font-medium leading-relaxed">
-                            {revealedProfile.bio}
-                          </p>
-                        </div>
-                      </motion.div>
-                    )}
-                    {revealedBioExpanded && !revealedProfile.bio && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                        animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
-                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden text-left"
-                      >
-                        <div className="rounded-2xl px-4 py-3 border border-white/15" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)' }}>
-                          <p className="text-sm text-white/50 font-medium italic">
-                            Geen bio beschikbaar
-                          </p>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Tags (Avatar, interests, traits) */}
-                  <div className="flex flex-wrap gap-2 mb-6 items-center">
-                    {revealedProfile.avatar && (
-                      <span className="px-4 py-1.5 rounded-full text-[14px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5">
-                        <span className="text-base">{revealedProfile.avatar.split(' ')[0]}</span>
-                        <span className="text-pink-100">{revealedProfile.avatar.split(' ').slice(1).join(' ')}</span>
-                      </span>
-                    )}
-                    {[...(revealedProfile.interests || []).slice(0, 2), ...(revealedProfile.traits || []).slice(0, 1)].map((tag) => (
-                      <span key={tag} className="px-4 py-1.5 rounded-full text-[14px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Swiper Action Buttons */}
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={(e) => {
-                        e.currentTarget.blur();
-                        handleLikeRevealedProfile();
-                      }} 
-                      className="flex-1 py-3.5 px-4 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform shadow-lg"
-                    >
-                      <Heart className="w-5 h-5 fill-white text-white animate-pulse" />
-                      Like
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.currentTarget.blur();
-                        setHintingProfile(revealedProfile);
-                      }} 
-                      className="flex-1 py-3.5 px-4 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform shadow-lg"
-                    >
-                      <MessageCircle className="w-5 h-5" color="white" strokeWidth={2.4} />
-                      Hint
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Nested Confirmation Close Overlay */}
-              {showConfirmClose && (
-                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-black/90 backdrop-blur-sm text-center">
-                  <div className="space-y-4 max-w-xs">
-                    <p className="text-lg font-black text-white leading-tight">
-                      Weet je het zeker?
-                    </p>
-                    <p className="text-xs text-gray-300">
-                      Wil je dit profiel afsluiten zonder te liken?
-                    </p>
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        onClick={() => handleConfirmCloseReveal(true)}
-                        className="flex-1 py-3 rounded-xl bg-red-500 text-white font-black text-xs hover:bg-red-600 transition-all active:scale-95"
-                      >
-                        Ja, sluit af
-                      </button>
-                      <button
-                        onClick={() => handleConfirmCloseReveal(false)}
-                        className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-black text-xs transition-all active:scale-95"
-                      >
-                        Nee, terug
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* ── Revealed Likes Sheet (Scrollable snap feed of all received likes) ── */}
+      {showRevealModal && (
+        <RevealedLikesSheet
+          profiles={revealedProfiles}
+          currentUser={user}
+          myProfile={myProfile}
+          isDark={isDark}
+          onClose={() => setShowRevealModal(false)}
+          onRefresh={() => loadData(true)}
+        />
+      )}
 
       {/* ── Discounts Sheet ── */}
       <AnimatePresence>
