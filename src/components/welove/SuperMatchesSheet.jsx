@@ -162,7 +162,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   <ProfilePhotoCarousel
                     profile={profile}
                     isDark={isDark}
-                    dotsClassName="bottom-[210px] sm:bottom-[220px]"
+                    dotsClassName="top-[74px] left-4 z-30"
                   />
 
                   {/* ── Three-dots options button (top right) ── */}

@@ -188,6 +188,13 @@ export default function Account() {
     if (!myProfile) return;
     try {
       const currentPhotos = getProfilePhotos(myProfile);
+      
+      // Profiel moet altijd minimaal 1 hoofdfoto behouden
+      if (currentPhotos.length <= 1) {
+        toast.error('Je profiel moet altijd een hoofdfoto hebben. Upload eerst een andere foto om deze te kunnen veranderen!');
+        return;
+      }
+
       const updatedPhotos = currentPhotos.filter((_, idx) => idx !== indexToDelete);
       const primaryPhoto = updatedPhotos[0] || null;
 
@@ -205,7 +212,12 @@ export default function Account() {
 
       setMyProfile(p => ({ ...p, photos: updatedPhotos, photo_url: primaryPhoto }));
       setForm(f => ({ ...f, photos: updatedPhotos }));
-      toast.success('Foto verwijderd');
+      
+      if (indexToDelete === 0) {
+        toast.success('Hoofdfoto verwijderd. Foto 2 is nu automatisch je hoofdfoto!');
+      } else {
+        toast.success('Foto verwijderd');
+      }
     } catch (err) {
       console.error('Delete photo error:', err);
       toast.error('Kan foto niet verwijderen');
@@ -1030,13 +1042,6 @@ export default function Account() {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Top Badge */}
-            <div className="absolute top-4 left-4 z-30 pointer-events-none">
-              <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-black/40 text-pink-300 backdrop-blur-md border border-white/20">
-                👁️ Voorvertoning op Matches
-              </span>
-            </div>
-
             {/* Photo Background Carousel with Indicator Dots */}
             <ProfilePhotoCarousel 
               profile={{
@@ -1046,7 +1051,7 @@ export default function Account() {
                   ? form.photos 
                   : (myProfile?.photos || (myProfile?.photo_url ? [myProfile.photo_url] : []))
               }} 
-              dotsClassName="bottom-[180px]" 
+              dotsClassName="top-4 left-4 z-30" 
             />
 
             {/* Foreground Card Content matching MatchesSwiper */}

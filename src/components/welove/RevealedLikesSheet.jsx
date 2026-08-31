@@ -165,7 +165,7 @@ export default function RevealedLikesSheet({
                   <ProfilePhotoCarousel
                     profile={profile}
                     isDark={isDark}
-                    dotsClassName="bottom-[210px] sm:bottom-[220px]"
+                    dotsClassName="top-[102px] left-4 z-30"
                   />
 
                   {/* "HEEFT JOU GELIKED!" Badge */}

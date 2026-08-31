@@ -255,7 +255,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               isDark={isDark}
               onDoubleTap={(x, y, p) => handleDoubleTapAtCoord(x, y, p)}
               onClick={() => handleSingleClick(profile)}
-              dotsClassName="bottom-[210px] sm:bottom-[220px]"
+              dotsClassName="top-4 left-4 z-30"
             >
               {/* Double Tap Hearts Animation */}
               <AnimatePresence>

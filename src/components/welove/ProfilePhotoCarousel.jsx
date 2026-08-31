@@ -199,7 +199,7 @@ export default function ProfilePhotoCarousel({
       {/* ONLY RENDERED IF PROFILE HAS 2 OR 3 PHOTOS */}
       {hasMultiplePhotos && (
         <div 
-          className={`absolute left-0 right-0 z-20 flex items-center justify-center gap-1.5 pointer-events-auto ${dotsClassName || 'bottom-[164px] sm:bottom-[172px]'}`}
+          className={`absolute z-20 flex items-center pointer-events-auto ${dotsClassName || 'top-4 left-4 z-30'}`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 shadow-lg">
