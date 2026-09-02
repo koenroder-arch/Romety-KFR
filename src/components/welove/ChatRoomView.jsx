@@ -91,7 +91,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const textMain = isDark ? '#FFFFFF' : '#111827';
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
 
-  const [viewportStyle, setViewportStyle] = useState({});
+  const [viewportHeight, setViewportHeight] = useState(null);
 
   const scrollToBottom = useCallback((smooth = false) => {
     if (messagesContainerRef.current) {
@@ -115,33 +115,39 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     document.body.style.position = 'fixed';
     document.body.style.width = '100%';
     document.body.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
 
-    const updateViewport = () => {
+    const handleViewport = () => {
       if (typeof window !== 'undefined' && window.visualViewport) {
-        const vv = window.visualViewport;
+        setViewportHeight(window.visualViewport.height);
         window.scrollTo(0, 0);
-        setViewportStyle({
-          height: `${vv.height}px`,
-          top: `${vv.offsetTop || 0}px`,
-        });
       }
     };
 
     if (typeof window !== 'undefined' && window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateViewport);
-      window.visualViewport.addEventListener('scroll', updateViewport);
-      updateViewport();
+      window.visualViewport.addEventListener('resize', handleViewport);
+      window.visualViewport.addEventListener('scroll', handleViewport);
+      handleViewport();
     }
+
+    const preventScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+    window.addEventListener('scroll', preventScroll, { passive: false });
 
     return () => {
       document.body.style.overflow = prevBodyOverflow;
       document.body.style.position = prevBodyPosition;
       document.body.style.width = prevBodyWidth;
       document.body.style.height = prevBodyHeight;
+      document.documentElement.style.overflow = '';
       if (typeof window !== 'undefined' && window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', updateViewport);
-        window.visualViewport.removeEventListener('scroll', updateViewport);
+        window.visualViewport.removeEventListener('resize', handleViewport);
+        window.visualViewport.removeEventListener('scroll', handleViewport);
       }
+      window.removeEventListener('scroll', preventScroll);
     };
   }, []);
 
@@ -410,19 +416,22 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       className="fixed inset-x-0 top-0 z-[300] flex flex-col max-w-md mx-auto overflow-hidden select-none"
       style={{
         background: bg,
-        height: '100dvh',
+        height: viewportHeight ? `${viewportHeight}px` : '100dvh',
+        maxHeight: viewportHeight ? `${viewportHeight}px` : '100dvh',
+        position: 'fixed',
+        top: 0,
+        bottom: 'auto',
         overscrollBehavior: 'none',
-        touchAction: 'manipulation',
-        ...viewportStyle,
       }}
     >
       
       {/* Header */}
       <div
         className="flex-shrink-0 flex items-center gap-3 px-4 pb-3 backdrop-blur-xl"
+        onTouchMove={(e) => e.stopPropagation()}
         style={{
-          paddingTop: 'max(16px, env(safe-area-inset-top, 16px))',
-          background: isDark ? 'rgba(8,9,14,0.92)' : 'rgba(255,255,255,0.92)',
+          paddingTop: 'max(14px, env(safe-area-inset-top, 14px))',
+          background: isDark ? 'rgba(8,9,14,0.95)' : 'rgba(255,255,255,0.95)',
           borderBottom: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
           boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
         }}
@@ -661,6 +670,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       {canChat && phase < 4 && !isArchived && (
         <div
           className="flex-shrink-0 sticky bottom-0 z-20 flex items-center gap-2 px-3 py-2.5"
+          onTouchMove={(e) => e.stopPropagation()}
           style={{
             paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
             background: isDark ? 'rgba(8,9,14,0.98)' : '#FFFFFF',
