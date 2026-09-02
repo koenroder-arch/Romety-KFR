@@ -67,7 +67,7 @@ const AuthenticatedApp = () => {
   const { isLoadingAuth, user } = useAuth();
   const isLoginPage = window.location.pathname.toLowerCase().startsWith('/login');
 
-  console.log(`[App] AuthenticatedApp render: isLoadingAuth=${isLoadingAuth} user=${user ? user.email : 'null'} isLoginPage=${isLoginPage} path=${window.location.pathname}`);
+
 
   // Show loading while auth is being checked
   if (isLoadingAuth) {

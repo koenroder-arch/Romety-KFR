@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { MapPin, Heart, User, Home, Plus } from 'lucide-react';
+import { MapPin, Heart, User, Home, Plus, MessageCircle } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { useNotifications } from '@/components/welove/useNotifications';
 import { useLang } from '@/lib/LanguageContext';
@@ -23,12 +23,56 @@ export default function Layout({ children, currentPageName }) {
   const { theme } = useTheme();
   const isDark = theme !== 'light';
   const t = T[lang] || T.nl;
-  const NAV_ITEMS = NAV_CONFIG.map((item) => ({ ...item, name: t[item.key] }));
+  const [unreadChatCount, setUnreadChatCount] = React.useState(0);
+  const NAV_ITEMS = NAV_CONFIG.map((item) => ({ ...item, name: t[item.key] || item.key }));
+
+  // Poll for unread chat messages every 30s
+  React.useEffect(() => {
+    const checkChats = async () => {
+      try {
+        const { base44 } = await import('@/api/base44Client');
+        const { useUser } = await import('@/lib/useUser');
+        // We use localStorage to get user email quickly
+        const email = localStorage.getItem('romety_user_email');
+        if (!email) return;
+        const rooms = await base44.entities.ChatRoom.filter({ user_a_email: email }).catch(() => []);
+        const rooms2 = await base44.entities.ChatRoom.filter({ user_b_email: email }).catch(() => []);
+        const allRooms = [...rooms, ...rooms2].filter(r => r.status !== 'deleted' && !r.deleted_at);
+        const seenRoomIds = new Set();
+        const uniqueRooms = allRooms.filter(r => {
+          if (seenRoomIds.has(r.id)) return false;
+          seenRoomIds.add(r.id);
+          return true;
+        });
+
+        let totalBadge = 0;
+        const pendingInvites = uniqueRooms.filter(r => r.status === 'pending' && r.user_b_email === email).length;
+        totalBadge += pendingInvites;
+
+        const activeRooms = uniqueRooms.filter(r => r.status === 'active');
+        await Promise.all(
+          activeRooms.map(async (r) => {
+            try {
+              const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
+              const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== email);
+              const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
+              const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
+              if (unreadInRoom > 0) totalBadge += unreadInRoom;
+            } catch (e) {}
+          })
+        );
+
+        setUnreadChatCount(totalBadge);
+      } catch (e) {}
+    };
+    checkChats();
+    const interval = setInterval(checkChats, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-[100dvh] w-full flex flex-col" style={{ background: isDark ? '#08090E' : '#F8F9FB', fontFamily: "'Inter', sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         * { -webkit-tap-highlight-color: transparent; }
         img {
           image-rendering: -webkit-optimize-contrast;
@@ -103,6 +147,7 @@ export default function Layout({ children, currentPageName }) {
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             paddingBottom: 'env(safe-area-inset-bottom)',
+            willChange: 'transform',
           }}
         >
           <div className="flex justify-around items-center px-2 py-4">
@@ -119,6 +164,11 @@ export default function Layout({ children, currentPageName }) {
                     {page === 'Matches' && unreadCount > 0 &&
                   <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>
                         {unreadCount > 9 ? '9+' : unreadCount}
+                      </div>
+                  }
+                    {page === 'Chat' && unreadChatCount > 0 &&
+                  <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>
+                        {unreadChatCount > 9 ? '9+' : unreadChatCount}
                       </div>
                   }
                   </div>

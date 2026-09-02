@@ -154,9 +154,8 @@ export function useNotifications() {
         ), { duration: 5000 });
       }
       if (event.type === 'update' && event.data?.to_email === user.email && event.data?.is_read) {
-        base44.entities.Notification.filter({ to_email: user.email, is_read: false }).then(notifs => {
-          setUnreadCount(notifs.length);
-        }).catch(() => {});
+        // Decrement locally instead of doing a full DB fetch on every read event
+        setUnreadCount(prev => Math.max(0, prev - 1));
       }
     });
 

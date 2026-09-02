@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import MatchAnimation from './MatchAnimation';
@@ -43,7 +43,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     setLikedProfiles(new Set(initialLikedIds));
   }, [initialLikedIds]);
 
-  const bg = isDark ? 'transparent' : 'transparent';
+  const bg = 'transparent';
   const textMain = isDark ? 'text-white' : 'text-gray-900';
   const textSub = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)';
 
@@ -137,17 +137,15 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
   };
 
   const handleSingleClick = async (profile) => {
-    // Fetch stories for this user
     try {
       const nineHoursAgo = new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString();
       const userStories = await base44.entities.Story.filter({ user_email: profile.user_email }, '-created_date', 50);
       const activeStories = userStories.filter(s => s.created_date >= nineHoursAgo);
-      
       if (activeStories.length > 0) {
         setSelectedStoryGroup({
           user_email: profile.user_email,
           profile: profile,
-          items: activeStories.reverse() // show oldest to newest
+          items: activeStories.reverse(),
         });
       }
     } catch (err) {

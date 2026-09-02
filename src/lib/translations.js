@@ -6,6 +6,7 @@ export const T = {
     navHints: 'Hints',
     navMatches: 'Matches',
     navAccount: 'Account',
+    navChat: 'Chat',
 
     // Home
     welcomeBack: 'Welkom terug,',

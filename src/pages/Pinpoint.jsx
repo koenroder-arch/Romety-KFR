@@ -91,6 +91,26 @@ export default function Pinpoint() {
     setRecentSearches(searches);
     setAllProfiles(safeProfs);
 
+    // Automatic background pruning: ensure user has at most 10 SearchHistory & 10 UserDestination rows in Supabase
+    setTimeout(async () => {
+      try {
+        const allUserSearches = await base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 100);
+        if (allUserSearches.length > 10) {
+          const excess = allUserSearches.slice(10);
+          for (const s of excess) {
+            if (s.id) await base44.entities.SearchHistory.delete(s.id).catch(() => {});
+          }
+        }
+        const allUserDests = await base44.entities.UserDestination.filter({ user_email: u.email }, '-created_date', 100);
+        if (allUserDests.length > 10) {
+          const excess = allUserDests.slice(10);
+          for (const d of excess) {
+            if (d.id) await base44.entities.UserDestination.delete(d.id).catch(() => {});
+          }
+        }
+      } catch (err) {}
+    }, 1000);
+
     const nowIso = new Date().toISOString();
     const activeDests = safeDests.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > nowIso));
     setAllDestinations(activeDests);
@@ -255,16 +275,39 @@ export default function Pinpoint() {
 
   const saveSearch = async (item) => {
     if (!user) return;
-    await base44.entities.SearchHistory.create({
-      user_email: user.email,
-      query: item.label,
-      type: item.type,
-      sublabel: item.sublabel,
-      lat: item.lat,
-      lng: item.lng
-    });
-    const searches = await base44.entities.SearchHistory.filter({ user_email: user.email }, '-created_date', 10);
-    setRecentSearches(searches);
+    try {
+      // 1. Fetch current search history for this user
+      const existing = await base44.entities.SearchHistory.filter({ user_email: user.email }, '-created_date', 50);
+      
+      // 2. Delete existing identical query to avoid duplicate rows in Supabase
+      const duplicates = existing.filter(s => s.query === item.label);
+      for (const d of duplicates) {
+        if (d.id) await base44.entities.SearchHistory.delete(d.id).catch(() => {});
+      }
+      
+      // 3. Create new search
+      const newEntry = await base44.entities.SearchHistory.create({
+        user_email: user.email,
+        query: item.label,
+        type: item.type,
+        sublabel: item.sublabel,
+        lat: item.lat,
+        lng: item.lng
+      });
+      
+      // 4. Delete oldest entries if count exceeds 10 in Supabase
+      const nonDupes = existing.filter(s => s.query !== item.label);
+      const allUpdated = [newEntry, ...nonDupes];
+      if (allUpdated.length > 10) {
+        const toDelete = allUpdated.slice(10);
+        for (const oldItem of toDelete) {
+          if (oldItem.id) await base44.entities.SearchHistory.delete(oldItem.id).catch(() => {});
+        }
+      }
+      setRecentSearches(allUpdated.slice(0, 10));
+    } catch (e) {
+      console.error("Error saving search history:", e);
+    }
   };
 
   const handleSelectSuggestion = (item) => {
@@ -312,8 +355,23 @@ export default function Pinpoint() {
       console.error("Error clearing VenueCheckIn:", e);
     }
 
-    if (myDestination) {
-      await base44.entities.UserDestination.update(myDestination.id, { status: 'expired' });
+    // Expire existing active destinations and keep max 10 in Supabase
+    try {
+      const myDests = await base44.entities.UserDestination.filter({ user_email: user.email }, '-created_date', 50);
+      for (const d of myDests) {
+        if (d.status === 'active') {
+          await base44.entities.UserDestination.update(d.id, { status: 'expired' }).catch(() => {});
+        }
+      }
+      // If user already has >= 10 destinations in DB, delete the oldest so total stays <= 10
+      if (myDests.length >= 10) {
+        const toDelete = myDests.slice(9);
+        for (const oldD of toDelete) {
+          if (oldD.id) await base44.entities.UserDestination.delete(oldD.id).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.error("Error pruning old UserDestinations:", e);
     }
 
     let resolvedCity = venue.city || '';

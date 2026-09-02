@@ -54,9 +54,7 @@ import Matches from './pages/Matches';
 import Onboarding from './pages/Onboarding';
 import Pinpoint from './pages/Pinpoint';
 import Login from './pages/Login';
-import Games from './pages/Games';
-import CardGame from './pages/CardGame';
-import NumberGame from './pages/NumberGame';
+import Chat from './pages/Chat';
 import __Layout from './Layout.jsx';
 
 
@@ -68,9 +66,7 @@ export const PAGES = {
     "Onboarding": Onboarding,
     "Pinpoint": Pinpoint,
     "Login": Login,
-    "Games": Games,
-    "CardGame": CardGame,
-    "NumberGame": NumberGame,
+    "Chat": Chat,
 }
 
 export const pagesConfig = {

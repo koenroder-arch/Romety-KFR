@@ -133,12 +133,10 @@ export default function ProfilePhotoCarousel({
       }
       singleTapTimeoutRef.current = setTimeout(() => {
         if (hasMultiplePhotos) {
-          if (x < rect.width * 0.3) {
+          if (x < rect.width * 0.4) {
             goToPrev();
-          } else if (x > rect.width * 0.7) {
+          } else {
             goToNext();
-          } else if (onClick) {
-            onClick(e, profile);
           }
         } else if (onClick) {
           onClick(e, profile);
@@ -160,37 +158,31 @@ export default function ProfilePhotoCarousel({
       onClick={handleTap}
       style={{ touchAction: 'pan-y' }}
     >
-      {/* Background Image / Avatar */}
-      <AnimatePresence mode="wait">
-        {currentPhotoUrl ? (
-          <motion.img
-            key={currentPhotoUrl}
-            src={currentPhotoUrl}
-            alt=""
-            initial={{ opacity: 0.8 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0.8 }}
-            transition={{ duration: 0.2 }}
-            className="w-full h-full object-cover select-none pointer-events-none"
-            draggable={false}
-          />
-        ) : (
-          <div 
-            key="fallback-avatar"
-            className="w-full h-full flex flex-col items-center justify-center relative" 
-            style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 50%, #8A2387 100%)' }}
-          >
-            <div className="text-[120px] animate-bounce select-none pointer-events-none drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]">
-              {profile?.avatar ? profile.avatar.split(' ')[0] : '👤'}
-            </div>
-            {profile?.avatar && (
-              <div className="absolute bottom-32 text-center text-white/60 text-xs font-bold tracking-widest uppercase bg-black/30 px-3.5 py-1.5 rounded-full">
-                {profile.avatar.split(' ').slice(1).join(' ')}
-              </div>
-            )}
+      {/* Background Image / Avatar — absolute inset-0 to prevent any layout shifts or scroll-snap jumps */}
+      {currentPhotoUrl ? (
+        <img
+          key={currentPhotoUrl}
+          src={currentPhotoUrl}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+          draggable={false}
+          decoding="async"
+        />
+      ) : (
+        <div 
+          className="absolute inset-0 w-full h-full flex flex-col items-center justify-center" 
+          style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 50%, #8A2387 100%)' }}
+        >
+          <div className="text-[120px] animate-bounce select-none pointer-events-none drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]">
+            {profile?.avatar ? profile.avatar.split(' ')[0] : '👤'}
           </div>
-        )}
-      </AnimatePresence>
+          {profile?.avatar && (
+            <div className="absolute bottom-32 text-center text-white/60 text-xs font-bold tracking-widest uppercase bg-black/30 px-3.5 py-1.5 rounded-full">
+              {profile.avatar.split(' ').slice(1).join(' ')}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Gradient Overlay for Readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent pointer-events-none" />

@@ -21,8 +21,18 @@ export default function NotificationBell({ isDark = true }) {
   const loadNotifications = async () => {
     if (!user) return;
     setLoading(true);
-    const notifs = await base44.entities.Notification.filter({ to_email: user.email }, '-created_date', 30);
-    setNotifications(notifs);
+    try {
+      const notifs = await base44.entities.Notification.filter({ to_email: user.email }, '-created_date', 100);
+      if (notifs.length > 20) {
+        const excess = notifs.slice(20);
+        for (const n of excess) {
+          if (n.id) await base44.entities.Notification.delete(n.id).catch(() => {});
+        }
+      }
+      setNotifications(notifs.slice(0, 20));
+    } catch (e) {
+      console.error("Error loading notifications:", e);
+    }
     setLoading(false);
     markAllRead();
   };

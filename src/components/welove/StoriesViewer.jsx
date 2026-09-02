@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, MoreHorizontal, Download, Trash2, AlertTriangle, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -27,6 +27,8 @@ export default function StoriesViewer({
   const [isPaused, setIsPaused] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const timerRef = useRef(null);
+  const lastTimestampRef = useRef(null);
+  const progressRef = useRef(0);
 
   // Overlay states
   const [showMenu, setShowMenu] = useState(false);
@@ -70,28 +72,33 @@ export default function StoriesViewer({
     }
   }, [activeStory]);
 
-  // Handle progress timer — automatically pause when overlays are active
+  // Handle progress timer — RAF-based for buttery smooth animation
   useEffect(() => {
-    if (isPaused || showMenu || showBio || reportState) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
+    if (!activeStory || group?.loading) return;
+    progressRef.current = 0;
+    setProgress(0);
+    lastTimestampRef.current = null;
+    if (timerRef.current) cancelAnimationFrame(timerRef.current);
+    if (isPaused || showMenu || showBio || reportState) return;
 
-    const intervalTime = 50;
-    const step = (intervalTime / 5000) * 100; // 5000ms duration (5s)
-
-    timerRef.current = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          handleNext();
-          return 0;
-        }
-        return prev + step;
-      });
-    }, intervalTime);
+    const DURATION = 5000; // 5 seconds per story
+    const tick = (timestamp) => {
+      if (isPaused || showMenu || showBio || reportState) return;
+      if (!lastTimestampRef.current) lastTimestampRef.current = timestamp;
+      const elapsed = timestamp - lastTimestampRef.current;
+      lastTimestampRef.current = timestamp;
+      progressRef.current = Math.min(progressRef.current + (elapsed / DURATION) * 100, 100);
+      setProgress(progressRef.current);
+      if (progressRef.current >= 100) {
+        handleNext();
+      } else {
+        timerRef.current = requestAnimationFrame(tick);
+      }
+    };
+    timerRef.current = requestAnimationFrame(tick);
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) cancelAnimationFrame(timerRef.current);
     };
   }, [currentIndex, isPaused, showMenu, showBio, reportState, group]);
 

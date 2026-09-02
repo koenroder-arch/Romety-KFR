@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, Gamepad2, Clock, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Check } from 'lucide-react';
-import GamePickerSheet from './GamePickerSheet';
+import { X, ChevronLeft, MessageCircle, Clock, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import ProfilePhotoCarousel from './ProfilePhotoCarousel';
 import { base44 } from '@/api/base44Client';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
+import { toast } from 'sonner';
+import { createPageUrl } from '@/utils';
+import { useNavigate } from 'react-router-dom';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -18,9 +20,9 @@ const REPORT_REASONS = [
 ];
 
 export default function SuperMatchesSheet({ profiles, currentUser, myProfile, isDark, onClose }) {
-  const [showGamePicker, setShowGamePicker] = useState(false);
-  const [selectedProfileForGame, setSelectedProfileForGame] = useState(null);
-  const [activeSessions, setActiveSessions] = useState([]);
+  const navigate = useNavigate();
+  const [chatRooms, setChatRooms] = useState([]);
+  const [startingChatFor, setStartingChatFor] = useState(null);
   
   // 3-dots menu & bio & report states
   const [openMenuProfileId, setOpenMenuProfileId] = useState(null);
@@ -33,38 +35,79 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
 
   useEffect(() => {
-    if (currentUser) {
-      loadGameSessions();
-    }
+    if (currentUser) loadChatRooms();
   }, [currentUser]);
 
-  const loadGameSessions = async () => {
+  const loadChatRooms = async () => {
     try {
-      const [asP1, asP2] = await Promise.all([
-        base44.entities.GameSession.filter({ player1_email: currentUser.email }),
-        base44.entities.GameSession.filter({ player2_email: currentUser.email }),
+      const [roomsA, roomsB] = await Promise.all([
+        base44.entities.ChatRoom.filter({ user_a_email: currentUser.email }),
+        base44.entities.ChatRoom.filter({ user_b_email: currentUser.email }),
       ]);
-      const allSessions = [...asP1, ...asP2];
+      const allRooms = [...(roomsA || []), ...(roomsB || [])].filter(r => r.status !== 'deleted' && !r.deleted_at);
       const seen = new Set();
-      const unique = allSessions.filter(s => {
-        if (seen.has(s.id)) return false;
-        seen.add(s.id);
-        return true;
-      });
-      setActiveSessions(unique);
+      const unique = allRooms.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+      setChatRooms(unique);
     } catch (e) {
-      console.error('Error loading game sessions:', e);
+      console.error('Error loading chat rooms:', e);
     }
   };
 
-  const getSessionForProfile = (email) => {
-    return activeSessions.find(s =>
-      s.status !== 'declined' &&
-      (
-        (s.player1_email === currentUser.email && s.player2_email === email) ||
-        (s.player2_email === currentUser.email && s.player1_email === email)
-      )
+  const getRoomForProfile = (email) => {
+    return chatRooms.find(r =>
+      (r.user_a_email === currentUser.email && r.user_b_email === email) ||
+      (r.user_b_email === currentUser.email && r.user_a_email === email)
     );
+  };
+
+  const handleStartChat = async (profile) => {
+    if (startingChatFor) return;
+    setStartingChatFor(profile.user_email);
+    try {
+      // Check for existing room
+      const existing = getRoomForProfile(profile.user_email);
+      if (existing) {
+        onClose();
+        navigate(createPageUrl('Chat'));
+        return;
+      }
+      const newRoom = await base44.entities.ChatRoom.create({
+        user_a_email: currentUser.email,
+        user_b_email: profile.user_email,
+        status: 'pending',
+        phase: 1,
+        extension_accepted_a: false,
+        extension_accepted_b: false,
+        photo_sent_a: false,
+        photo_sent_b: false,
+      });
+
+      // Optimistically update local state
+      if (newRoom) {
+        setChatRooms(prev => [...prev, newRoom]);
+      }
+
+      // Notify the other user
+      try {
+        await base44.entities.Notification.create({
+          user_email: profile.user_email,
+          type: 'chat_invite',
+          message: `${myProfile?.display_name || 'Iemand'} wil met je chatten! Ga naar Chats om te accepteren. 💜`,
+          read: false,
+          created_date: new Date().toISOString(),
+        });
+      } catch (errNotif) {
+        console.warn('Could not create notification:', errNotif);
+      }
+
+      toast.success('Chat-uitnodiging verstuurd! 💬');
+      await loadChatRooms();
+    } catch (e) {
+      console.error('Error starting chat:', e);
+      toast.error('Kon geen chat starten. Controleer of de ChatRoom tabel bestaat in Supabase.');
+    } finally {
+      setStartingChatFor(null);
+    }
   };
 
   const handleSubmitReport = async () => {
@@ -150,9 +193,6 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {activeProfiles.map((profile) => {
-              const session = getSessionForProfile(profile.user_email);
-              const isPending = session?.status === 'pending';
-              const isActive = session?.status === 'active';
               const isMenuOpen = openMenuProfileId === profile.id;
               const isBioExpanded = expandedBioId === profile.id;
 
@@ -273,30 +313,52 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                         ))}
                       </div>
 
-                      {/* Play Game Button / Pending Status */}
-                      {isActive ? (
-                        <div className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-green-400 bg-green-500/10 border border-green-500/30 backdrop-blur-md shadow-lg">
-                          <Gamepad2 className="w-5 h-5 text-green-400" />
-                          <span>Game actief! Ga naar Spellen</span>
-                        </div>
-                      ) : isPending ? (
-                        <div className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 backdrop-blur-md shadow-lg">
-                          <Clock className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '3s' }} />
-                          <span>Uitnodiging verstuurd...</span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setSelectedProfileForGame(profile);
-                            setShowGamePicker(true);
-                          }}
-                          className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-white transition-transform active:scale-95 shadow-lg"
-                          style={{ background: GRAD, boxShadow: '0 6px 20px rgba(234, 63, 211, 0.4)' }}
-                        >
-                          <Gamepad2 className="w-5 h-5 text-white" />
-                          Speel een spel
-                        </button>
-                      )}
+                      {/* Chat / Status Button */}
+                      {(() => {
+                        const room = getRoomForProfile(profile.user_email);
+                        if (room?.status === 'active') {
+                          return (
+                            <button
+                              onClick={() => { onClose(); navigate(createPageUrl('Chat')); }}
+                              className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-green-400 bg-green-500/15 border border-green-500/40 backdrop-blur-md shadow-lg active:scale-95 transition-transform"
+                            >
+                              <MessageCircle className="w-5 h-5" />
+                              <span>Chat actief! Ga naar Chats →</span>
+                            </button>
+                          );
+                        }
+                        if (room?.status === 'pending') {
+                          if (room.user_a_email === currentUser.email) {
+                            return (
+                              <div className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 font-bold text-sm text-amber-300 bg-amber-500/20 border border-amber-500/40 backdrop-blur-md shadow-lg">
+                                <Clock className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '3s' }} />
+                                <span>Uitnodiging verstuurd</span>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <button
+                                onClick={() => { onClose(); navigate(createPageUrl('Chat')); }}
+                                className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-pink-300 bg-pink-500/20 border border-pink-500/40 backdrop-blur-md shadow-lg active:scale-95 transition-transform"
+                              >
+                                <MessageCircle className="w-5 h-5" />
+                                <span>Uitnodiging ontvangen! Ga naar Chats →</span>
+                              </button>
+                            );
+                          }
+                        }
+                        return (
+                          <button
+                            onClick={() => handleStartChat(profile)}
+                            disabled={startingChatFor === profile.user_email}
+                            className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-white transition-transform active:scale-95 shadow-lg disabled:opacity-60"
+                            style={{ background: GRAD, boxShadow: '0 6px 20px rgba(234, 63, 211, 0.4)' }}
+                          >
+                            <MessageCircle className="w-5 h-5 text-white" />
+                            {startingChatFor === profile.user_email ? 'Bezig...' : 'Chat ontgrendelen'}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -429,23 +491,8 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
         )}
       </motion.div>
 
-      {/* Game Picker Sheet */}
-      {showGamePicker && selectedProfileForGame && (
-        <GamePickerSheet
-          profile={selectedProfileForGame}
-          currentUser={currentUser}
-          myProfile={myProfile}
-          isDark={isDark}
-          onClose={() => {
-            setShowGamePicker(false);
-            setSelectedProfileForGame(null);
-          }}
-          onInviteSent={() => {
-            loadGameSessions();
-          }}
-        />
-      )}
     </AnimatePresence>,
     document.body
   );
 }
+

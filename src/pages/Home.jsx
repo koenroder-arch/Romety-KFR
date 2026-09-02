@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
@@ -56,16 +56,15 @@ export default function Home() {
   const [superMatchProfiles, setSuperMatchProfiles] = useState([]);
   const [allDestinations, setAllDestinations] = useState([]);
   const [showSuperMatchSheet, setShowSuperMatchSheet] = useState(false);
-  const [activeGameCount, setActiveGameCount] = useState(0);
   const [activeLocationCount, setActiveLocationCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [unmatchedLikes, setUnmatchedLikes] = useState([]);
   const [revealedProfile, setRevealedProfile] = useState(null);
 
-  // Animated count-up state for the 3 stat blobs
-  const [animMatchCount, setAnimMatchCount] = useState(0);
-  const [animSuperCount, setAnimSuperCount] = useState(0);
-  const [animLocationCount, setAnimLocationCount] = useState(0);
+  // Animated count-up state for the 3 stat blobs — single progress value (0–1)
+  const [animProgress, setAnimProgress] = useState(0);
   const countUpRef = useRef(null);
+  const animTargetsRef = useRef({ matches: 0, super: 0, location: 0 });
   const [showRevealModal, setShowRevealModal] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [showDiscountsModal, setShowDiscountsModal] = useState(false);
@@ -255,17 +254,46 @@ export default function Home() {
       // Mutual matches for SendHintSheet
       setMutualMatches(superProfs);
 
-      // Active game count
+      // Chat unread count calculation (incoming invites + unread partner messages)
       try {
-        const [gameSessP1 = [], gameSessP2 = []] = await Promise.all([
-          base44.entities.GameSession.filter({ player1_email: u.email }).catch(() => []),
-          base44.entities.GameSession.filter({ player2_email: u.email }).catch(() => []),
+        const [roomsA = [], roomsB = []] = await Promise.all([
+          base44.entities.ChatRoom.filter({ user_a_email: u.email }).catch(() => []),
+          base44.entities.ChatRoom.filter({ user_b_email: u.email }).catch(() => []),
         ]);
-        const allGameSess = [...gameSessP1, ...gameSessP2];
-        const seen = new Set();
-        const uniq = allGameSess.filter(s => { if (s && seen.has(s.id)) return false; if (s) seen.add(s.id); return true; });
-        setActiveGameCount(uniq.filter(s => s && (s.status === 'active' || s.status === 'pending')).length);
-      } catch(e) { /* ignore */ }
+        const allUserRooms = [...roomsA, ...roomsB].filter(r => r && r.status !== 'deleted' && !r.deleted_at);
+        const seenRoomIds = new Set();
+        const uniqueRooms = allUserRooms.filter(r => {
+          if (seenRoomIds.has(r.id)) return false;
+          seenRoomIds.add(r.id);
+          return true;
+        });
+
+        let totalBadge = 0;
+
+        // 1. Pending incoming invites (user is recipient)
+        const incomingInvites = uniqueRooms.filter(r => r.status === 'pending' && r.user_b_email === u.email);
+        totalBadge += incomingInvites.length;
+
+        // 2. Active rooms with unread messages from partner
+        const activeRooms = uniqueRooms.filter(r => r.status === 'active');
+        await Promise.all(
+          activeRooms.map(async (r) => {
+            try {
+              const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
+              const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== u.email);
+              const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
+              const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
+              if (unreadInRoom > 0) {
+                totalBadge += unreadInRoom;
+              }
+            } catch (e) {}
+          })
+        );
+
+        setChatUnreadCount(totalBadge);
+      } catch (errChat) {
+        console.warn('Chat unread calculation failed:', errChat);
+      }
 
       // Hints (exp. after 9 hours)
       const nineHoursAgo = new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString();
@@ -302,6 +330,36 @@ export default function Home() {
               base44.entities.Story.delete(oldStory.id).catch(() => {});
             }
           }
+
+          // Clean up excess UserDestination rows (> 10) for current user
+          base44.entities.UserDestination.filter({ user_email: u.email }, '-created_date', 100)
+            .then(myDests => {
+              if (myDests.length > 10) {
+                myDests.slice(10).forEach(d => {
+                  if (d.id) base44.entities.UserDestination.delete(d.id).catch(() => {});
+                });
+              }
+            }).catch(() => {});
+
+          // Clean up excess SearchHistory rows (> 10) for current user
+          base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 100)
+            .then(mySearches => {
+              if (mySearches.length > 10) {
+                mySearches.slice(10).forEach(s => {
+                  if (s.id) base44.entities.SearchHistory.delete(s.id).catch(() => {});
+                });
+              }
+            }).catch(() => {});
+
+          // Clean up excess Notification rows (> 20) for current user
+          base44.entities.Notification.filter({ to_email: u.email }, '-created_date', 500)
+            .then(myNotifs => {
+              if (myNotifs.length > 20) {
+                myNotifs.slice(20).forEach(n => {
+                  if (n.id) base44.entities.Notification.delete(n.id).catch(() => {});
+                });
+              }
+            }).catch(() => {});
         } catch (e) {}
       }, 1000);
 
@@ -354,35 +412,22 @@ export default function Home() {
     }
   };
 
-  // Count-up animation: 0 → target in 500ms when data loads
+  // Count-up animation: single RAF loop that sets one progress value (0→1)
   useEffect(() => {
-    const targets = [
-      { target: matches.length, setter: setAnimMatchCount },
-      { target: superMatchCount, setter: setAnimSuperCount },
-      { target: activeLocationCount, setter: setAnimLocationCount },
-    ];
+    animTargetsRef.current = { matches: matches.length, super: superMatchCount, location: activeLocationCount };
+    if (countUpRef.current) cancelAnimationFrame(countUpRef.current);
+    setAnimProgress(0);
     const DURATION = 500;
-    const STEPS = 30;
-    const interval = DURATION / STEPS;
-
-    if (countUpRef.current) clearInterval(countUpRef.current);
-    targets.forEach(({ target, setter }) => setter(0));
-
-    let step = 0;
-    countUpRef.current = setInterval(() => {
-      step++;
-      const progress = step / STEPS;
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-      targets.forEach(({ target, setter }) => {
-        setter(Math.round(eased * target));
-      });
-      if (step >= STEPS) {
-        clearInterval(countUpRef.current);
-        targets.forEach(({ target, setter }) => setter(target));
-      }
-    }, interval);
-
-    return () => { if (countUpRef.current) clearInterval(countUpRef.current); };
+    const start = performance.now();
+    const tick = (now) => {
+      const elapsed = now - start;
+      const raw = Math.min(elapsed / DURATION, 1);
+      const eased = 1 - Math.pow(1 - raw, 3);
+      setAnimProgress(eased);
+      if (raw < 1) countUpRef.current = requestAnimationFrame(tick);
+    };
+    countUpRef.current = requestAnimationFrame(tick);
+    return () => { if (countUpRef.current) cancelAnimationFrame(countUpRef.current); };
   }, [matches.length, superMatchCount, activeLocationCount]);
 
   const CLUB_DISCOUNTS = [
@@ -394,22 +439,22 @@ export default function Home() {
     { name: 'Café Flater', city: 'Utrecht', discount: 'Geen actieve kortingen momenteel' }
   ];
 
-  const revealedProfiles = React.useMemo(() => {
+  const revealedProfiles = useMemo(() => {
     if (!unmatchedLikes.length || !allProfiles.length) return [];
     return unmatchedLikes
       .map((l) => allProfiles.find((p) => p.user_email === l.from_email))
       .filter(Boolean);
   }, [unmatchedLikes, allProfiles]);
 
-  const handleRevealLikeClick = () => {
+  const handleRevealLikeClick = useCallback(() => {
     if (unmatchedLikes.length === 0) {
       alert("Je hebt nog geen likes ontvangen.");
       return;
     }
     setShowRevealModal(true);
-  };
+  }, [unmatchedLikes.length]);
 
-  const handleOpenReport = (e, profile) => {
+  const handleOpenReport = useCallback((e, profile) => {
     e.stopPropagation();
     setReportState({
       profile,
@@ -417,13 +462,13 @@ export default function Home() {
       reason: null,
       details: ''
     });
-  };
+  }, []);
 
-  const handleSelectReason = (reason) => {
+  const handleSelectReason = useCallback((reason) => {
     setReportState(prev => ({ ...prev, step: 'detail', reason }));
-  };
+  }, []);
 
-  const handleSubmitReport = async () => {
+  const handleSubmitReport = useCallback(async () => {
     if (!reportState || !reportState.reason) return;
     try {
       addLocalReportedEmail(reportState.profile.user_email);
@@ -441,49 +486,53 @@ export default function Home() {
     } catch (err) {
       console.error('Error submitting report:', err);
     }
-  };
+  }, [reportState, user, myProfile]);
 
-  // Group stories by user
-  const storiesByUser = {};
-  stories.forEach(s => {
-    if (!storiesByUser[s.user_email]) {
-      storiesByUser[s.user_email] = {
-        user_email: s.user_email,
-        user_name: s.user_name || s.user_email.split('@')[0],
-        user_photo_url: s.user_photo_url,
-        user_avatar: s.user_avatar || null,
-        items: []
-      };
-    }
-    storiesByUser[s.user_email].items.push(s);
-  });
+  // Group stories by user — memoized so it doesn't recompute on every render
+  const { storiesByUser, sortedStoryUsers, hasMyStories } = useMemo(() => {
+    const byUser = {};
+    stories.forEach(s => {
+      if (!byUser[s.user_email]) {
+        byUser[s.user_email] = {
+          user_email: s.user_email,
+          user_name: s.user_name || s.user_email.split('@')[0],
+          user_photo_url: s.user_photo_url,
+          user_avatar: s.user_avatar || null,
+          items: []
+        };
+      }
+      byUser[s.user_email].items.push(s);
+    });
+    Object.values(byUser).forEach(group => {
+      group.items.sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+    });
+    const sorted = Object.values(byUser).sort((a, b) => {
+      if (a.user_email === user?.email) return -1;
+      if (b.user_email === user?.email) return 1;
+      return 0;
+    });
+    return { storiesByUser: byUser, sortedStoryUsers: sorted, hasMyStories: !!byUser[user?.email] };
+  }, [stories, user?.email]);
 
-  Object.values(storiesByUser).forEach(group => {
-    group.items.sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
-  });
-
-  const sortedStoryUsers = Object.values(storiesByUser).sort((a, b) => {
-    if (a.user_email === user?.email) return -1;
-    if (b.user_email === user?.email) return 1;
-    return 0;
-  });
-
-  const hasMyStories = !!storiesByUser[user?.email];
-
-  const hasNewMatches = matches.some((m) => {
+  const hasNewMatches = useMemo(() => matches.some((m) => {
     if (!m.profile || !m.profile.created_date) return false;
     const createdTime = new Date(m.profile.created_date).getTime();
     const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
     return createdTime > twoHoursAgo;
-  });
+  }), [matches]);
 
-  // Group hints by venue
-  const venueGroups = hints.reduce((acc, h) => {
+  // Group hints by venue — memoized
+  const venueGroups = useMemo(() => hints.reduce((acc, h) => {
     const key = h.venue_name || 'Onbekend';
     if (!acc[key]) acc[key] = [];
     acc[key].push(h);
     return acc;
-  }, {});
+  }, {}), [hints]);
+
+  // Derived animated counts from single progress value
+  const animMatchCount = Math.round(animProgress * animTargetsRef.current.matches);
+  const animSuperCount = Math.round(animProgress * animTargetsRef.current.super);
+  const animLocationCount = Math.round(animProgress * animTargetsRef.current.location);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center" style={{ background: bg }}><div className="w-10 h-10 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" /></div>;
@@ -812,9 +861,9 @@ export default function Home() {
               </div>
             </button>
 
-            {/* 4. Spellen (#EE42BC - Fade stap 3) */}
+            {/* 4. Chat (#EE42BC - Fade stap 3) */}
             <button
-              onClick={() => navigate(createPageUrl('Games'))}
+              onClick={() => navigate(createPageUrl('Chat'))}
               className="w-full flex items-center justify-between rounded-[22px] sm:rounded-[26px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: isDark
@@ -829,25 +878,28 @@ export default function Home() {
                   className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
                   style={{ background: isDark ? 'rgba(238, 66, 188, 0.25)' : 'rgba(238, 66, 188, 0.12)' }}
                 >
-                  <Gamepad2 className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
+                  <MessageCircle className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>GAMES</p>
-                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Spellen</p>
+                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>CHAT</p>
+                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Chat</p>
                   <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
-                    Speel games en verdien beloningen
+                    Chat met je supermatches
                   </p>
                 </div>
               </div>
               <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full bg-[#EE42BC] text-white text-xs sm:text-sm font-black flex items-center justify-center shadow-md">
-                  {activeGameCount}
-                </div>
+                {chatUnreadCount > 0 && (
+                  <div className="min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full bg-[#EE42BC] text-white text-xs sm:text-sm font-black flex items-center justify-center shadow-md">
+                    {chatUnreadCount}
+                  </div>
+                )}
                 <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
                   <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 </div>
               </div>
             </button>
+
 
             {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars met rustig van links naar rechts pulserend lichtgoud randje) */}
             <button
@@ -919,7 +971,7 @@ export default function Home() {
                   Geen bestemming ingesteld
                 </h3>
                 <p className={`text-xs font-medium leading-relaxed mb-5 max-w-[250px] ${isDark ? 'text-white/70' : 'text-gray-600'}`}>
-                  Stel je bestemming van vandaag in om je matches, hints, spellen en kortingen te zien!
+                  Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!
                 </p>
                 <button
                   onClick={() => navigate(createPageUrl('Pinpoint'))}

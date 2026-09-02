@@ -1,28 +1,34 @@
 import { supabase } from './supabaseClient';
 import { authStorage } from '@/lib/authStorage';
 
-const parseOrder = (orderStr) => {
-  if (!orderStr) return { column: 'created_date', ascending: false };
+const parseOrder = (orderStr, defaultCol = 'created_date') => {
+  if (!orderStr) return { column: defaultCol, ascending: false };
   const descending = orderStr.startsWith('-');
   const column = descending ? orderStr.substring(1) : orderStr;
   return { column, ascending: !descending };
 };
 
 const createEntityHandler = (tableName) => {
+  const defaultTimeCol = (tableName === 'ChatRoom' || tableName === 'ChatMessage') ? 'created_at' : 'created_date';
+
   return {
     list: async (order, limit) => {
       let query = supabase.from(tableName).select('*');
       if (order) {
-        const { column, ascending } = parseOrder(order);
+        const { column, ascending } = parseOrder(order, defaultTimeCol);
         query = query.order(column, { ascending });
       } else {
-        query = query.order('created_date', { ascending: false });
+        query = query.order(defaultTimeCol, { ascending: false });
       }
       if (limit) {
         query = query.limit(limit);
       }
-      const { data, error } = await query;
+      let { data, error } = await query;
       if (error) {
+        // Fallback without order if column failed
+        console.warn(`Initial list order on ${tableName} failed, trying fallback:`, error);
+        const retry = await supabase.from(tableName).select('*');
+        if (!retry.error) return retry.data || [];
         console.error(`Error listing ${tableName}:`, error);
         throw error;
       }
@@ -41,16 +47,29 @@ const createEntityHandler = (tableName) => {
       }
       
       if (order) {
-        const { column, ascending } = parseOrder(order);
+        const { column, ascending } = parseOrder(order, defaultTimeCol);
         query = query.order(column, { ascending });
       } else {
-        query = query.order('created_date', { ascending: false });
+        query = query.order(defaultTimeCol, { ascending: false });
       }
       if (limit) {
         query = query.limit(limit);
       }
-      const { data, error } = await query;
+      let { data, error } = await query;
       if (error) {
+        // Fallback filter without order if column failed
+        console.warn(`Initial filter on ${tableName} failed, trying without order:`, error);
+        let fallbackQuery = supabase.from(tableName).select('*');
+        if (filters) {
+          Object.entries(filters).forEach(([key, val]) => {
+            if (val !== undefined && val !== null) {
+              fallbackQuery = fallbackQuery.eq(key, val);
+            }
+          });
+        }
+        if (limit) fallbackQuery = fallbackQuery.limit(limit);
+        const retry = await fallbackQuery;
+        if (!retry.error) return retry.data || [];
         console.error(`Error filtering ${tableName}:`, error);
         throw error;
       }
@@ -58,19 +77,46 @@ const createEntityHandler = (tableName) => {
     },
 
     create: async (data) => {
-      const payload = {
-        ...data,
-        created_date: new Date().toISOString()
-      };
-      const { data: inserted, error } = await supabase
+      const payload = { ...data };
+      if (!('created_date' in payload) && !('created_at' in payload)) {
+        if (tableName === 'ChatRoom' || tableName === 'ChatMessage') {
+          payload.created_at = new Date().toISOString();
+        } else {
+          payload.created_date = new Date().toISOString();
+        }
+      }
+      let { data: inserted, error } = await supabase
         .from(tableName)
         .insert([payload])
         .select()
         .single();
       
       if (error) {
-        console.error(`Error creating ${tableName}:`, error);
-        throw error;
+        // Retry swapping created_date <-> created_at or removing missing column if column not found
+        console.warn(`Create on ${tableName} failed, trying schema fallback:`, error.message);
+        const fallbackPayload = { ...data };
+        if (error.message?.includes('created_date')) {
+          delete fallbackPayload.created_date;
+          fallbackPayload.created_at = new Date().toISOString();
+        } else if (error.message?.includes('created_at')) {
+          delete fallbackPayload.created_at;
+          fallbackPayload.created_date = new Date().toISOString();
+        }
+        const colMatch = error.message?.match(/column "([^"]+)" of relation/);
+        if (colMatch && colMatch[1]) {
+          delete fallbackPayload[colMatch[1]];
+        }
+        const retry = await supabase
+          .from(tableName)
+          .insert([fallbackPayload])
+          .select()
+          .single();
+        
+        if (!retry.error) {
+          return retry.data;
+        }
+        console.error(`Error creating ${tableName}:`, retry.error);
+        throw retry.error;
       }
       return inserted;
     },
@@ -221,5 +267,7 @@ export const base44 = {
     NumberGameState: createEntityHandler('NumberGameState'),
     Report: createEntityHandler('Report'),
     rapportages: createEntityHandler('Report'),
+    ChatRoom: createEntityHandler('ChatRoom'),
+    ChatMessage: createEntityHandler('ChatMessage'),
   }
 };
