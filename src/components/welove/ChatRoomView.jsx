@@ -61,6 +61,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const [contactType, setContactType] = useState(null);
   const [extensionLoading, setExtensionLoading] = useState(false);
   const bottomRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const fileInputRef = useRef(null);
   const pollRef = useRef(null);
   const timerRef = useRef(null);
@@ -89,6 +90,60 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const msgBubbleOther = isDark ? 'rgba(255,255,255,0.1)' : '#FFFFFF';
   const textMain = isDark ? '#FFFFFF' : '#111827';
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+
+  const [viewportStyle, setViewportStyle] = useState({});
+
+  const scrollToBottom = useCallback((smooth = false) => {
+    if (messagesContainerRef.current) {
+      if (smooth) {
+        messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' });
+      } else {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }
+    bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+  }, []);
+
+  useEffect(() => {
+    // Lock body and html to prevent page bounce/drag on mobile
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyPosition = document.body.style.position;
+    const prevBodyWidth = document.body.style.width;
+    const prevBodyHeight = document.body.style.height;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+
+    const updateViewport = () => {
+      if (typeof window !== 'undefined' && window.visualViewport) {
+        const vv = window.visualViewport;
+        window.scrollTo(0, 0);
+        setViewportStyle({
+          height: `${vv.height}px`,
+          top: `${vv.offsetTop || 0}px`,
+        });
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
+      updateViewport();
+    }
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.body.style.position = prevBodyPosition;
+      document.body.style.width = prevBodyWidth;
+      document.body.style.height = prevBodyHeight;
+      if (typeof window !== 'undefined' && window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport);
+        window.visualViewport.removeEventListener('scroll', updateViewport);
+      }
+    };
+  }, []);
 
   const loadMessages = useCallback(async () => {
     if (!localRoom?.id) return;
@@ -151,12 +206,12 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
 
   // Scroll to bottom & mark messages as read
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom(false);
     if (messages && messages.length > 0 && localRoom.id) {
       const partnerMsgs = messages.filter(m => !m.is_system && m.sender_email !== currentUserEmail);
       localStorage.setItem(`chat_read_count_${localRoom.id}`, String(partnerMsgs.length));
     }
-  }, [messages, localRoom.id, currentUserEmail]);
+  }, [messages, localRoom.id, currentUserEmail, scrollToBottom]);
 
   const sendMessage = async () => {
     if (!text.trim() || sending || !canChat) return;
@@ -351,7 +406,16 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const currentPhaseInfo = phaseLabels[phase] || phaseLabels[1];
 
   return (
-    <div className="fixed inset-0 z-[300] flex flex-col max-w-md mx-auto" style={{ background: bg }}>
+    <div
+      className="fixed inset-x-0 top-0 z-[300] flex flex-col max-w-md mx-auto overflow-hidden select-none"
+      style={{
+        background: bg,
+        height: '100dvh',
+        overscrollBehavior: 'none',
+        touchAction: 'manipulation',
+        ...viewportStyle,
+      }}
+    >
       
       {/* Header */}
       <div
@@ -435,7 +499,14 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       )}
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarWidth: 'none' }}>
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 select-text" 
+        style={{ 
+          scrollbarWidth: 'none',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-8 h-8 rounded-full border-4 border-pink-300 border-t-pink-600 animate-spin" />
@@ -589,11 +660,12 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       {/* Input bar (phases 1-3) */}
       {canChat && phase < 4 && !isArchived && (
         <div
-          className="flex-shrink-0 flex items-center gap-2 px-3 py-3"
+          className="flex-shrink-0 sticky bottom-0 z-20 flex items-center gap-2 px-3 py-2.5"
           style={{
-            paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
-            background: isDark ? 'rgba(8,9,14,0.95)' : '#FFFFFF',
+            paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
+            background: isDark ? 'rgba(8,9,14,0.98)' : '#FFFFFF',
             borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+            boxShadow: '0 -2px 10px rgba(0,0,0,0.08)',
           }}
         >
           {/* Camera button */}
@@ -617,10 +689,22 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           <input
             value={text}
             onChange={e => setText(e.target.value)}
+            onFocus={() => {
+              window.scrollTo(0, 0);
+              setTimeout(() => {
+                window.scrollTo(0, 0);
+                scrollToBottom(true);
+              }, 120);
+              setTimeout(() => {
+                window.scrollTo(0, 0);
+                scrollToBottom(true);
+              }, 300);
+            }}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
             placeholder="Stuur een bericht..."
-            className="flex-1 px-4 py-2.5 rounded-full text-sm focus:outline-none"
+            className="flex-1 px-4 py-2.5 rounded-full text-base sm:text-sm focus:outline-none"
             style={{
+              fontSize: '16px',
               background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
               color: textMain,
               border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
