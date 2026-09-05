@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '@/api/supabaseClient';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
-import { Mail, Loader2, Sparkles, LogIn, UserPlus, User } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { Mail, Loader2, UserPlus, User } from 'lucide-react';
 import { authStorage } from '@/lib/authStorage';
 
 export default function Login() {

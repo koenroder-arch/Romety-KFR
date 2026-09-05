@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '@/utils';
-import { Camera, ArrowLeft, X } from 'lucide-react';
+import { Camera, ArrowLeft, X, Globe, ChevronRight, Check } from 'lucide-react';
 import { compressImage } from '@/utils/imageUtils';
 import { useLang } from '@/lib/LanguageContext';
 import { T as GlobalT } from '@/lib/translations';
 import { toast } from 'sonner';
+import { COUNTRIES } from '@/lib/countries';
 
 const AVATAR_CATEGORIES = {
   'Zoogdieren': [
@@ -50,7 +51,7 @@ const AVATAR_CATEGORIES = {
   ]
 };
 
-const STEPS = ['basics', 'preferences', 'traits', 'photo'];
+const STEPS = ['basics', 'country', 'preferences', 'traits', 'photo'];
 const GRAD = { background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' };
 
 const T = {
@@ -112,12 +113,13 @@ export default function Onboarding() {
   const INTERESTS = gt.onbInterests;
   const [step, setStep] = useState(0);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [form, setForm] = useState({
     display_name: '', contact_email: '', age: '', gender: '', height_cm: '',
     relationship_status: '', looking_for: '', min_age_pref: 18, max_age_pref: 19,
     min_height_pref: 140, max_height_pref: 141,
     traits: [], interests: [], photo_url: '', bio: '', agreed_to_terms: false,
-    avatar: '',
+    avatar: '', country: '',
   });
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -159,6 +161,7 @@ export default function Onboarding() {
             photo_url: profile.photo_url || '',
             bio: profile.bio || '',
             avatar: profile.avatar || '',
+            country: profile.country || '',
           }));
           if (profile.photo_url) {
             setPhotoPreview(profile.photo_url);
@@ -191,9 +194,10 @@ export default function Onboarding() {
   const canContinue = () => {
     if (uploading) return false;
     if (step === 0) return !!(form.display_name && form.avatar && form.age && Number(form.age) >= 18 && form.gender && form.height_cm && form.relationship_status && form.agreed_to_terms);
-    if (step === 1) return !!(form.looking_for);
-    if (step === 2) return form.traits.length >= 3 && form.interests.length >= 2;
-    if (step === 3) return !!form.photo_url;
+    if (step === 1) return !!(form.country); // country step
+    if (step === 2) return !!(form.looking_for);
+    if (step === 3) return form.traits.length >= 3 && form.interests.length >= 2;
+    if (step === 4) return !!form.photo_url;
     return true;
   };
 
@@ -379,8 +383,72 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 1: Preferences */}
+        {/* Step 1: Country */}
         {step === 1 && (
+          <div className="space-y-5">
+            <div>
+              <h2 className="text-xl font-black text-white">In welk land ga jij uit?</h2>
+              <p className="text-white/50 text-sm mt-1">Kies het land waar je wilt daten en matches zoeken.</p>
+            </div>
+
+            {/* Dropdown trigger */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCountryDropdown(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3.5 rounded-[16px] border border-white/10 bg-white/5 text-white text-sm transition-all hover:border-pink-400/50"
+                style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              >
+                {form.country ? (
+                  <span className="flex items-center gap-2 font-semibold text-white">
+                    <Globe className="w-4 h-4 text-[#FF4B72]" />
+                    {form.country}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-white/30">
+                    <Globe className="w-4 h-4" />
+                    Selecteer je land...
+                  </span>
+                )}
+                <ChevronRight className={`w-4 h-4 transition-transform text-white/40 ${showCountryDropdown ? 'rotate-90' : ''}`} />
+              </button>
+
+              {showCountryDropdown && (
+                <div
+                  className="absolute left-0 right-0 z-50 mt-1 rounded-[16px] overflow-y-auto"
+                  style={{
+                    background: '#141521',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+                    maxHeight: '280px',
+                  }}
+                >
+                  {COUNTRIES.map(({ name }) => {
+                    const selected = form.country === name;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => { setForm(f => ({ ...f, country: name })); setShowCountryDropdown(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-left transition-colors ${
+                          selected ? 'text-[#FF4B72]' : 'text-white/80 hover:bg-white/5'
+                        }`}
+                        style={selected ? { borderLeft: '3px solid #FF4B72', paddingLeft: '13px' } : {}}
+                      >
+                        <Globe className={`w-3.5 h-3.5 flex-shrink-0 ${selected ? 'text-[#FF4B72]' : 'text-white/30'}`} />
+                        {name}
+                        {selected && <Check className="w-3.5 h-3.5 ml-auto text-[#FF4B72]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Preferences */}
+        {step === 2 && (
           <div className="space-y-5">
             <h2 className="text-xl font-black text-white">{t.step1title}</h2>
             <div>
@@ -430,8 +498,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 2: Traits & Interests */}
-        {step === 2 && (
+        {/* Step 3: Traits & Interests */}
+        {step === 3 && (
           <div className="space-y-6">
             <h2 className="text-xl font-black text-white">{t.step2title}</h2>
 
@@ -475,8 +543,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 3: Photo */}
-        {step === 3 && (
+        {/* Step 4: Photo */}
+        {step === 4 && (
           <div className="space-y-5">
             <h2 className="text-xl font-black text-white">{t.step3title}</h2>
             <p className="text-white/60 text-sm">{t.photoSub}</p>

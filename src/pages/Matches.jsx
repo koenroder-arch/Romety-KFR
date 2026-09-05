@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
-import { Lock, MapPin } from 'lucide-react';
+import { createPageUrl } from '@/utils';
 
 import { useNotifications } from '@/components/welove/useNotifications';
 import MatchesSwiper from '@/components/welove/MatchesSwiper';
@@ -76,7 +76,8 @@ export default function Matches() {
     const reportedEmails = await fetchReportedEmails(u.email);
     const likedEmails = new Set(myLikes.map(l => l.to_email));
 
-    const others = allProfiles.filter((p) => p.user_email !== u.email && p.onboarding_complete && !reportedEmails.has(p.user_email));
+    const userCountry = myProf?.country || 'Nederland';
+    const others = allProfiles.filter((p) => p.user_email !== u.email && p.onboarding_complete && !reportedEmails.has(p.user_email) && (p.country || 'Nederland') === userCountry);
 
     const myLocation = activeCheckIn || activeDestination;
     const myVenueId = myLocation?.venue_id;
@@ -183,19 +184,35 @@ export default function Matches() {
 
       {/* No location locked state */}
       {!myLocation && (
-        <div className="flex flex-col items-center justify-center px-6 py-16 text-center flex-1">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'rgba(255,75,114,0.15)' }}>
-            <Lock className="w-8 h-8" style={{ color: '#FF4B72' }} />
-          </div>
-          <h2 className={`text-lg font-black mb-2 ${textMain}`}>Geen locatie ingesteld</h2>
-          <p className="text-sm mb-4" style={{ color: textSub }}>
-            Zet je locatie aan of kies een bestemming op Pinpoint om je venue-matches te zien.
-          </p>
-          <div className="rounded-[16px] p-4 w-full max-w-xs border-2 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('/Pinpoint')} style={{ background: isDark ? 'rgba(255,75,114,0.12)' : 'rgba(255,75,114,0.08)', borderColor: 'rgba(255,75,114,0.35)' }}>
-            <p className="text-xs font-semibold text-pink-500 flex items-center justify-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Ga naar Pinpoint en kies een bestemming
+        <div className="flex-1 flex flex-col items-center justify-start pt-14 sm:pt-16 p-3">
+          <div 
+            className="w-full max-w-sm p-6 rounded-[28px] text-center flex flex-col items-center border shadow-2xl transition-all"
+            style={{
+              background: isDark ? 'rgba(14, 15, 25, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+              borderColor: isDark ? 'rgba(255, 75, 114, 0.35)' : 'rgba(255, 75, 114, 0.25)',
+              boxShadow: isDark 
+                ? '0 16px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 75, 114, 0.2)' 
+                : '0 16px 40px rgba(0, 0, 0, 0.12), 0 0 30px rgba(255, 75, 114, 0.12)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+            }}
+          >
+            <h3 className={`text-base font-black tracking-tight mb-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Geen bestemming ingesteld
+            </h3>
+            <p className={`text-xs font-medium leading-relaxed mb-5 max-w-[250px] ${isDark ? 'text-white/70' : 'text-gray-600'}`}>
+              Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!
             </p>
+            <button
+              onClick={() => navigate(createPageUrl('Pinpoint'))}
+              className="w-full py-3.5 px-5 rounded-2xl font-black text-xs sm:text-sm text-white shadow-lg active:scale-95 transition-transform text-center"
+              style={{
+                background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+                boxShadow: '0 6px 20px rgba(255, 75, 114, 0.4)',
+              }}
+            >
+              Ga naar Pinpoint
+            </button>
           </div>
         </div>
       )}

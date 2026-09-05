@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
 import { useTheme } from '@/lib/ThemeContext';
-import { 
-  ArrowLeft, ChevronLeft, Send, Camera, X, Check, CheckCheck,
-  Clock, AlertTriangle, Heart, Instagram, Phone, 
-  MessageSquare, Image, Lock, Unlock, ChevronRight
+import { ChevronLeft, Send, Camera, X,
+  Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
@@ -56,10 +54,16 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const [timeLeft, setTimeLeft] = useState(null);
   const [localRoom, setLocalRoom] = useState(room);
   const [showExtensionPrompt, setShowExtensionPrompt] = useState(false);
+  const [showDeclineConfirm, setShowDeclineConfirm] = useState(false);
+  const [showWaitingAlert, setShowWaitingAlert] = useState(false);
+  const [showPhotoRequiredAlert, setShowPhotoRequiredAlert] = useState(false);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [contactInput, setContactInput] = useState('');
   const [contactType, setContactType] = useState(null);
   const [extensionLoading, setExtensionLoading] = useState(false);
+  const hasAutoOpenedPromptRef = useRef(false);
+  const isInitialScrollDoneRef = useRef(false);
+  const prevMsgCountRef = useRef(0);
   const bottomRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -80,10 +84,13 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const isActive = status === 'active';
   const isArchived = status === 'archived';
   const isDeleted = status === 'deleted' || !!localRoom.deleted_at;
+  const isExtensionPending = isActive && timeLeft !== null && timeLeft <= 0 && !myExtAccepted && phase < 4;
+  const isWaitingForOther = isActive && myExtAccepted && phase < 4;
+  const isPhotoRequired = phase === 2 && !myPhotoSent && isActive;
 
   // Phase 2: chat locked until both sent a camera photo
   const phase2Locked = phase === 2 && (!myPhotoSent || !otherPhotoSent);
-  const canChat = isActive && !isDeleted && !isArchived && phase !== 4 && !(phase === 2 && !myPhotoSent);
+  const canChat = isActive && !isDeleted && !isArchived && phase !== 4;
 
   const bg = isDark ? '#08090E' : '#F8F9FB';
   const msgBubbleMe = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -155,7 +162,17 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     if (!localRoom?.id) return;
     try {
       const msgs = await base44.entities.ChatMessage.filter({ room_id: localRoom.id }, 'created_at', 200);
-      setMessages(msgs || []);
+      setMessages(prev => {
+        // Prevent state update if message list has not changed (prevents re-render and scroll jumps)
+        if (prev.length === (msgs || []).length && prev.length > 0) {
+          const lastPrev = prev[prev.length - 1];
+          const lastNew = msgs[msgs.length - 1];
+          if (lastPrev?.id === lastNew?.id && lastPrev?.created_at === lastNew?.created_at) {
+            return prev;
+          }
+        }
+        return msgs || [];
+      });
     } catch (e) {}
   }, [localRoom?.id]);
 
@@ -198,6 +215,13 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     return () => clearInterval(timerRef.current);
   }, [localRoom.phase_expires_at, isActive, phase]);
 
+  // Reset auto-open flag if timer resets/becomes positive or phase updates
+  useEffect(() => {
+    if (timeLeft !== null && timeLeft > 0) {
+      hasAutoOpenedPromptRef.current = false;
+    }
+  }, [timeLeft, phase]);
+
   // Check if extension prompt should be shown
   useEffect(() => {
     if (
@@ -206,14 +230,35 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       !myExtAccepted &&
       phase < 4
     ) {
-      setShowExtensionPrompt(true);
+      if (!hasAutoOpenedPromptRef.current) {
+        hasAutoOpenedPromptRef.current = true;
+        setShowExtensionPrompt(true);
+      }
     }
   }, [timeLeft, isActive, myExtAccepted, phase]);
 
-  // Scroll to bottom & mark messages as read
+  // Smart auto-scroll: only scroll down on initial load or if user is already near bottom
   useEffect(() => {
-    scrollToBottom(false);
-    if (messages && messages.length > 0 && localRoom.id) {
+    if (!messages || messages.length === 0) return;
+
+    const container = messagesContainerRef.current;
+    const isNearBottom = container
+      ? (container.scrollHeight - container.scrollTop - container.clientHeight < 150)
+      : true;
+
+    const hasNewMessages = messages.length > prevMsgCountRef.current;
+    const isInitial = !isInitialScrollDoneRef.current;
+    const lastMsg = messages[messages.length - 1];
+    const isMyMessage = lastMsg?.sender_email === currentUserEmail;
+
+    if (isInitial || isMyMessage || (hasNewMessages && isNearBottom)) {
+      scrollToBottom(false);
+      isInitialScrollDoneRef.current = true;
+    }
+
+    prevMsgCountRef.current = messages.length;
+
+    if (localRoom.id) {
       const partnerMsgs = messages.filter(m => !m.is_system && m.sender_email !== currentUserEmail);
       localStorage.setItem(`chat_read_count_${localRoom.id}`, String(partnerMsgs.length));
     }
@@ -233,6 +278,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         is_system: false,
       });
       await loadMessages();
+      scrollToBottom(true);
     } catch (e) {
       toast.error('Bericht kon niet worden verstuurd');
       setText(content);
@@ -244,7 +290,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     if (!file || sending) return;
     setSending(true);
     try {
-      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const uploadResult = await base44.integrations.Core.UploadFile({ file, bucket: 'chat-uploads' });
       const mediaUrl = uploadResult?.file_url;
       if (!mediaUrl) throw new Error('Upload failed');
 
@@ -256,6 +302,8 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         type: 'photo',
         is_system: false,
       });
+      await loadMessages();
+      scrollToBottom(true);
 
       // Mark photo as sent for phase 2
       if (phase === 2 && !myPhotoSent) {
@@ -318,7 +366,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           };
           if (nextPhase >= 4) phaseUpdates.status = 'active'; // phase 4 = contact exchange
           await base44.entities.ChatRoom.update(localRoom.id, phaseUpdates);
-          const phaseLabels = { 2: '48 uur extra chat! Stuur nu een selfie 📸', 3: 'Nog 24 uur om te chatten! 💬', 4: 'Jullie kunnen nu contactgegevens uitwisselen! 🎉' };
+          const phaseLabels = { 2: '48 uur extra chat! Stuur een foto', 3: 'Nog 24 uur om te chatten!', 4: 'Jullie kunnen nu contactgegevens uitwisselen!' };
           await base44.entities.ChatMessage.create({
             room_id: localRoom.id,
             sender_email: 'system',
@@ -334,6 +382,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         await loadMessages();
       }
       setShowExtensionPrompt(false);
+      setShowDeclineConfirm(false);
     } catch (e) {
       toast.error('Er ging iets mis, probeer opnieuw');
     }
@@ -405,7 +454,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
 
   const phaseLabels = {
     1: { label: 'Fase 1 – 24u chat', color: '#FF4B72' },
-    2: { label: 'Fase 2 – 48u + selfie vereist', color: '#EA3FD3' },
+    2: { label: myPhotoSent ? 'Fase 2 – 48u chat' : 'Fase 2 – Stuur een foto', color: myPhotoSent ? '#FF4B72' : '#EA3FD3' },
     3: { label: 'Fase 3 – Laatste 24u', color: '#8B5CF6' },
     4: { label: 'Fase 4 – Contactgegevens uitwisselen', color: '#10B981' },
   };
@@ -459,8 +508,8 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             {otherProfile?.age ? `${otherProfile.age} jaar` : 'Supermatch'}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] font-bold truncate" style={{ color: currentPhaseInfo.color }}>
-              {currentPhaseInfo.label}
+            <span className="text-[10px] font-bold truncate" style={{ color: isWaitingForOther ? '#EA3FD3' : currentPhaseInfo.color }}>
+              {isWaitingForOther ? '⏳ Wachten op de ander...' : currentPhaseInfo.label}
               {isArchived && ' • Gearchiveerd'}
               {isDeleted && ' • Verwijderd'}
             </span>
@@ -481,29 +530,34 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         )}
       </div>
 
+      {/* Waiting for other user extension banner across all phases */}
+      {isWaitingForOther && (
+        <div
+          onClick={() => setShowWaitingAlert(true)}
+          className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 backdrop-blur-md cursor-pointer active:opacity-80 transition-opacity"
+          style={{
+            background: isDark ? 'rgba(234, 63, 211, 0.15)' : 'rgba(234, 63, 211, 0.08)',
+            borderBottom: isDark ? '1px solid rgba(234, 63, 211, 0.25)' : '1px solid rgba(234, 63, 211, 0.15)',
+          }}
+        >
+          <Clock className="w-4 h-4 text-pink-400 flex-shrink-0 animate-spin" style={{ animationDuration: '4s' }} />
+          <p className="text-xs font-semibold text-pink-400 truncate">
+            Wachten op de ander...
+          </p>
+        </div>
+      )}
+
       {/* Phase 2 photo requirement banner */}
       {phase === 2 && !myPhotoSent && isActive && (
         <div
-          className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5"
-          style={{ background: 'rgba(234,63,211,0.15)', borderBottom: '1px solid rgba(234,63,211,0.3)' }}
+          onClick={() => fileInputRef.current?.click()}
+          className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 cursor-pointer active:opacity-80 transition-opacity"
+          style={{ background: 'rgba(234,63,211,0.12)', borderBottom: isDark ? '1px solid rgba(234,63,211,0.25)' : '1px solid rgba(234,63,211,0.15)' }}
         >
           <Camera className="w-4 h-4 text-purple-400 flex-shrink-0" />
-          <p className="text-xs font-semibold text-purple-300 flex-1">
-            Stuur een selfie om te kunnen chatten. Kies een foto uit de camera.
+          <p className="text-xs font-semibold text-purple-400">
+            Stuur een foto om te kunnen chatten
           </p>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold text-white active:scale-95 transition-transform"
-            style={{ background: GRAD }}
-          >
-            Selfie sturen
-          </button>
-        </div>
-      )}
-      {phase === 2 && myPhotoSent && !otherPhotoSent && isActive && (
-        <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2" style={{ background: 'rgba(255,75,114,0.1)' }}>
-          <Clock className="w-3.5 h-3.5 text-pink-400" />
-          <p className="text-xs font-medium text-pink-300">Wachten op selfie van de ander...</p>
         </div>
       )}
 
@@ -528,7 +582,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             <p className="font-bold text-sm" style={{ color: textMain }}>Begin met chatten!</p>
             <p className="text-xs" style={{ color: textSub }}>
               {phase === 2 && !myPhotoSent
-                ? 'Stuur eerst een selfie om te kunnen chatten.'
+                ? 'Stuur eerst een foto om te kunnen chatten.'
                 : 'Stuur een bericht om de conversatie te starten.'}
             </p>
           </div>
@@ -680,7 +734,18 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         >
           {/* Camera button */}
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (isWaitingForOther) {
+                setShowWaitingAlert(true);
+                return;
+              }
+              if (isExtensionPending) {
+                setShowExtensionPrompt(true);
+                setShowDeclineConfirm(false);
+                return;
+              }
+              fileInputRef.current?.click();
+            }}
             disabled={sending}
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
             style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
@@ -698,8 +763,39 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           {/* Text input */}
           <input
             value={text}
-            onChange={e => setText(e.target.value)}
-            onFocus={() => {
+            onChange={e => {
+              if (isWaitingForOther) {
+                setShowWaitingAlert(true);
+                return;
+              }
+              if (isExtensionPending) {
+                setShowExtensionPrompt(true);
+                setShowDeclineConfirm(false);
+                return;
+              }
+              if (isPhotoRequired) {
+                setShowPhotoRequiredAlert(true);
+                return;
+              }
+              setText(e.target.value);
+            }}
+            onFocus={(e) => {
+              if (isWaitingForOther) {
+                e.target.blur();
+                setShowWaitingAlert(true);
+                return;
+              }
+              if (isExtensionPending) {
+                e.target.blur();
+                setShowExtensionPrompt(true);
+                setShowDeclineConfirm(false);
+                return;
+              }
+              if (isPhotoRequired) {
+                e.target.blur();
+                setShowPhotoRequiredAlert(true);
+                return;
+              }
               window.scrollTo(0, 0);
               setTimeout(() => {
                 window.scrollTo(0, 0);
@@ -710,8 +806,44 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 scrollToBottom(true);
               }, 300);
             }}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-            placeholder="Stuur een bericht..."
+            onClick={() => {
+              if (isWaitingForOther) {
+                setShowWaitingAlert(true);
+              } else if (isExtensionPending) {
+                setShowExtensionPrompt(true);
+                setShowDeclineConfirm(false);
+              } else if (isPhotoRequired) {
+                setShowPhotoRequiredAlert(true);
+              }
+            }}
+            onKeyDown={e => {
+              if (isWaitingForOther) {
+                e.preventDefault();
+                setShowWaitingAlert(true);
+                return;
+              }
+              if (isExtensionPending) {
+                e.preventDefault();
+                setShowExtensionPrompt(true);
+                setShowDeclineConfirm(false);
+                return;
+              }
+              if (isPhotoRequired) {
+                e.preventDefault();
+                setShowPhotoRequiredAlert(true);
+                return;
+              }
+              if (e.key === 'Enter' && !e.shiftKey) sendMessage();
+            }}
+            placeholder={
+              isWaitingForOther
+                ? "Wachten op de ander..."
+                : isExtensionPending
+                ? "Verleng de chat om te typen..."
+                : isPhotoRequired
+                ? "Stuur eerst een foto om te chatten..."
+                : "Stuur een bericht..."
+            }
             className="flex-1 px-4 py-2.5 rounded-full text-base sm:text-sm focus:outline-none"
             style={{
               fontSize: '16px',
@@ -722,7 +854,22 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           />
           {/* Send button */}
           <button
-            onClick={sendMessage}
+            onClick={() => {
+              if (isWaitingForOther) {
+                setShowWaitingAlert(true);
+                return;
+              }
+              if (isExtensionPending) {
+                setShowExtensionPrompt(true);
+                setShowDeclineConfirm(false);
+                return;
+              }
+              if (isPhotoRequired) {
+                setShowPhotoRequiredAlert(true);
+                return;
+              }
+              sendMessage();
+            }}
             disabled={!text.trim() || sending}
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform disabled:opacity-40"
             style={{ background: text.trim() ? GRAD : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)') }}
@@ -756,38 +903,218 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.85, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-              className="w-full max-w-sm rounded-[28px] p-6 shadow-2xl"
+              className="relative w-full max-w-sm rounded-[28px] p-6 shadow-2xl"
               style={{ background: isDark ? '#141521' : '#FFFFFF', border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)' }}
             >
-              <div className="text-center mb-5">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-4" style={{ background: 'rgba(255,75,114,0.15)' }}>
-                  💬
-                </div>
-                <h3 className="font-black text-lg mb-2" style={{ color: textMain }}>
-                  Wil je doorgaan?
-                </h3>
-                <p className="text-sm" style={{ color: textSub }}>
-                  {phase === 1 && 'Jullie chatfase is verlopen. Wil je 48u doorgaan en elkaars selfie zien?'}
-                  {phase === 2 && 'Wil je nog 24u doorgaan met chatten?'}
-                  {phase === 3 && 'Dit is de laatste verlenging! Wil je elkaars contactgegevens uitwisselen?'}
-                </p>
+              {/* Top-right close 'X' button to view the chat text */}
+              <button
+                onClick={() => {
+                  setShowExtensionPrompt(false);
+                  setShowDeclineConfirm(false);
+                }}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-colors active:scale-90 z-10"
+                style={{
+                  background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                  color: textSub,
+                }}
+                aria-label="Sluiten"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {!showDeclineConfirm ? (
+                <>
+                  <div className="text-center mb-5 mt-2">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-4" style={{ background: 'rgba(255,75,114,0.15)' }}>
+                      {myExtAccepted ? '⏳' : '💬'}
+                    </div>
+                    <h3 className="font-black text-lg mb-2" style={{ color: textMain }}>
+                      {myExtAccepted ? 'Wachten op de ander' : 'Wil je doorgaan?'}
+                    </h3>
+                    <p className="text-sm" style={{ color: textSub }}>
+                      {myExtAccepted ? (
+                        `Je hebt akkoord gegeven om door te gaan. Zodra de ander ook akkoord geeft, start Fase ${phase + 1} direct!`
+                      ) : (
+                        <>
+                          {phase === 1 && 'Jullie chatfase is verlopen. Wil je 48u doorgaan en elkaars foto zien?'}
+                          {phase === 2 && 'Wil je nog 24u doorgaan met chatten?'}
+                          {phase === 3 && 'Dit is de laatste verlenging! Wil je elkaars contactgegevens uitwisselen?'}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleExtension(true)}
+                      disabled={extensionLoading || myExtAccepted}
+                      className="w-full py-3.5 rounded-2xl font-bold text-white text-sm active:scale-95 transition-transform disabled:opacity-60"
+                      style={{ background: GRAD }}
+                    >
+                      {myExtAccepted ? 'Je hebt akkoord gegeven, wachten op de ander...' : 'Ja, doorgaan'}
+                    </button>
+                    <button
+                      onClick={() => setShowDeclineConfirm(true)}
+                      disabled={extensionLoading || myExtAccepted}
+                      className="w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform disabled:opacity-40"
+                      style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: textMain }}
+                    >
+                      Nee, stop de chat
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center mb-5 mt-2">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-4" style={{ background: 'rgba(239,68,68,0.15)' }}>
+                      ⚠️
+                    </div>
+                    <h3 className="font-black text-lg mb-2" style={{ color: textMain }}>
+                      Weet je het zeker?
+                    </h3>
+                    <p className="text-sm leading-relaxed" style={{ color: textSub }}>
+                      Als je nu stopt, wordt de chat beëindigd en is deze definitief weg.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleExtension(false)}
+                      disabled={extensionLoading}
+                      className="w-full py-3.5 rounded-2xl font-bold text-white text-sm active:scale-95 transition-transform disabled:opacity-60 bg-red-500 hover:bg-red-600 shadow-md shadow-red-500/20"
+                    >
+                      {extensionLoading ? 'Bezig met beëindigen...' : 'Ja, definitief stoppen'}
+                    </button>
+                    <button
+                      onClick={() => setShowDeclineConfirm(false)}
+                      disabled={extensionLoading}
+                      className="w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform disabled:opacity-40"
+                      style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: textMain }}
+                    >
+                      Annuleren
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* System notification modal: Waiting for supermatch */}
+      <AnimatePresence>
+        {showWaitingAlert && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[450] flex items-center justify-center p-6"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+              className="relative w-full max-w-xs rounded-[28px] p-6 text-center shadow-2xl"
+              style={{
+                background: isDark ? '#141521' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+              }}
+            >
+              {/* Top-right close 'X' button */}
+              <button
+                onClick={() => setShowWaitingAlert(false)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-colors active:scale-90"
+                style={{
+                  background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                  color: textSub,
+                }}
+                aria-label="Sluiten"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mx-auto mb-4" style={{ background: 'rgba(255,75,114,0.15)' }}>
+                ⏳
               </div>
+              <h3 className="font-black text-base mb-2" style={{ color: textMain }}>
+                Wacht op supermatch
+              </h3>
+              <p className="text-sm mb-6 leading-relaxed" style={{ color: textSub }}>
+                Wacht op supermatch voor verder te chatten.
+              </p>
+              <button
+                onClick={() => setShowWaitingAlert(false)}
+                className="w-full py-3.5 rounded-2xl font-bold text-white text-sm active:scale-95 transition-transform shadow-md"
+                style={{ background: GRAD }}
+              >
+                Oké
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* System notification modal: Photo required for Phase 2 */}
+      <AnimatePresence>
+        {showPhotoRequiredAlert && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[450] flex items-center justify-center p-6"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+              className="relative w-full max-w-xs rounded-[28px] p-6 text-center shadow-2xl"
+              style={{
+                background: isDark ? '#141521' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+              }}
+            >
+              {/* Top-right close 'X' button */}
+              <button
+                onClick={() => setShowPhotoRequiredAlert(false)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-colors active:scale-90"
+                style={{
+                  background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                  color: textSub,
+                }}
+                aria-label="Sluiten"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mx-auto mb-4" style={{ background: 'rgba(234,63,211,0.15)' }}>
+                📸
+              </div>
+              <h3 className="font-black text-base mb-2" style={{ color: textMain }}>
+                Foto vereist
+              </h3>
+              <p className="text-sm mb-6 leading-relaxed" style={{ color: textSub }}>
+                Stuur eerst een foto om te kunnen chatten.
+              </p>
               <div className="space-y-2">
                 <button
-                  onClick={() => handleExtension(true)}
-                  disabled={extensionLoading || myExtAccepted}
-                  className="w-full py-3.5 rounded-2xl font-bold text-white text-sm active:scale-95 transition-transform disabled:opacity-60"
+                  onClick={() => {
+                    setShowPhotoRequiredAlert(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full py-3.5 rounded-2xl font-bold text-white text-sm active:scale-95 transition-transform shadow-md flex items-center justify-center gap-2"
                   style={{ background: GRAD }}
                 >
-                  {myExtAccepted ? '✅ Je hebt akkoord gegeven, wachten op de ander...' : '✅ Ja, doorgaan!'}
+                  <Camera className="w-4 h-4" />
+                  Foto maken
                 </button>
                 <button
-                  onClick={() => handleExtension(false)}
-                  disabled={extensionLoading || myExtAccepted}
-                  className="w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform disabled:opacity-40"
-                  style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: textMain }}
+                  onClick={() => setShowPhotoRequiredAlert(false)}
+                  className="w-full py-2.5 rounded-2xl font-bold text-xs active:scale-95 transition-transform"
+                  style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: textSub }}
                 >
-                  ❌ Nee, stop de chat
+                  Annuleren
                 </button>
               </div>
             </motion.div>

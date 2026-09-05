@@ -10,6 +10,7 @@ import VenueBottomSheet from '@/components/welove/VenueBottomSheet';
 import HomeInfoSheet from '@/components/welove/HomeInfoSheet';
 import { useTheme } from '@/lib/ThemeContext';
 import { fetchReportedEmails } from '@/lib/reportUtils';
+import { getCountryByName, venueInCountry, DEFAULT_COUNTRY } from '@/lib/countries';
 
 const GRAD = 'linear-gradient(135deg, #8E54E9 0%, #EA3FD3 100%)';
 
@@ -72,21 +73,29 @@ export default function Pinpoint() {
     const u = user;
     if (!u) { setLoading(false); return; }
 
-    const [profiles, allClubs, checkIns, searches] = await Promise.all([
-      base44.entities.UserProfile.filter({ user_email: u.email }),
-      base44.entities.Club.list(),
-      base44.entities.VenueCheckIn.filter({ user_email: u.email }),
-      base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 10),
+    const [
+      profiles = [],
+      allClubs = [],
+      checkIns = [],
+      searches = [],
+      allCheckIns = [],
+      allDests = [],
+      allProfs = [],
+      reportedEmails = new Set()
+    ] = await Promise.all([
+      base44.entities.UserProfile.filter({ user_email: u.email }).catch(() => []),
+      base44.entities.Club.list().catch(() => []),
+      base44.entities.VenueCheckIn.filter({ user_email: u.email }).catch(() => []),
+      base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 10).catch(() => []),
+      base44.entities.VenueCheckIn.list().catch(() => []),
+      base44.entities.UserDestination.list().catch(() => []),
+      base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
+      fetchReportedEmails(u.email).catch(() => new Set())
     ]);
-    const [allCheckIns, allDests, allProfs] = await Promise.all([
-      base44.entities.VenueCheckIn.list(),
-      base44.entities.UserDestination.list(),
-      base44.entities.UserProfile.list('-created_date', 500),
-    ]);
-    const reportedEmails = await fetchReportedEmails(u.email);
-    const safeProfs = allProfs.filter(p => !reportedEmails.has(p.user_email));
-    const safeDests = allDests.filter(d => !reportedEmails.has(d.user_email));
-    const safeCheckIns = allCheckIns.filter(c => !reportedEmails.has(c.user_email));
+
+    const safeProfs = allProfs.filter(p => p && p.user_email && !reportedEmails.has(p.user_email));
+    const safeDests = allDests.filter(d => d && d.user_email && !reportedEmails.has(d.user_email));
+    const safeCheckIns = allCheckIns.filter(c => c && c.user_email && !reportedEmails.has(c.user_email));
 
     setRecentSearches(searches);
     setAllProfiles(safeProfs);
@@ -124,23 +133,37 @@ export default function Pinpoint() {
     const p = profiles[0] || null;
     setMyProfile(p);
 
+    // Determine country for filtering
+    const userCountry = getCountryByName(p?.country);
+
+    // Filter destinations to same country (profiles from same country only)
+    const sameCountryEmails = new Set(
+      allProfs
+        .filter(prof => (prof.country || 'Nederland') === (p?.country || 'Nederland'))
+        .map(prof => prof.user_email)
+    );
+
     const countMap = {};
     const now = new Date().toISOString();
-    safeCheckIns.forEach((c) => {
-      if (!c.expires_at || c.expires_at > now) {
-        const key = c.venue_id || c.venue_name;
-        countMap[key] = (countMap[key] || 0) + 1;
-      }
-    });
+    safeCheckIns
+      .filter(c => sameCountryEmails.has(c.user_email))
+      .forEach((c) => {
+        if (!c.expires_at || c.expires_at > now) {
+          const key = c.venue_id || c.venue_name;
+          countMap[key] = (countMap[key] || 0) + 1;
+        }
+      });
 
     const destCountMap = {};
-    activeDests.forEach((d) => {
-      const key = d.venue_id || d.venue_name;
-      destCountMap[key] = (destCountMap[key] || 0) + 1;
-    });
+    activeDests
+      .filter(d => sameCountryEmails.has(d.user_email))
+      .forEach((d) => {
+        const key = d.venue_id || d.venue_name;
+        destCountMap[key] = (destCountMap[key] || 0) + 1;
+      });
 
     const venues = allClubs
-      .filter((c) => c.lat && c.lng && c.lat > 50 && c.lat < 54 && c.lng > 3 && c.lng < 8)
+      .filter((c) => c.lat && c.lng && venueInCountry(c.lat, c.lng, userCountry))
       .map((c) => ({
         id: c.id,
         name: c.name,
@@ -151,6 +174,13 @@ export default function Pinpoint() {
         destCount: (destCountMap[c.id] || 0) + (destCountMap[c.name] || 0)
       }));
     setClubs(venues);
+
+    // Fly map to user's country on first load
+    setTimeout(() => {
+      if (mapRef.current && userCountry) {
+        mapRef.current.flyTo(userCountry.center[0], userCountry.center[1], userCountry.zoom);
+      }
+    }, 800);
 
     const active = checkIns.find((c) => !c.expires_at || c.expires_at > now);
     if (active) {
@@ -179,10 +209,12 @@ export default function Pinpoint() {
       }
     }
 
-    // Calculate Hotspots
+    // Calculate Hotspots — only same-country destinations
     const hotspotsCountMap = {};
     const hotspotsMetaMap = {};
-    activeDests.forEach((d) => {
+    activeDests
+      .filter(d => sameCountryEmails.has(d.user_email))
+      .forEach((d) => {
       const key = d.venue_id || d.venue_name;
       hotspotsCountMap[key] = (hotspotsCountMap[key] || 0) + 1;
       if (!hotspotsMetaMap[key] || (!hotspotsMetaMap[key].venue_city && d.venue_city)) {
@@ -241,9 +273,11 @@ export default function Pinpoint() {
     clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(async () => {
       setSearchLoading(true);
+      const userCountry = getCountryByName(myProfile?.country);
+      const countryCode = userCountry?.code || DEFAULT_COUNTRY.code;
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=nl&limit=4&addressdetails=1`,
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=${countryCode}&limit=4&addressdetails=1`,
           { headers: { 'Accept-Language': 'nl' } }
         );
         const data = await res.json();
@@ -481,6 +515,9 @@ export default function Pinpoint() {
   // Looser match check for venue badge: gender preference + at least 1 shared interest or trait
   const isLooseMatch = (me, other) => {
     if (!me || !other) return false;
+    const myCountry = me.country || 'Nederland';
+    const otherCountry = other.country || 'Nederland';
+    if (myCountry !== otherCountry) return false;
     if (!me.gender || !me.looking_for || !other.gender || !other.looking_for) return false;
     const iWantThem = me.looking_for === 'both' || me.looking_for === other.gender;
     const theyWantMe = other.looking_for === 'both' || other.looking_for === me.gender;

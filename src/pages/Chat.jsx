@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { useTheme } from '@/lib/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Clock, Check, X, ChevronRight, ChevronLeft, Sparkles, Archive, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Clock, ChevronRight, ChevronLeft, Archive, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import ChatRoomView from '@/components/welove/ChatRoomView';
 import { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
@@ -22,7 +22,7 @@ const PHASE_DURATIONS = {
 
 const PHASE_LABELS = {
   1: { label: 'Fase 1 · 24u chat', color: '#FF4B72' },
-  2: { label: 'Fase 2 · Selfie vereist', color: '#EA3FD3' },
+  2: { label: 'Fase 2 · 48u chat', color: '#FF4B72' },
   3: { label: 'Fase 3 · Laatste 24u', color: '#8B5CF6' },
   4: { label: 'Fase 4 · Contact uitwisselen', color: '#10B981' },
 };
@@ -43,12 +43,20 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
   const photos = getProfilePhotos(otherProfile);
   const avatar = photos[0] || null;
   const phase = room.phase || 1;
-  const phaseInfo = PHASE_LABELS[phase] || PHASE_LABELS[1];
-  const timeLeft = room.status === 'active' && room.phase_expires_at ? formatTimeLeft(room.phase_expires_at) : null;
   const isUserB = currentUserEmail === room.user_b_email;
   const isUserA = currentUserEmail === room.user_a_email;
   const isPending = room.status === 'pending';
   const isSentPending = isPending && isUserA;
+  const myExtAccepted = isUserA ? room.extension_accepted_a : room.extension_accepted_b;
+  const isWaitingExt = room.status === 'active' && myExtAccepted && phase < 4;
+  const myPhotoSent = isUserA ? room.photo_sent_a : room.photo_sent_b;
+  const isPhase2NeedPhoto = phase === 2 && !myPhotoSent && room.status === 'active';
+
+  const phaseInfo = isPhase2NeedPhoto
+    ? { label: 'Stuur een foto', color: '#EA3FD3' }
+    : (PHASE_LABELS[phase] || PHASE_LABELS[1]);
+
+  const timeLeft = room.status === 'active' && room.phase_expires_at ? formatTimeLeft(room.phase_expires_at) : null;
 
   const displayTitle = otherProfile?.age ? `${otherProfile.age} jaar` : 'Supermatch';
 
@@ -69,13 +77,17 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
         background: isDark ? 'rgba(255,255,255,0.04)' : '#FFFFFF',
         border: isSentPending 
           ? (isDark ? '1.5px solid rgba(245, 158, 11, 0.35)' : '1.5px solid rgba(245, 158, 11, 0.3)')
+          : isWaitingExt
+          ? (isDark ? '1.5px solid rgba(234, 63, 211, 0.35)' : '1.5px solid rgba(234, 63, 211, 0.3)')
+          : isPhase2NeedPhoto
+          ? (isDark ? '1.5px solid rgba(234, 63, 211, 0.35)' : '1.5px solid rgba(234, 63, 211, 0.3)')
           : (isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.06)'),
         boxShadow: isDark ? 'none' : '0 2px 12px rgba(0,0,0,0.05)',
       }}
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
-        <div className="w-12 h-12 rounded-full overflow-hidden border-2" style={{ borderColor: isSentPending ? '#F59E0B' : phaseInfo.color }}>
+        <div className="w-12 h-12 rounded-full overflow-hidden border-2" style={{ borderColor: isSentPending ? '#F59E0B' : isWaitingExt ? '#EA3FD3' : phaseInfo.color }}>
           {avatar
             ? <img src={avatar} alt="" className="w-full h-full object-cover" />
             : <div className="w-full h-full flex items-center justify-center text-xl" style={{ background: GRAD }}>{otherProfile?.avatar?.split(' ')[0] || '💜'}</div>
@@ -98,6 +110,11 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
                 <Clock className="w-3 h-3 animate-spin" style={{ animationDuration: '4s' }} />
                 Verstuurd
               </span>
+            ) : isWaitingExt ? (
+              <span className="text-[10px] font-bold text-pink-400 bg-pink-500/15 border border-pink-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <Clock className="w-3 h-3 animate-spin" style={{ animationDuration: '4s' }} />
+                Wachten
+              </span>
             ) : timeLeft ? (
               <span className="text-[10px] font-bold" style={{ color: phaseInfo.color }}>
                 ⏱ {timeLeft}
@@ -105,9 +122,11 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
             ) : null}
           </div>
         </div>
-        <p className="text-[11px] font-semibold truncate" style={{ color: isSentPending ? '#F59E0B' : phaseInfo.color }}>
+        <p className="text-[11px] font-semibold truncate" style={{ color: isSentPending ? '#F59E0B' : isWaitingExt ? '#EA3FD3' : phaseInfo.color }}>
           {isSentPending
             ? 'Uitnodiging verstuurd • Wachten op antwoord...'
+            : isWaitingExt
+            ? '⏳ Wachten op de ander...'
             : isPending && isUserB
             ? '💬 Uitnodiging — Accepteer of weiger'
             : room.status === 'archived'
@@ -169,14 +188,6 @@ export default function Chat() {
       const now = new Date();
       const visible = unique.filter(r => !r.deleted_at || new Date(r.deleted_at) > now);
 
-      // Sort: pending first, then by created_at desc
-      visible.sort((a, b) => {
-        if (a.status === 'pending' && b.status !== 'pending') return -1;
-        if (b.status === 'pending' && a.status !== 'pending') return 1;
-        return new Date(b.created_at) - new Date(a.created_at);
-      });
-      setRooms(visible);
-
       // Mark all visible room IDs as seen in localStorage
       const visibleIds = visible.map(r => r.id);
       const existingSeen = JSON.parse(localStorage.getItem('seen_chat_room_ids') || '[]');
@@ -185,13 +196,12 @@ export default function Chat() {
 
       // Load other profiles
       const otherEmails = [...new Set(visible.map(r => r.user_a_email === user.email ? r.user_b_email : r.user_a_email))];
+      let profMap = {};
       if (otherEmails.length > 0) {
         const allProfs = await base44.entities.UserProfile.list('-created_date', 500).catch(() => []);
-        const profMap = {};
         for (const p of allProfs) {
           if (otherEmails.includes(p.user_email)) profMap[p.user_email] = p;
         }
-        setProfiles(profMap);
       }
 
       // Load message counts & latest message timestamp for active rooms
@@ -220,15 +230,19 @@ export default function Chat() {
         })
       );
 
-      // Sort: pending first, then by latest message activity descending
+      // Sort: pending first, then by latest message activity descending with stable ID tiebreaker
       visible.sort((a, b) => {
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (b.status === 'pending' && a.status !== 'pending') return 1;
         const timeA = latestActivity[a.id] || new Date(a.created_at || 0).getTime();
         const timeB = latestActivity[b.id] || new Date(b.created_at || 0).getTime();
-        return timeB - timeA;
+        if (timeB !== timeA) return timeB - timeA;
+        return (b.id || '').localeCompare(a.id || '');
       });
 
+      if (Object.keys(profMap).length > 0) {
+        setProfiles(prev => ({ ...prev, ...profMap }));
+      }
       setRooms([...visible]);
       setMessageCounts(counts);
     } catch (e) {}

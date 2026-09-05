@@ -101,12 +101,20 @@ function interestsMatch(myProfile, other) {
   return shared.length >= 1;
 }
 
+function countryMatch(myProfile, other) {
+  // If either profile has no country set, treat as compatible (default = nl)
+  const myCountry = myProfile.country || 'Nederland';
+  const otherCountry = other.country || 'Nederland';
+  return myCountry === otherCountry;
+}
+
 export function isMatch(myProfile, other) {
   if (!myProfile || !other) return false;
   if (!genderMatch(myProfile, other)) return false;
   if (!relationshipGoalMatch(myProfile, other)) return false;
   if (!ageMatch(myProfile, other)) return false;
   if (!heightMatch(myProfile, other)) return false;
+  if (!countryMatch(myProfile, other)) return false;
   
   if (!traitsMatch(myProfile, other) && !interestsMatch(myProfile, other)) return false;
   

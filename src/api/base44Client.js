@@ -214,25 +214,40 @@ export const base44 = {
   },
   integrations: {
     Core: {
-      UploadFile: async ({ file }) => {
-        const fileExt = file.name.split('.').pop();
+      UploadFile: async ({ file, bucket = 'uploads' }) => {
+        const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
         const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
 
-        const { data, error } = await supabase.storage
-          .from('uploads')
+        let targetBucket = bucket;
+        let { data, error } = await supabase.storage
+          .from(targetBucket)
           .upload(filePath, file, {
             cacheControl: '3600',
             upsert: false
           });
 
-        if (error) {
+        if (error && targetBucket !== 'uploads') {
+          // Fallback to 'uploads' if custom bucket is not created yet
+          console.warn(`Upload to '${targetBucket}' failed, trying fallback to 'uploads'...`, error);
+          targetBucket = 'uploads';
+          const fallbackRes = await supabase.storage
+            .from('uploads')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+          if (fallbackRes.error) {
+            console.error('Error uploading file to storage:', fallbackRes.error);
+            throw fallbackRes.error;
+          }
+        } else if (error) {
           console.error('Error uploading file to storage:', error);
           throw error;
         }
 
         const { data: { publicUrl } } = supabase.storage
-          .from('uploads')
+          .from(targetBucket)
           .getPublicUrl(filePath);
 
         return { file_url: publicUrl };
@@ -240,9 +255,15 @@ export const base44 = {
       DeleteFile: async ({ file_url }) => {
         if (!file_url) return;
         try {
-          const fileName = file_url.split('/uploads/').pop();
-          if (fileName) {
-            await supabase.storage.from('uploads').remove([fileName]);
+          const buckets = ['chat-uploads', 'uploads'];
+          for (const b of buckets) {
+            if (file_url.includes(`/${b}/`)) {
+              const fileName = file_url.split(`/${b}/`).pop();
+              if (fileName) {
+                await supabase.storage.from(b).remove([fileName]);
+              }
+              break;
+            }
           }
         } catch (err) {
           console.error('Error deleting file from storage:', err);

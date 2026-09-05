@@ -38,5 +38,12 @@ export default function NavigationTracker() {
         }
     }, [location, isAuthenticated, Pages, mainPageKey]);
 
+    // Ensure window always scrolls to top on navigation / route change
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        if (document.documentElement) document.documentElement.scrollTop = 0;
+        if (document.body) document.body.scrollTop = 0;
+    }, [location.pathname]);
+
     return null;
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Users, Crown, Sparkles, Trophy } from 'lucide-react';
+import { Flame, Users, Crown } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
 
 export default function HotspotSection({ hotspots, isPremium, onHotspotClick }) {

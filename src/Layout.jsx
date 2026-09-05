@@ -1,20 +1,22 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { MapPin, Heart, User, Home, Plus, MessageCircle } from 'lucide-react';
+import { MapPin, Heart, User, Home, Plus } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { useNotifications } from '@/components/welove/useNotifications';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
 
-const NAV_CONFIG = [
-{ key: 'navHome', icon: Home, page: 'Home' },
-{ key: 'navPinpoint', icon: MapPin, page: 'Pinpoint' },
-{ key: 'navHints', icon: Plus, page: 'Hints' },
-{ key: 'navMatches', icon: Heart, page: 'Matches' },
-{ key: 'navAccount', icon: User, page: 'Account' }];
+import { base44 } from '@/api/base44Client';
 
+const NAV_CONFIG = [
+  { key: 'navHome', icon: Home, page: 'Home' },
+  { key: 'navPinpoint', icon: MapPin, page: 'Pinpoint' },
+  { key: 'navHints', icon: Plus, page: 'Hints' },
+  { key: 'navMatches', icon: Heart, page: 'Matches' },
+  { key: 'navAccount', icon: User, page: 'Account' }
+];
 
 export default function Layout({ children, currentPageName }) {
   const showNav = !['Onboarding'].includes(currentPageName);
@@ -24,20 +26,20 @@ export default function Layout({ children, currentPageName }) {
   const isDark = theme !== 'light';
   const t = T[lang] || T.nl;
   const [unreadChatCount, setUnreadChatCount] = React.useState(0);
-  const NAV_ITEMS = NAV_CONFIG.map((item) => ({ ...item, name: t[item.key] || item.key }));
+  const NAV_ITEMS = React.useMemo(() => NAV_CONFIG.map((item) => ({ ...item, name: t[item.key] || item.key })), [t]);
 
   // Poll for unread chat messages every 30s
   React.useEffect(() => {
+    let isMounted = true;
     const checkChats = async () => {
       try {
-        const { base44 } = await import('@/api/base44Client');
-        const { useUser } = await import('@/lib/useUser');
-        // We use localStorage to get user email quickly
         const email = localStorage.getItem('romety_user_email');
         if (!email) return;
-        const rooms = await base44.entities.ChatRoom.filter({ user_a_email: email }).catch(() => []);
-        const rooms2 = await base44.entities.ChatRoom.filter({ user_b_email: email }).catch(() => []);
-        const allRooms = [...rooms, ...rooms2].filter(r => r.status !== 'deleted' && !r.deleted_at);
+        const [rooms, rooms2] = await Promise.all([
+          base44.entities.ChatRoom.filter({ user_a_email: email }).catch(() => []),
+          base44.entities.ChatRoom.filter({ user_b_email: email }).catch(() => [])
+        ]);
+        const allRooms = [...rooms, ...rooms2].filter(r => r && r.status !== 'deleted' && !r.deleted_at);
         const seenRoomIds = new Set();
         const uniqueRooms = allRooms.filter(r => {
           if (seenRoomIds.has(r.id)) return false;
@@ -50,24 +52,29 @@ export default function Layout({ children, currentPageName }) {
         totalBadge += pendingInvites;
 
         const activeRooms = uniqueRooms.filter(r => r.status === 'active');
-        await Promise.all(
-          activeRooms.map(async (r) => {
-            try {
-              const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
-              const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== email);
-              const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
-              const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
-              if (unreadInRoom > 0) totalBadge += unreadInRoom;
-            } catch (e) {}
-          })
-        );
+        if (activeRooms.length > 0) {
+          await Promise.all(
+            activeRooms.map(async (r) => {
+              try {
+                const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
+                const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== email);
+                const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
+                const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
+                if (unreadInRoom > 0) totalBadge += unreadInRoom;
+              } catch (e) {}
+            })
+          );
+        }
 
-        setUnreadChatCount(totalBadge);
+        if (isMounted) setUnreadChatCount(totalBadge);
       } catch (e) {}
     };
     checkChats();
     const interval = setInterval(checkChats, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return (

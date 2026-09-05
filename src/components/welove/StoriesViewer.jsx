@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, MoreHorizontal, Download, Trash2, AlertTriangle, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
-import { createPageUrl } from '@/utils';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
 
 const REPORT_REASONS = [

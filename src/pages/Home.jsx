@@ -3,12 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
-import { Heart, MapPin, Sparkles, Lock, Plus, ChevronDown, ChevronUp, Send, Sun, Gamepad2, Eye, X, MoreVertical, AlertTriangle, MessageCircle, Ticket, ChevronRight, ChevronLeft, Lightbulb, Flame } from 'lucide-react';
+import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame } from 'lucide-react';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
 import SendHintSheet from '@/components/welove/SendHintSheet';
-import HintCard from '@/components/welove/HintCard';
 import StoriesViewer from '@/components/welove/StoriesViewer';
 import SuperMatchesSheet from '@/components/welove/SuperMatchesSheet';
 import RevealedLikesSheet from '@/components/welove/RevealedLikesSheet';
@@ -17,7 +16,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
-import ProfilePhotoCarousel from '@/components/welove/ProfilePhotoCarousel';
 import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
 
 const REPORT_REASONS = [
@@ -115,6 +113,7 @@ export default function Home() {
   };
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     try {
       const seenStr = localStorage.getItem('seen_story_ids');
       setSeenStoryIds(seenStr ? JSON.parse(seenStr) : []);
@@ -155,49 +154,36 @@ export default function Home() {
     try {
       const now = new Date().toISOString();
 
-      // Round 1: user-specific data
+      // Parallel single-batch data fetching
       const [
         myProfiles = [],
-        subs = [],
         myCheckIns = [],
-        myDestinations = []
-      ] = await Promise.all([
-        base44.entities.UserProfile.filter({ user_email: u.email }).catch(() => []),
-        base44.entities.PremiumSubscription.filter({ user_email: u.email }).catch(() => []),
-        base44.entities.VenueCheckIn.filter({ user_email: u.email }).catch(() => []),
-        base44.entities.UserDestination.filter({ user_email: u.email }).catch(() => []),
-      ]);
-
-      // Round 2: likes + global profiles
-      const [
+        myDestinations = [],
         likesISent = [],
         likesIReceived = [],
-        allProfiles = []
-      ] = await Promise.all([
-        base44.entities.Like.filter({ from_email: u.email }).catch(() => []),
-        base44.entities.Like.filter({ to_email: u.email }).catch(() => []),
-        base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
-      ]);
-
-      // Round 3: global venue data + hints + stories
-      const [
+        allProfilesData = [],
         allCheckIns = [],
         allDestinations = [],
         allClubs = [],
         allHints = [],
-        allStories = []
+        allStories = [],
+        reportedEmails = new Set()
       ] = await Promise.all([
+        base44.entities.UserProfile.filter({ user_email: u.email }).catch(() => []),
+        base44.entities.VenueCheckIn.filter({ user_email: u.email }).catch(() => []),
+        base44.entities.UserDestination.filter({ user_email: u.email }).catch(() => []),
+        base44.entities.Like.filter({ from_email: u.email }).catch(() => []),
+        base44.entities.Like.filter({ to_email: u.email }).catch(() => []),
+        base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
         base44.entities.VenueCheckIn.list().catch(() => []),
         base44.entities.UserDestination.list().catch(() => []),
         base44.entities.Club.list().catch(() => []),
         base44.entities.Hint.list('-created_date', 100).catch(() => []),
         base44.entities.Story.list('-created_date', 100).catch(() => []),
+        fetchReportedEmails(u.email).catch(() => new Set())
       ]);
 
-      // Fetch reported users
-      const reportedEmails = await fetchReportedEmails(u.email);
-      const safeProfiles = allProfiles.filter((p) => p && p.user_email && !reportedEmails.has(p.user_email));
-
+      const safeProfiles = allProfilesData.filter((p) => p && p.user_email && !reportedEmails.has(p.user_email));
       const myProf = myProfiles[0] || null;
       setMyProfile(myProf);
 
@@ -398,9 +384,19 @@ export default function Home() {
         setStories(activeStories);
       }
 
-      // Calculate active location count
-      const activeCheckInEmails = allCheckIns.filter(c => !c.expires_at || c.expires_at > now).map(c => c.user_email);
-      const activeDestEmails = allDestinations.filter(d => d.status === 'active' && (!d.expires_at || d.expires_at > now)).map(d => d.user_email);
+      // Calculate active location count (only users in the same country)
+      const userCountry = myProf?.country || 'Nederland';
+      const sameCountryEmails = new Set(
+        safeProfiles
+          .filter(p => (p.country || 'Nederland') === userCountry)
+          .map(p => p.user_email)
+      );
+      const activeCheckInEmails = allCheckIns
+        .filter(c => (!c.expires_at || c.expires_at > now) && sameCountryEmails.has(c.user_email))
+        .map(c => c.user_email);
+      const activeDestEmails = allDestinations
+        .filter(d => d.status === 'active' && (!d.expires_at || d.expires_at > now) && sameCountryEmails.has(d.user_email))
+        .map(d => d.user_email);
       const uniqueActiveEmails = new Set([...activeCheckInEmails, ...activeDestEmails]);
       setActiveLocationCount(uniqueActiveEmails.size);
 
@@ -931,7 +927,7 @@ export default function Home() {
                   className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
                   style={{ background: isDark ? 'rgba(234, 63, 211, 0.25)' : 'rgba(234, 63, 211, 0.12)' }}
                 >
-                  <Sparkles className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
+                  <Crown className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
                   <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
@@ -942,9 +938,6 @@ export default function Home() {
                 </div>
               </div>
               <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full bg-[#EA3FD3] text-white text-xs sm:text-sm font-black flex items-center justify-center shadow-md">
-                  {CLUB_DISCOUNTS.filter(d => !d.discount.includes('Geen actieve')).length}
-                </div>
                 <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
                   <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 </div>
@@ -954,7 +947,7 @@ export default function Home() {
 
           {/* Location Not Set Blur Overlay */}
           {!myCheckIn && (
-            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center p-3">
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-start pt-14 sm:pt-16 p-3">
               <div 
                 className="w-full max-w-sm p-6 rounded-[28px] text-center flex flex-col items-center border shadow-2xl transition-all"
                 style={{
@@ -981,7 +974,7 @@ export default function Home() {
                     boxShadow: '0 6px 20px rgba(255, 75, 114, 0.4)',
                   }}
                 >
-                  Stel een bestemming in om matches te zien
+                  Ga naar Pinpoint
                 </button>
               </div>
             </div>
@@ -1091,9 +1084,9 @@ export default function Home() {
                 touchAction: 'pan-y',
               }}
             >
-              {/* WhatsApp-Style Header */}
+              {/* Header */}
               <div 
-                className="p-4 pb-4 flex items-center justify-between flex-shrink-0" 
+                className="w-full px-4 pb-3 flex items-center justify-between flex-shrink-0" 
                 style={{ 
                   paddingTop: 'max(16px, env(safe-area-inset-top, 16px))',
                   borderBottom: `1px solid ${divider}` 
@@ -1110,9 +1103,9 @@ export default function Home() {
                   </button>
                   <div>
                     <h2 className={`text-lg font-black ${textMain}`}>
-                      Lidmaatschapskortingen
+                      VIP Kortingen
                     </h2>
-                    <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">
+                    <p className="text-[10px] text-[#EA3FD3] font-bold uppercase tracking-wider">
                       Exclusief voor Romety gebruikers
                     </p>
                   </div>
@@ -1126,54 +1119,23 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* List */}
-              <div className="p-5 space-y-3.5 flex-1 overflow-y-auto">
-                {CLUB_DISCOUNTS.map((club, idx) => {
-                  const hasDiscount = club.discount !== 'Geen actieve kortingen momenteel';
-                  return (
-                    <div 
-                      key={idx} 
-                      className="p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all"
-                      style={{
-                        background: hasDiscount 
-                          ? (isDark ? 'rgba(212,163,59,0.08)' : 'rgba(212,163,59,0.04)') 
-                          : (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)'),
-                        borderColor: hasDiscount 
-                          ? 'rgba(212,163,59,0.3)' 
-                          : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)')
-                      }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-black" style={{ color: hasDiscount ? '#D4A33B' : undefined }}>{club.name}</span>
-                          <span className="text-[10px] opacity-50">({club.city})</span>
-                        </div>
-                        <p className={`text-xs mt-1 font-semibold ${hasDiscount ? textMain : 'text-gray-400 italic'}`}>
-                          {club.discount}
-                        </p>
-                      </div>
-                      {hasDiscount && (
-                        <div className="w-8 h-8 rounded-xl bg-[#D4A33B]/20 flex items-center justify-center flex-shrink-0 text-base">
-                          🏷️
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Bottom Button */}
+              {/* Empty state */}
               <div 
-                className="p-4 border-t border-white/5 bg-black/10 flex-shrink-0"
-                style={{ paddingBottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' }}
+                className="p-6 flex-1 flex flex-col items-center justify-center text-center"
+                style={{ paddingBottom: 'calc(40px + env(safe-area-inset-bottom, 0px))' }}
               >
-                <button
-                  onClick={() => setShowDiscountsModal(false)}
-                  className="w-full py-3.5 rounded-2xl font-black text-xs bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 flex items-center justify-center gap-2"
+                <div 
+                  className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner" 
+                  style={{ background: isDark ? 'rgba(234,63,211,0.15)' : 'rgba(234,63,211,0.1)' }}
                 >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Terug naar Home</span>
-                </button>
+                  <Crown className="w-9 h-9 text-[#EA3FD3]" />
+                </div>
+                <h3 className={`font-black text-lg mb-2 ${textMain}`}>
+                  Momenteel geen VIP kortingen
+                </h3>
+                <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: textSub }}>
+                  Er zijn op dit moment nog geen actieve VIP kortingen beschikbaar. Binnenkort vind je hier exclusieve deals bij jouw favoriete locaties!
+                </p>
               </div>
             </motion.div>
           </>

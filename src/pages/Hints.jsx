@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
-import { X, Send, AlertCircle, Lock, Download } from 'lucide-react';
+import { X, Send, AlertCircle, Download } from 'lucide-react';
 import { createPageUrl } from '@/utils';
 
 export default function Hints() {
@@ -326,21 +326,39 @@ export default function Hints() {
 
   if (!myCheckIn) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-6 text-center" style={{ background: bg, zIndex: 40 }}>
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'rgba(255,75,114,0.12)' }}>
-          <Lock className="w-8 h-8 text-pink-500" />
+      <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
+        {/* No location locked state without header */}
+        <div className="flex-1 flex flex-col items-center justify-start pt-[156px] sm:pt-[164px] p-3">
+          <div 
+            className="w-full max-w-sm p-6 rounded-[28px] text-center flex flex-col items-center border shadow-2xl transition-all"
+            style={{
+              background: isDark ? 'rgba(14, 15, 25, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+              borderColor: isDark ? 'rgba(255, 75, 114, 0.35)' : 'rgba(255, 75, 114, 0.25)',
+              boxShadow: isDark 
+                ? '0 16px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 75, 114, 0.2)' 
+                : '0 16px 40px rgba(0, 0, 0, 0.12), 0 0 30px rgba(255, 75, 114, 0.12)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+            }}
+          >
+            <h3 className={`text-base font-black tracking-tight mb-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Geen bestemming ingesteld
+            </h3>
+            <p className={`text-xs font-medium leading-relaxed mb-5 max-w-[250px] ${isDark ? 'text-white/70' : 'text-gray-600'}`}>
+              Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!
+            </p>
+            <button
+              onClick={() => navigate(createPageUrl('Pinpoint'))}
+              className="w-full py-3.5 px-5 rounded-2xl font-black text-xs sm:text-sm text-white shadow-lg active:scale-95 transition-transform text-center"
+              style={{
+                background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+                boxShadow: '0 6px 20px rgba(255, 75, 114, 0.4)',
+              }}
+            >
+              Ga naar Pinpoint
+            </button>
+          </div>
         </div>
-        <h2 className={`font-black text-lg mb-2 ${textMain}`}>Camera vergrendeld 🔒</h2>
-        <p className="text-sm max-w-xs mb-6" style={{ color: textSub }}>
-          Stel eerst een bestemming of check-in in op de <strong>Pinpoint</strong> pagina om verhalen te maken.
-        </p>
-        <button
-          onClick={() => navigate(createPageUrl('Pinpoint'))}
-          className="px-6 py-3 rounded-full font-black text-sm text-white shadow-lg shadow-pink-500/20 active:scale-95 transition-transform"
-          style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)' }}
-        >
-          📍 Ga naar Pinpoint
-        </button>
       </div>
     );
   }

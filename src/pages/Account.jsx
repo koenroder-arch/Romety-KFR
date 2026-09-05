@@ -3,14 +3,14 @@ import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
 import { 
-  LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus,
-  RefreshCw, Moon, Sun, Eye, Heart, Gamepad2, Sparkles, MapPin,
-  Bell, HelpCircle, User, MessageCircle, ArrowRightLeft, AlertTriangle
+  LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart, Gamepad2,
+  Bell, HelpCircle, MessageCircle, ArrowRightLeft, AlertTriangle, Globe
 } from 'lucide-react';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import { compressImage } from '@/utils/imageUtils';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
+import { COUNTRIES } from '@/lib/countries';
 
 const TRAITS_LIST = [
   { label: 'Avontuurlijk', emoji: '🧗' },
@@ -65,6 +65,11 @@ export default function Account() {
   const [showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState({});
 
+  // Country change warning
+  const [showCountryWarning, setShowCountryWarning] = useState(false);
+  const [pendingCountry, setPendingCountry] = useState(null);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+
   // Swap Workflow States
   const [pendingNewTrait, setPendingNewTrait] = useState(null);
   const [pendingNewInterest, setPendingNewInterest] = useState(null);
@@ -114,7 +119,8 @@ export default function Account() {
         bio: p?.bio || '',
         traits: Array.isArray(p?.traits) ? p.traits : [],
         interests: Array.isArray(p?.interests) ? p.interests : [],
-        photos: Array.isArray(p?.photos) ? p.photos.filter(Boolean) : (p?.photo_url ? [p.photo_url] : [])
+        photos: Array.isArray(p?.photos) ? p.photos.filter(Boolean) : (p?.photo_url ? [p.photo_url] : []),
+        country: p?.country || 'Nederland',
       });
 
       // Calculate exact games count (active + pending) matching Home.jsx & Games.jsx
@@ -258,6 +264,7 @@ export default function Account() {
         interests: form.interests || [],
         photos: photosList,
         photo_url: photosList[0] || myProfile?.photo_url || null,
+        country: form.country || 'Nederland',
         user_email: u.email
       };
 
@@ -688,6 +695,10 @@ export default function Account() {
                 </div>
               </div>
 
+              {/* Land */}
+              {/* Land picker moved to Settings card (above dark mode) */}
+
+
               {/* Bio with counter */}
               <div>
                 <div className="flex justify-between items-center mb-1.5">
@@ -892,6 +903,70 @@ export default function Account() {
         {/* ── Settings & Preferences ── */}
         <div className="rounded-2xl overflow-hidden" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
           
+          {/* Land row */}
+          <div className="relative" style={{ borderBottom: divider }}>
+            <div
+              className="flex items-center justify-between p-4 cursor-pointer select-none"
+              onClick={() => setShowCountryDropdown(v => !v)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${textMain}`}>Land</p>
+                  <p className="text-[11px] font-semibold" style={{ color: 'rgba(255,75,114,0.9)' }}>
+                    {myProfile?.country || 'Nederland'}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight
+                className={`w-4 h-4 transition-transform ${showCountryDropdown ? 'rotate-90' : ''}`}
+                style={{ color: textSub }}
+              />
+            </div>
+
+            {/* Dropdown */}
+            {showCountryDropdown && (
+              <div
+                className="absolute left-0 right-0 z-50 rounded-b-2xl overflow-y-auto"
+                style={{
+                  background: isDark ? '#141521' : '#FFFFFF',
+                  border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.07)',
+                  boxShadow: '0 16px 40px rgba(0,0,0,0.35)',
+                  maxHeight: '260px',
+                  top: '100%',
+                }}
+              >
+                {COUNTRIES.map(({ name }) => {
+                  const current = (myProfile?.country || 'Nederland') === name;
+                  return (
+                    <button
+                      key={name}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-left transition-colors ${
+                        current
+                          ? 'text-pink-500'
+                          : isDark ? 'text-white/80 hover:bg-white/5' : 'text-gray-800 hover:bg-gray-50'
+                      }`}
+                      style={current ? { borderLeft: '3px solid #FF4B72', paddingLeft: '13px' } : {}}
+                      onClick={() => {
+                        setShowCountryDropdown(false);
+                        if (name !== (myProfile?.country || 'Nederland')) {
+                          setPendingCountry(name);
+                          setShowCountryWarning(true);
+                        }
+                      }}
+                    >
+                      <Globe className={`w-3.5 h-3.5 flex-shrink-0 ${current ? 'text-pink-500' : 'text-pink-400/60'}`} />
+                      {name}
+                      {current && <Check className="w-3.5 h-3.5 ml-auto text-pink-500" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Theme Switch */}
           <div className="flex items-center justify-between p-4" style={{ borderBottom: divider }}>
             <div className="flex items-center gap-3">
@@ -1193,6 +1268,91 @@ export default function Account() {
             >
               Sluiten & Afmelden
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Country Change Warning Modal ── */}
+      {showCountryWarning && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', overflowY: 'hidden' }}
+          onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
+        >
+          <div
+            className="w-full max-w-xs rounded-[28px] overflow-hidden"
+            style={{
+              background: isDark ? '#141521' : '#FFFFFF',
+              border: isDark ? '1.5px solid rgba(255,75,114,0.3)' : '1px solid rgba(0,0,0,0.08)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.55)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-6">
+              {/* Warning icon */}
+              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ background: 'rgba(255,75,114,0.12)' }}>
+                <AlertTriangle className="w-7 h-7 text-pink-500" />
+              </div>
+
+              <h3 className={`text-lg font-black text-center mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                Land wijzigen?
+              </h3>
+              <p className={`text-sm text-center mb-1 ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
+                Je wisselt naar <strong className={isDark ? 'text-white' : 'text-gray-900'}>{pendingCountry}</strong>.
+              </p>
+              <p className="text-sm text-center text-pink-500 font-semibold mb-6">
+                Je verliest je matches in het huidige land.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
+                  className={`flex-1 py-3.5 rounded-2xl font-bold text-sm border transition-all ${isDark ? 'border-white/15 text-white/70 bg-white/5' : 'border-gray-200 text-gray-600 bg-gray-100'}`}
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!myProfile?.id || !user?.email) return;
+                    setSaving(true);
+                    try {
+                      // Use the same comprehensive update as executeSave to satisfy RLS
+                      const photosList = myProfile?.photos || (myProfile?.photo_url ? [myProfile.photo_url] : []);
+                      const updatePayload = {
+                        display_name: myProfile.display_name || '',
+                        age: myProfile.age || null,
+                        relationship_status: myProfile.relationship_status || 'Relatie',
+                        bio: myProfile.bio || '',
+                        traits: myProfile.traits || [],
+                        interests: myProfile.interests || [],
+                        photo_url: myProfile.photo_url || null,
+                        country: pendingCountry,
+                        user_email: user.email,
+                      };
+                      try {
+                        await base44.entities.UserProfile.update(myProfile.id, { ...updatePayload, photos: photosList });
+                      } catch {
+                        await base44.entities.UserProfile.update(myProfile.id, updatePayload);
+                      }
+                      setMyProfile(p => ({ ...p, country: pendingCountry }));
+                      setForm(f => ({ ...f, country: pendingCountry }));
+                      toast.success(`Land gewijzigd naar ${pendingCountry}`);
+                    } catch (e) {
+                      console.error('Country save error:', e);
+                      toast.error('Kon land niet opslaan: ' + (e?.message || 'onbekende fout'));
+                    }
+                    setSaving(false);
+                    setShowCountryWarning(false);
+                    setPendingCountry(null);
+                  }}
+                  className="flex-1 py-3.5 rounded-2xl font-black text-white text-sm transition-all"
+                  style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)', boxShadow: '0 8px 20px rgba(255,75,114,0.4)' }}
+                >
+                  {saving ? '...' : 'Bevestigen'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

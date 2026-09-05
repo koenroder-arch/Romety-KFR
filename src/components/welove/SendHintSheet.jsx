@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Users, Heart, User, Info, MessageCircle, Lock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import HintCard from '@/components/welove/HintCard';
 import ProfilePhotoCarousel from '@/components/welove/ProfilePhotoCarousel';
 import { authStorage } from '@/lib/authStorage';
@@ -401,14 +401,13 @@ export default function SendHintSheet({
 
                     {/* Lock or Hints lists */}
                     {!myCheckIn ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                        <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ background: 'rgba(255,75,114,0.12)' }}>
-                          <Lock className="w-7 h-7" style={{ color: '#FF4B72' }} />
+                      <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                        <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.1)' }}>
+                          <Lock className="w-9 h-9 text-[#FF4B72]" />
                         </div>
-                        <p className={`font-black text-sm mb-1 ${textMain}`}>Geen bestemming ingesteld</p>
-                        <p className="text-xs mb-3 font-semibold text-pink-500">Je kunt geen hints van anderen zien zonder actieve bestemming</p>
-                        <p className="text-xs" style={{ color: textSub }}>
-                          Ga naar Pinpoint en stel je bestemming in om hints te zien en te sturen
+                        <h2 className={`font-black text-lg mb-2 ${textMain}`}>Geen bestemming ingesteld</h2>
+                        <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: textSub }}>
+                          Ga naar Pinpoint en stel je bestemming in om hints te zien en te sturen.
                         </p>
                       </div>
                     ) : (
@@ -450,12 +449,14 @@ export default function SendHintSheet({
                         )}
 
                         {Object.keys(venueGroups).length === 0 && !myTodayHint && superMatchHints.length === 0 && (
-                          <div className="flex flex-col items-center justify-center py-10 text-center">
-                            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ background: 'rgba(255,75,114,0.1)' }}>
-                              <MessageCircle className="w-7 h-7" style={{ color: '#FF4B72' }} />
+                          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.1)' }}>
+                              <MessageCircle className="w-9 h-9 text-[#FF4B72]" />
                             </div>
-                            <p className={`font-black text-sm mb-1 ${textMain}`}>Nog geen hints</p>
-                            <p className="text-xs" style={{ color: textSub }}>Wees de eerste die een hint stuurt!</p>
+                            <h2 className={`font-black text-lg mb-2 ${textMain}`}>Nog geen hints</h2>
+                            <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: textSub }}>
+                              Wees de eerste die een hint stuurt!
+                            </p>
                           </div>
                         )}
                       </>
