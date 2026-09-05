@@ -1,6 +1,15 @@
 /**
- * Central matching algorithm for Welove
- * Strict validation: missing essential data = no match (return false).
+ * TOEGANKELIJK / MINDER STRENG Matching Algoritme voor Welove (Actief)
+ * 
+ * Matcht primair op:
+ * 1. Geslacht & Zoekvoorkeur (man / vrouw / both / overig)
+ * 2. Leeftijd & Leeftijdsvoorkeur (binnen elkaars minimum en maximum leeftijdsvoorkeur)
+ * 3. Land (Nederland, België, etc.)
+ * 
+ * Lengte, eigenschappen (traits), interesses en relatiedoel zijn GEEN harde uitsluitingscriteria,
+ * waardoor gebruikers veel sneller en gemakkelijker matches kunnen vinden.
+ * 
+ * (Het strikte originele algoritme is veilig opgeslagen in: src/lib/matchUtils.strict.js)
  */
 
 const TRAIT_MAP = {
@@ -35,103 +44,126 @@ const INTEREST_MAP = {
 
 export function normalizeTrait(t) {
   if (!t) return '';
-  const clean = t.toLowerCase().trim();
+  const clean = String(t).toLowerCase().trim();
   return TRAIT_MAP[clean] || clean;
 }
 
 export function normalizeInterest(i) {
   if (!i) return '';
-  const clean = i.toLowerCase().trim();
+  const clean = String(i).toLowerCase().trim();
   return INTEREST_MAP[clean] || clean;
-}
-
-function genderMatch(myProfile, other) {
-  if (!myProfile.gender || !myProfile.looking_for) return false;
-  if (!other.gender || !other.looking_for) return false;
-
-  const iWantThem = myProfile.looking_for === 'both' || myProfile.looking_for === other.gender;
-  const theyWantMe = other.looking_for === 'both' || other.looking_for === myProfile.gender;
-  return iWantThem && theyWantMe;
-}
-
-function relationshipGoalMatch(myProfile, other) {
-  if (!myProfile.relationship_status || !other.relationship_status) return false;
-  return myProfile.relationship_status === other.relationship_status;
-}
-
-function heightMatch(myProfile, other) {
-  if (!myProfile.min_height_pref || !myProfile.max_height_pref || !other.height_cm) return false;
-  if (!other.min_height_pref || !other.max_height_pref || !myProfile.height_cm) return false;
-
-  const myPrefVsOtherHeight = other.height_cm >= myProfile.min_height_pref && other.height_cm <= myProfile.max_height_pref;
-  const otherPrefVsMyHeight = myProfile.height_cm >= other.min_height_pref && myProfile.height_cm <= other.max_height_pref;
-  return myPrefVsOtherHeight && otherPrefVsMyHeight;
-}
-
-function ageMatch(myProfile, other) {
-  if (!myProfile.min_age_pref || !myProfile.max_age_pref || !other.age) return false;
-  if (!other.min_age_pref || !other.max_age_pref || !myProfile.age) return false;
-
-  const myPrefVsOtherAge = other.age >= myProfile.min_age_pref && other.age <= myProfile.max_age_pref;
-  const otherPrefVsMyAge = myProfile.age >= other.min_age_pref && myProfile.age <= other.max_age_pref;
-  return myPrefVsOtherAge && otherPrefVsMyAge;
 }
 
 export function getArray(val) {
   if (Array.isArray(val)) return val;
   if (typeof val === 'string') {
-    try { return JSON.parse(val); } catch(e) { return val.split(',').map(s=>s.replace(/^"|"$/g,'').trim()); }
+    try { 
+      const parsed = JSON.parse(val); 
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return val.split(',').map(s => s.replace(/^"|"$/g, '').trim()).filter(Boolean);
+    }
   }
   return [];
 }
 
-function traitsMatch(myProfile, other) {
-  const t1 = getArray(myProfile.traits).map(normalizeTrait);
-  const t2 = getArray(other.traits).map(normalizeTrait);
-  if (!t1.length || !t2.length) return false;
-  const shared = t1.filter((t) => t2.includes(t));
-  return shared.length >= 1;
-}
-
-function interestsMatch(myProfile, other) {
-  const i1 = getArray(myProfile.interests).map(normalizeInterest);
-  const i2 = getArray(other.interests).map(normalizeInterest);
-  if (!i1.length || !i2.length) return false;
-  const shared = i1.filter((i) => i2.includes(i));
-  return shared.length >= 1;
-}
-
-function countryMatch(myProfile, other) {
-  // If either profile has no country set, treat as compatible (default = nl)
-  const myCountry = myProfile.country || 'Nederland';
-  const otherCountry = other.country || 'Nederland';
-  return myCountry === otherCountry;
-}
-
-export function isMatch(myProfile, other) {
+/**
+ * Controleert geslacht en zoekvoorkeur (man, vrouw, both/allebei/overig).
+ */
+function genderMatch(myProfile, other) {
   if (!myProfile || !other) return false;
-  if (!genderMatch(myProfile, other)) return false;
-  if (!relationshipGoalMatch(myProfile, other)) return false;
-  if (!ageMatch(myProfile, other)) return false;
-  if (!heightMatch(myProfile, other)) return false;
-  if (!countryMatch(myProfile, other)) return false;
   
-  if (!traitsMatch(myProfile, other) && !interestsMatch(myProfile, other)) return false;
-  
+  const myGender = (myProfile.gender || '').toLowerCase().trim();
+  const myLookingFor = (myProfile.looking_for || 'both').toLowerCase().trim();
+  const otherGender = (other.gender || '').toLowerCase().trim();
+  const otherLookingFor = (other.looking_for || 'both').toLowerCase().trim();
+
+  // Als data nog ontbreekt, sluit niet direct uit
+  if (!myGender || !otherGender) return true;
+
+  const iWantThem = myLookingFor === 'both' || myLookingFor === 'iedereen' || myLookingFor === 'all' || myLookingFor === otherGender;
+  const theyWantMe = otherLookingFor === 'both' || otherLookingFor === 'iedereen' || otherLookingFor === 'all' || otherLookingFor === myGender;
+
+  return iWantThem && theyWantMe;
+}
+
+/**
+ * Controleert leeftijdsvoorkeur.
+ */
+function ageMatch(myProfile, other) {
+  if (!myProfile || !other) return false;
+
+  const myAge = parseInt(myProfile.age, 10);
+  const otherAge = parseInt(other.age, 10);
+
+  const myMin = parseInt(myProfile.min_age_pref, 10) || 18;
+  const myMax = parseInt(myProfile.max_age_pref, 10) || 99;
+
+  const otherMin = parseInt(other.min_age_pref, 10) || 18;
+  const otherMax = parseInt(other.max_age_pref, 10) || 99;
+
+  // Controleer of de ander binnen mijn leeftijdsvoorkeur valt (indien leeftijd bekend)
+  if (!isNaN(otherAge)) {
+    if (otherAge < myMin || otherAge > myMax) return false;
+  }
+
+  // Controleer of ik binnen de leeftijdsvoorkeur van de ander val (indien mijn leeftijd bekend)
+  if (!isNaN(myAge)) {
+    if (myAge < otherMin || myAge > otherMax) return false;
+  }
+
   return true;
 }
 
+/**
+ * Controleert of beide profielen zich in hetzelfde land bevinden.
+ */
+function countryMatch(myProfile, other) {
+  const myCountry = (myProfile?.country || 'Nederland').trim().toLowerCase();
+  const otherCountry = (other?.country || 'Nederland').trim().toLowerCase();
+  return myCountry === otherCountry;
+}
+
+/**
+ * Bepaalt of een profiel getoond mag worden aan de huidige gebruiker.
+ * Nu minder streng: alleen geslacht, leeftijd en land.
+ */
+export function isMatch(myProfile, other) {
+  if (!myProfile || !other) return false;
+  if (myProfile.id && other.id && myProfile.id === other.id) return false;
+
+  if (!genderMatch(myProfile, other)) return false;
+  if (!ageMatch(myProfile, other)) return false;
+  if (!countryMatch(myProfile, other)) return false;
+
+  return true;
+}
+
+/**
+ * Berekent de compatibiliteitsscore (tussen 50% en 99%).
+ * Geeft een mooie score op basis van eventuele overlap in interesses, traits of relatiestatus.
+ */
 export function calculateCompatibility(myProfile, other) {
   if (!isMatch(myProfile, other)) return 0;
-  let score = 40;
+
+  let score = 55; // Vriendelijke basis score
+
+  // Bonus als relatiestatus overeenkomt
+  if (myProfile.relationship_status && other.relationship_status && myProfile.relationship_status === other.relationship_status) {
+    score += 10;
+  }
+
+  // Bonus voor gedeelde traits
   const t1 = getArray(myProfile.traits).map(normalizeTrait);
   const t2 = getArray(other.traits).map(normalizeTrait);
+  const sharedTraits = t1.filter(t => t && t2.includes(t));
+  score += sharedTraits.length * 6;
+
+  // Bonus voor gedeelde interesses
   const i1 = getArray(myProfile.interests).map(normalizeInterest);
   const i2 = getArray(other.interests).map(normalizeInterest);
-  
-  const sharedTraits = t1.filter((t) => t2.includes(t));
-  const sharedInterests = i1.filter((i) => i2.includes(i));
-  score += sharedTraits.length * 8;
-  score += sharedInterests.length * 6;
-  return Math.min(99, score);
+  const sharedInterests = i1.filter(i => i && i2.includes(i));
+  score += sharedInterests.length * 5;
+
+  return Math.min(99, Math.max(50, score));
 }
