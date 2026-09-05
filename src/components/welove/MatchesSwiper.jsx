@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import MatchAnimation from './MatchAnimation';
 import StoriesViewer from './StoriesViewer';
-import { Heart, MessageCircle, MoreVertical, AlertTriangle, X, ChevronDown, ChevronUp, Send, Check } from 'lucide-react';
+import { Heart, MessageCircle, MoreVertical, AlertTriangle, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfilePhotoCarousel from './ProfilePhotoCarousel';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
@@ -442,140 +442,105 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
 
       {/* ── Report Modal ── */}
       <AnimatePresence>
+        {/* Report Modal */}
         {reportState && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:p-4"
-            style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
-            onClick={() => setReportState(null)}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-              className="w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden mb-16 sm:mb-0"
-              style={{ background: 'rgba(14,14,22,0.98)', backdropFilter: 'blur(20px)', maxHeight: '80vh' }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Modal handle */}
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-white/20" />
-              </div>
-
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-                <div className="flex items-center gap-2.5">
-                  {reportState.step !== 'done' && (
-                    <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                      <AlertTriangle className="w-4 h-4 text-red-400" />
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="text-white font-black text-base">
-                      {reportState.step === 'done' ? '✅ Melding verstuurd' : 'Profiel rapporteren'}
-                    </h3>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setReportState(null)}
-                  className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center active:scale-90 transition-transform"
-                >
-                  <X className="w-4 h-4 text-white/70" />
-                </button>
-              </div>
-
-              {/* ── Step: choose reason ── */}
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] p-5 shadow-2xl border" style={{ background: isDark ? '#141521' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }}>
               {reportState.step === 'choose' && (
-                <div className="px-5 pt-3 pb-8 overflow-y-auto" style={{ maxHeight: '65vh' }}>
-                  <p className="text-white/60 text-sm mb-3">Kies een reden voor je melding:</p>
-                  <div className="flex flex-col gap-2">
-                    {REPORT_REASONS.map(r => (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>Rapporteer profiel</h3>
+                    <button onClick={() => setReportState(null)} className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400 active:scale-90 transition-transform">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs mb-3 font-medium" style={{ color: textSub }}>Kies de reden waarom je dit profiel wilt rapporteren:</p>
+                  <div className="space-y-2">
+                    {REPORT_REASONS.map((r) => (
                       <button
                         key={r.id}
-                        onClick={() => handleSelectReason(r.label)}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-white/12 active:scale-[0.98] transition-all text-left"
-                        style={{ background: 'rgba(255,255,255,0.05)' }}
+                        onClick={() => setReportState((prev) => ({ ...prev, step: 'detail', reason: r.label, emoji: r.emoji }))}
+                        className="w-full p-3 rounded-xl text-left text-xs font-bold flex items-center justify-between border active:scale-[0.98] transition-all"
+                        style={{
+                          background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                          color: isDark ? '#fff' : '#111',
+                        }}
                       >
-                        <span className="text-white font-semibold text-sm">{r.label}</span>
-                        <span className="ml-auto text-white/30 text-lg">›</span>
+                        <span className="flex items-center gap-2"><span>{r.emoji}</span><span>{r.label}</span></span>
+                        <span>›</span>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* ── Step: add detail message ── */}
               {reportState.step === 'detail' && (
-                <div className="px-5 py-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <button
-                      onClick={() => setReportState(prev => ({ ...prev, step: 'choose', reason: null }))}
-                      className="text-white/50 text-sm hover:text-white/80 transition-colors"
-                    >
-                      ← Terug
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>Rapporteer profiel</h3>
+                    <button onClick={() => setReportState(null)} className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400 active:scale-90 transition-transform">
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
+
+                  {/* Gekozen reden weergave */}
                   <div
-                    className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-4 border border-white/10"
-                    style={{ background: 'rgba(255,107,74,0.12)' }}
+                    className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-3.5 border"
+                    style={{
+                      background: isDark ? 'rgba(255, 75, 114, 0.12)' : 'rgba(255, 75, 114, 0.08)',
+                      borderColor: isDark ? 'rgba(255, 75, 114, 0.3)' : 'rgba(255, 75, 114, 0.2)',
+                    }}
                   >
-                    <AlertTriangle className="w-4 h-4 text-orange-400 flex-shrink-0" />
-                    <span className="text-orange-300 font-semibold text-sm">{reportState.reason}</span>
+                    <span className="text-base">{reportState.emoji || '⚠️'}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>Gekozen reden</span>
+                      <span className="text-xs font-bold truncate" style={{ color: isDark ? '#fff' : '#111' }}>{reportState.reason}</span>
+                    </div>
                   </div>
-                  <p className="text-white/60 text-sm mb-3">Voeg eventueel een bericht toe (optioneel):</p>
+
+                  <h4 className="font-bold text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>Toelichting (optioneel)</h4>
                   <textarea
                     value={reportState.details}
-                    onChange={e => setReportState(prev => ({ ...prev, details: e.target.value }))}
-                    placeholder="Beschrijf wat er aan de hand is..."
-                    rows={4}
-                    className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder-white/30 border border-white/15 resize-none outline-none focus:border-pink-500/60 transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.06)' }}
+                    onChange={(e) => setReportState((prev) => ({ ...prev, details: e.target.value }))}
+                    placeholder="Beschrijf waarom je dit profiel rapporteert..."
+                    className="w-full h-24 p-3 rounded-xl text-xs border resize-none mb-4 outline-none focus:border-pink-500"
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                      borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                      color: isDark ? '#fff' : '#111',
+                    }}
                   />
-                  <button
-                    onClick={handleSubmitReport}
-                    disabled={reportLoading}
-                    className="mt-4 w-full py-3.5 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2.5 active:scale-[0.97] transition-transform disabled:opacity-60 shadow-lg"
-                    style={{ background: reportLoading ? 'rgba(255,107,74,0.5)' : 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)', boxShadow: '0 6px 20px rgba(255,75,114,0.35)' }}
-                  >
-                    {reportLoading ? (
-                      <>⏳ Versturen...</>
-                    ) : (
-                      <><Send className="w-4 h-4" /> Melding versturen</>
-                    )}
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => setReportState((prev) => ({ ...prev, step: 'choose' }))} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-500/20 text-gray-300 active:scale-95 transition-all">
+                      Terug
+                    </button>
+                    <button
+                      onClick={handleSubmitReport}
+                      disabled={reportLoading}
+                      className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all"
+                      style={{ background: GRAD }}
+                    >
+                      {reportLoading ? 'Versturen...' : 'Verstuur'}
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* ── Step: done ── */}
               {reportState.step === 'done' && (
-                <div className="px-5 py-8 flex flex-col items-center text-center">
-                  <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-                    style={{ background: 'rgba(52,199,89,0.15)' }}
-                  >
-                    <Check className="w-8 h-8 text-green-400" />
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-green-500/20 text-green-400">
+                    <Check className="w-6 h-6" />
                   </div>
-                  <p className="text-white font-black text-lg mb-2">Bedankt voor je melding</p>
-                  <p className="text-white/50 text-sm max-w-xs leading-relaxed">
-                    We nemen je melding serieus en zullen dit profiel beoordelen.
-                  </p>
-                  <button
-                    onClick={() => setReportState(null)}
-                    className="mt-6 px-8 py-3 rounded-full font-bold text-white text-sm active:scale-95 transition-transform"
-                    style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)' }}
-                  >
+                  <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>Bedankt voor je melding</h3>
+                  <p className="text-xs mb-4 font-medium" style={{ color: textSub }}>We zullen dit profiel zo snel mogelijk beoordelen.</p>
+                  <button onClick={() => setReportState(null)} className="w-full py-2.5 rounded-xl font-black text-xs text-white active:scale-95 transition-all" style={{ background: GRAD }}>
                     Sluiten
                   </button>
                 </div>
               )}
-
-              {/* Bottom safe area */}
-              <div className="h-6" />
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
     </div>

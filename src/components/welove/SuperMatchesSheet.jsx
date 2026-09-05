@@ -428,7 +428,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                     {REPORT_REASONS.map((r) => (
                       <button
                         key={r.id}
-                        onClick={() => setReportState((prev) => ({ ...prev, step: 'detail', reason: r.label }))}
+                        onClick={() => setReportState((prev) => ({ ...prev, step: 'detail', reason: r.label, emoji: r.emoji }))}
                         className="w-full p-3 rounded-xl text-left text-xs font-bold flex items-center justify-between border active:scale-[0.98] transition-all"
                         style={{
                           background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
@@ -446,7 +446,29 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
 
               {reportState.step === 'detail' && (
                 <div>
-                  <h3 className="font-black text-base mb-2" style={{ color: isDark ? '#fff' : '#111' }}>Toelichting (optioneel)</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>Rapporteer profiel</h3>
+                    <button onClick={() => setReportState(null)} className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400 active:scale-90 transition-transform">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Gekozen reden weergave */}
+                  <div
+                    className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-3.5 border"
+                    style={{
+                      background: isDark ? 'rgba(255, 75, 114, 0.12)' : 'rgba(255, 75, 114, 0.08)',
+                      borderColor: isDark ? 'rgba(255, 75, 114, 0.3)' : 'rgba(255, 75, 114, 0.2)',
+                    }}
+                  >
+                    <span className="text-base">{reportState.emoji || '⚠️'}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>Gekozen reden</span>
+                      <span className="text-xs font-bold truncate" style={{ color: isDark ? '#fff' : '#111' }}>{reportState.reason}</span>
+                    </div>
+                  </div>
+
+                  <h4 className="font-bold text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>Toelichting (optioneel)</h4>
                   <textarea
                     value={reportState.details}
                     onChange={(e) => setReportState((prev) => ({ ...prev, details: e.target.value }))}
@@ -459,7 +481,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                     }}
                   />
                   <div className="flex gap-2">
-                    <button onClick={() => setReportState((prev) => ({ ...prev, step: 'choose' }))} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-500/20 text-gray-300">
+                    <button onClick={() => setReportState((prev) => ({ ...prev, step: 'choose' }))} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-500/20 text-gray-300 active:scale-95 transition-all">
                       Terug
                     </button>
                     <button

@@ -569,7 +569,7 @@ export default function StoriesViewer({
                     {REPORT_REASONS.map(r => (
                       <button
                         key={r.id}
-                        onClick={() => setReportState(prev => ({ ...prev, step: 'detail', reason: r.label }))}
+                        onClick={() => setReportState(prev => ({ ...prev, step: 'detail', reason: r.label, emoji: r.emoji }))}
                         className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-white/12 active:scale-[0.98] transition-all text-left"
                         style={{ background: 'rgba(255,255,255,0.04)' }}
                       >
@@ -586,17 +586,26 @@ export default function StoriesViewer({
                 <div className="px-6">
                   <div className="flex items-center gap-2 mb-3">
                     <button
-                      onClick={() => setReportState(prev => ({ ...prev, step: 'choose', reason: '' }))}
+                      onClick={() => setReportState(prev => ({ ...prev, step: 'choose', reason: '', emoji: '' }))}
                       className="text-white/50 text-xs hover:text-white/80 transition-colors"
                     >
                       ← Terug naar redenen
                     </button>
                   </div>
-                  <div className="flex items-center gap-2 rounded-xl px-3.5 py-2.5 mb-4 border border-white/10 bg-orange-500/10">
-                    <AlertTriangle className="w-4 h-4 text-orange-400 flex-shrink-0" />
-                    <span className="text-orange-300 font-semibold text-sm">{reportState.reason}</span>
+                  <div
+                    className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-4 border"
+                    style={{
+                      background: 'rgba(255, 75, 114, 0.12)',
+                      borderColor: 'rgba(255, 75, 114, 0.3)',
+                    }}
+                  >
+                    <span className="text-base">{reportState.emoji || '⚠️'}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-white/50">Gekozen reden</span>
+                      <span className="text-xs font-bold text-white truncate">{reportState.reason}</span>
+                    </div>
                   </div>
-                  <p className="text-white/60 text-sm mb-2">Voeg eventueel extra details toe (optioneel):</p>
+                  <p className="text-white/60 text-sm mb-2">Toelichting (optioneel):</p>
                   <textarea
                     value={reportState.details}
                     onChange={e => setReportState(prev => ({ ...prev, details: e.target.value }))}
