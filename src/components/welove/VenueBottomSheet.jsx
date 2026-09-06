@@ -204,8 +204,8 @@ export default function VenueBottomSheet({
             </div>
           </div>
 
-          {/* ── Scrollable full content ── */}
-          <div className="flex-1 overflow-y-auto px-5 pb-10 space-y-4">
+          {/* ── Content without internal scrolling ── */}
+          <div className="flex-1 overflow-hidden px-5 pb-6 space-y-4">
 
             {/* CTA */}
             {isCheckedIn ? (

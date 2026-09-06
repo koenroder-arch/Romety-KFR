@@ -204,11 +204,8 @@ export default function HomeInfoSheet({
             <h3 className={`font-black text-base sm:text-lg tracking-tight ${textMain}`}>Verken Hotspots & Matches</h3>
           </div>
 
-          {/* Scrollable full content */}
-          <div 
-            className="flex-1 overflow-y-auto px-5 space-y-4" 
-            style={{ paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 24px))' }}
-          >
+          {/* Full content without internal scrolling */}
+          <div className="flex-1 overflow-hidden px-5 space-y-4">
             {/* Active Checkin CTA or Destination Banner */}
             {myCheckIn ? (
               <div className="rounded-[20px] p-4 flex items-center justify-between" style={{ background: cardBg, border: plainCardBorder, boxShadow: plainCardShadow }}>
