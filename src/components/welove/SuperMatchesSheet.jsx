@@ -215,10 +215,10 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                         e.stopPropagation();
                         setOpenMenuProfileId(prev => prev === profile.id ? null : profile.id);
                       }}
-                      className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
+                      className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
                       title="Opties"
                     >
-                      <MoreVertical className="w-4.5 h-4.5 text-white" />
+                      <MoreVertical className="w-4 h-4 text-white" />
                     </button>
 
                     {/* Dropdown menu */}

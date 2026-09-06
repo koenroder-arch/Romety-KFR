@@ -408,9 +408,30 @@ export default function Account() {
   };
 
   const FAQS = [
-    { q: "Hoe werken de Supermatches?", a: "Wanneer jij en iemand anders elkaar als supermatch markeren of naar dezelfde uitgaanslocatie gaan, ontgrendelen jullie interactieve games en directe berichten!" },
-    { q: "Wat zijn Hints?", a: "Met hints kun je anoniem of direct een leuk berichtje sturen naar matches in dezelfde club of bar om het ijs te breken." },
-    { q: "Hoe werkt het Nummer Spel?", a: "In dit spel raad je om en om het telefoonnummer van je match Lingo-stijl. De winnaar krijgt direct het telefoonnummer!" },
+    {
+      q: "Wat zijn matches?",
+      a: "Matches zijn profielen die op basis van jouw interesses, persoonlijkheidseigenschappen en voorkeuren goed bij jou passen. Hoe hoger het matchpercentage, hoe groter de kans op een geweldige klik!"
+    },
+    {
+      q: "Hoe werkt de Pinpoint pagina?",
+      a: "Pinpoint is de interactieve uitgaanskaart van Romety. Hier ontdek je clubs, bars en realtime hotspots. Je kunt aangeven naar welke locatie je vanavond gaat of live inchecken wanneer je er bent. Zo zie je direct welke potentiële matches naar dezelfde plek gaan, zodat je elkaar ter plekke in het echt kunt ontmoeten!"
+    },
+    {
+      q: "Hoe werkt de chat en wat zijn de fases?",
+      a: "De chat verloopt in 4 fases om een oprechte en actieve connectie op te bouwen:\n• Fase 1 (24 uur): Eerste kennismaking om te zien of er een klik is. Aan het eind kunnen jullie beiden verlengen.\n• Fase 2 (48 uur): Foto-verificatie — stuur beiden een live camera-foto om de uitgebreide 48u chat te ontgrendelen.\n• Fase 3 (24 uur): De laatste 24 uur om te beslissen of jullie elkaars gegevens willen.\n• Fase 4 (Contact uitwisselen): Chat verloopt niet meer en jullie kunnen elkaars contactgegevens of socials delen!"
+    },
+    {
+      q: "Wat zijn ontvangen likes en hoe werkt het?",
+      a: "Onder 'Ontvangen likes' zie je wie jouw profiel heeft geliket. Je kunt deze likes bekijken, onthullen en terugliken. Zodra je iemand terugliket, hebben jullie meteen een match en kun je direct in contact komen!"
+    },
+    {
+      q: "Hoe werken de Supermatches?",
+      a: "Wanneer jij en iemand anders elkaar als Supermatch markeren of naar dezelfde uitgaanslocatie gaan, ontgrendelen jullie direct een Supermatch om sneller en makkelijker contact te leggen!"
+    },
+    {
+      q: "Wat zijn Hints?",
+      a: "Met hints kun je op een laagdrempelige en speelse manier een leuk berichtje sturen naar matches in dezelfde club of bar om het ijs te breken."
+    }
   ];
 
   // Helper to get emoji for a label
@@ -433,7 +454,7 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen max-w-md mx-auto relative pb-36 select-none" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen max-w-md mx-auto relative pb-3 select-none" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
       
       {/* Top Header Background */}
       <div className="px-5 pt-14 sm:pt-16 pb-20 relative overflow-hidden" style={{ background: headerBg }}>
@@ -494,7 +515,7 @@ export default function Account() {
       </div>
 
       {/* Main Container */}
-      <div className="px-5 -mt-12 relative z-10 max-w-md mx-auto space-y-4">
+      <div className="px-[3px] -mt-12 relative z-10 max-w-md mx-auto space-y-4">
 
         {/* ── Profile Card & Editor ── */}
         <div className="rounded-[28px] p-5" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
@@ -1030,7 +1051,7 @@ export default function Account() {
               </button>
               {openFaq === i && (
                 <div className="px-4 pb-3.5 pt-1">
-                  <p className="text-xs leading-relaxed font-medium" style={{ color: textSub }}>{faq.a}</p>
+                  <p className="text-xs leading-relaxed font-medium whitespace-pre-line" style={{ color: textSub }}>{faq.a}</p>
                 </div>
               )}
             </div>

@@ -75,10 +75,12 @@ export const T = {
 
     // FAQ
     faqs: [
-      { q: 'Hoe werkt matching?', a: 'We vergelijken jouw persoonlijkheidseigenschappen en interesses met andere gebruikers om compatibiliteit te berekenen.' },
-      { q: 'Wat is Pinpoint?', a: 'Met Pinpoint kun je een locatie instellen die je bezoekt. Anderen die naar dezelfde plek gaan verschijnen als prioriteitsmatches.' },
-      { q: 'Wat zijn de voordelen van Premium?', a: 'Premium ontsluit alle profielfoto\'s, geeft je prioriteit in matchlijsten en volledige toegang tot Pinpoint.' },
-      { q: 'Kunnen andere gebruikers mijn naam zien?', a: 'Voor je privacy worden namen nooit op profielkaarten getoond. Alleen leeftijd, lengte en eigenschappen zijn zichtbaar.' },
+      { q: 'Wat zijn matches?', a: 'Matches zijn profielen die op basis van jouw interesses, eigenschappen en uitgaansvoorkeuren goed bij jou passen. Hoe hoger het matchpercentage, hoe groter de kans op een klik!' },
+      { q: 'Hoe werkt de Pinpoint pagina?', a: 'Pinpoint is de interactieve uitgaanskaart. Ontdek clubs en realtime hotspots, geef aan waar je heengaat of check in om direct te zien welke matches naar dezelfde plek gaan.' },
+      { q: 'Hoe werkt de chat en wat zijn de fases?', a: 'De chat verloopt in 4 fases:\n• Fase 1 (24u): Eerste kennismaking om te zien of er een klik is.\n• Fase 2 (48u): Foto-verificatie met een live camera-foto om de 48u chat te ontgrendelen.\n• Fase 3 (24u): De laatste 24 uur om te beslissen of jullie contact willen blijven houden.\n• Fase 4 (Contact uitwisselen): Chat verloopt niet meer en jullie kunnen elkaars gegevens delen!' },
+      { q: 'Wat zijn ontvangen likes en hoe werkt het?', a: 'Onder Ontvangen likes zie je wie jou geliket heeft. Onthul de like en like terug om direct een match te vormen!' },
+      { q: 'Hoe werken de Supermatches?', a: 'Wanneer jullie elkaar als Supermatch markeren of naar dezelfde locatie gaan, ontgrendelen jullie direct een Supermatch.' },
+      { q: 'Wat zijn Hints?', a: 'Met hints stuur je op een speelse manier een leuk berichtje naar matches in dezelfde club of bar om het ijs te breken.' },
     ],
 
     // Onboarding traits & interests
@@ -209,10 +211,12 @@ export const T = {
 
     // FAQ
     faqs: [
-      { q: 'How does matching work?', a: 'We compare your personality traits and interests with other users to calculate compatibility.' },
-      { q: 'What is Pinpoint?', a: 'Pinpoint lets you set a venue you\'re visiting. Others going to the same place appear as priority matches.' },
-      { q: 'What does Premium include?', a: 'Premium unlocks all profile photos, gives you priority in match lists, and unlocks full Pinpoint access.' },
-      { q: 'Can other users see my name?', a: 'For privacy, names are never shown on profile cards. Only age, height, and traits are visible.' },
+      { q: 'What are matches?', a: 'Matches are profiles that align well with your interests, personality traits, and nightlife preferences. The higher the match percentage, the better the chemistry!' },
+      { q: 'How does Pinpoint work?', a: 'Pinpoint is the interactive nightlife map. Discover clubs, view real-time hotspots, set your destination for tonight, or check in live to see matches at the same place.' },
+      { q: 'How does the chat work and what are the phases?', a: 'The chat progresses in 4 phases:\n• Phase 1 (24h): Initial chat to see if there is chemistry.\n• Phase 2 (48h): Photo verification with a live camera photo unlocks 48h chat.\n• Phase 3 (24h): The final 24 hours to decide on exchanging details.\n• Phase 4 (Exchange contact): Chat never expires and you can share contact info!' },
+      { q: 'What are received likes and how do they work?', a: 'Under Received Likes you can see who liked your profile. Reveal likes and like them back to form an instant match!' },
+      { q: 'How do Supermatches work?', a: 'When you both mark each other as Supermatches or head to the same nightlife venue, you unlock a Supermatch for direct contact.' },
+      { q: 'What are Hints?', a: 'Hints allow you to send playful, ice-breaker messages to matches in the same club or bar.' },
     ],
 
     // Onboarding traits & interests

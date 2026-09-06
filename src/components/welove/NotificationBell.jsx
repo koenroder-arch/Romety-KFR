@@ -61,17 +61,6 @@ export default function NotificationBell({ isDark = true }) {
   const matchNotifs = notifications.filter(n => n.type === 'match');
   const likeNotifs = notifications.filter(n => n.type !== 'match');
 
-  const handleNotificationClick = (n) => {
-    setOpen(false);
-    if (n.type === 'game_accepted' || n.type === 'game_invite' || n.type === 'game') {
-      window.location.href = '/Games';
-    } else if (n.type === 'hint') {
-      window.location.href = '/Home';
-    } else {
-      window.location.href = '/Matches';
-    }
-  };
-
   return (
     <>
       <button
@@ -208,13 +197,6 @@ export default function NotificationBell({ isDark = true }) {
                                       {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
                                     </p>
                                   </div>
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); handleNotificationClick(n); }}
-                                    className="px-3.5 py-2 rounded-xl text-xs font-black text-white shadow-md active:scale-95 transition-transform flex-shrink-0"
-                                    style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)', boxShadow: '0 4px 12px rgba(255,75,114,0.3)' }}
-                                  >
-                                    Bekijk
-                                  </button>
                                 </div>
                               ))}
                             </div>
@@ -245,37 +227,23 @@ export default function NotificationBell({ isDark = true }) {
                           {othersExpanded && (
                             <div className="flex flex-col gap-2.5 mt-2 px-4 pb-28">
                               {likeNotifs.map((n) => {
-                                const isGame = n.type === 'game_accepted' || n.type === 'game_invite' || n.type === 'game';
                                 const isHint = n.type === 'hint';
 
                                 let titleText = 'Melding';
                                 let descText = 'Je hebt een update.';
-                                let buttonText = 'Bekijk';
-                                let buttonColor = 'bg-gradient-to-r from-purple-500 to-indigo-600';
-                                let shadowColor = 'rgba(160,97,255,0.25)';
 
                                 if (n.type === 'game_invite') {
                                   titleText = 'Speluitnodiging';
                                   descText = 'Je match heeft je uitgenodigd voor een game!';
-                                  buttonText = 'Naar spel';
-                                  buttonColor = 'bg-gradient-to-r from-emerald-500 to-teal-600';
-                                  shadowColor = 'rgba(16,185,129,0.25)';
                                 } else if (n.type === 'game_accepted') {
                                   titleText = 'Spel geaccepteerd';
                                   descText = 'Je match heeft je speluitnodiging geaccepteerd! 🚀';
-                                  buttonText = 'Naar spel';
-                                  buttonColor = 'bg-gradient-to-r from-emerald-500 to-teal-600';
-                                  shadowColor = 'rgba(16,185,129,0.25)';
                                 } else if (n.type === 'game') {
                                   titleText = 'Spel-update';
                                   descText = 'Het is jouw beurt in het spel met je match!';
-                                  buttonText = 'Naar spel';
-                                  buttonColor = 'bg-gradient-to-r from-emerald-500 to-teal-600';
-                                  shadowColor = 'rgba(16,185,129,0.25)';
                                 } else if (isHint) {
                                   titleText = 'Hint ontvangen';
                                   descText = 'Je hebt een nieuwe hint gekregen van een match!';
-                                  buttonText = 'Bekijk';
                                 } else {
                                   titleText = 'Nieuwe like';
                                   descText = 'Iemand vindt je leuk! 💜';
@@ -309,15 +277,6 @@ export default function NotificationBell({ isDark = true }) {
                                         {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
                                       </p>
                                     </div>
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); handleNotificationClick(n); }}
-                                      className={`px-3.5 py-2 rounded-xl text-xs font-black text-white shadow-md active:scale-95 transition-transform flex-shrink-0 ${buttonColor}`}
-                                      style={{
-                                        boxShadow: `0 4px 12px ${shadowColor}`
-                                      }}
-                                    >
-                                      {buttonText}
-                                    </button>
                                   </div>
                                 );
                               })}

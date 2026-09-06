@@ -184,7 +184,7 @@ export default function Matches() {
 
       {/* No location locked state */}
       {!myLocation && (
-        <div className="flex-1 flex flex-col items-center justify-start pt-14 sm:pt-16 p-3">
+        <div className="flex-1 flex flex-col items-center justify-center p-4 pb-20">
           <div 
             className="w-full max-w-sm p-6 rounded-[28px] text-center flex flex-col items-center border shadow-2xl transition-all"
             style={{

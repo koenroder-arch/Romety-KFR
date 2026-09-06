@@ -64,7 +64,7 @@ const createVenueIcon = (count, isMyVenue, isHighlighted, isMyDestination, destC
 };
 
 const createPinIcon = () => L.divIcon({
-  html: `<div style="display:flex;flex-direction:column;align-items:center;"><div class="search-pin-bounce" style="background:#FF6B4A;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 4px 14px rgba(255,107,74,0.6);"></div></div>`,
+  html: `<div style="display:flex;flex-direction:column;align-items:center;"><div class="search-pin-bounce" style="background:linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%);width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 4px 14px rgba(255,75,114,0.6);"></div></div>`,
   className: '',
   iconSize: [24, 24],
   iconAnchor: [12, 12],

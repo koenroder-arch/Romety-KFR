@@ -6,7 +6,7 @@ import { ChevronLeft, Send, Camera, X,
   Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
+import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -58,6 +58,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const [showWaitingAlert, setShowWaitingAlert] = useState(false);
   const [showPhotoRequiredAlert, setShowPhotoRequiredAlert] = useState(false);
   const [showContactPicker, setShowContactPicker] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [contactInput, setContactInput] = useState('');
   const [contactType, setContactType] = useState(null);
   const [extensionLoading, setExtensionLoading] = useState(false);
@@ -496,26 +497,33 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         >
           <ChevronLeft className={`w-5 h-5 ${isDark ? 'text-white' : 'text-gray-900'}`} />
         </button>
-        {/* Avatar */}
-        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2" style={{ borderColor: currentPhaseInfo.color }}>
-          {otherAvatar
-            ? <img src={otherAvatar} alt="" className="w-full h-full object-cover" />
-            : <div className="w-full h-full flex items-center justify-center text-lg" style={{ background: GRAD }}>{otherProfile?.avatar?.split(' ')[0] || '💜'}</div>
-          }
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-black text-sm truncate" style={{ color: textMain }}>
-            {otherProfile?.age ? `${otherProfile.age} jaar` : 'Supermatch'}
-          </p>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] font-bold truncate" style={{ color: isWaitingForOther ? '#EA3FD3' : currentPhaseInfo.color }}>
-              {isWaitingForOther ? '⏳ Wachten op de ander...' : currentPhaseInfo.label}
-              {isArchived && ' • Gearchiveerd'}
-              {isDeleted && ' • Verwijderd'}
-            </span>
-            <span className="text-[10px] font-semibold opacity-60 truncate" style={{ color: textMain }}>
-              • {messages.filter(m => !m.is_system).length} {messages.filter(m => !m.is_system).length === 1 ? 'appje' : 'appjes'}
-            </span>
+        {/* Profile Info Trigger */}
+        <div
+          onClick={() => setShowProfileModal(true)}
+          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer active:opacity-75 transition-opacity"
+          title="Profiel bekijken"
+        >
+          {/* Avatar */}
+          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2" style={{ borderColor: currentPhaseInfo.color }}>
+            {otherAvatar
+              ? <img src={otherAvatar} alt="" className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center text-lg" style={{ background: GRAD }}>{otherProfile?.avatar?.split(' ')[0] || '💜'}</div>
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-sm truncate" style={{ color: textMain }}>
+              {otherProfile?.age ? `${otherProfile.age} jaar` : 'Supermatch'}
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[10px] font-bold truncate" style={{ color: isWaitingForOther ? '#EA3FD3' : currentPhaseInfo.color }}>
+                {isWaitingForOther ? '⏳ Wachten op de ander...' : currentPhaseInfo.label}
+                {isArchived && ' • Gearchiveerd'}
+                {isDeleted && ' • Verwijderd'}
+              </span>
+              <span className="text-[10px] font-semibold opacity-60 truncate" style={{ color: textMain }}>
+                • {messages.filter(m => !m.is_system).length} {messages.filter(m => !m.is_system).length === 1 ? 'appje' : 'appjes'}
+              </span>
+            </div>
           </div>
         </div>
         {/* Timer pill */}
@@ -1117,6 +1125,108 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   Annuleren
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* ── Profile Details Modal (Opens on header click, dismisses when clicking outside) ── */}
+      <AnimatePresence>
+        {showProfileModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowProfileModal(false)}
+            className="fixed inset-0 z-[500] flex items-center justify-center p-4 select-none"
+            style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.88, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.88, y: 24 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 360 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-sm rounded-[28px] overflow-hidden shadow-2xl flex flex-col"
+              style={{
+                height: 'min(80vh, 600px)',
+                background: isDark ? '#0F1018' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
+              }}
+            >
+              {/* Photo Background / Carousel */}
+              <div className="relative w-full flex-1 min-h-0 bg-neutral-900 overflow-hidden">
+                <ProfilePhotoCarousel
+                  profile={otherProfile}
+                  isDark={true}
+                  dotsClassName="top-4 left-4 z-30"
+                  className="h-full w-full object-cover"
+                />
+
+                {/* Close button inside modal (top right) */}
+                <button
+                  onClick={() => setShowProfileModal(false)}
+                  className="absolute top-4 right-4 z-30 w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg cursor-pointer"
+                  title="Sluiten"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+
+                {/* Gradient overlay at bottom of photo */}
+                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/85 via-black/40 to-transparent pointer-events-none z-10" />
+
+                {/* Title inside photo overlay */}
+                <div className="absolute bottom-3.5 left-4 right-4 z-20 pointer-events-none">
+                  <h3 className="text-2xl font-black text-white drop-shadow-md">
+                    {otherProfile?.age ? `${otherProfile.age} jaar` : 'Match'}
+                    {otherProfile?.height_cm ? ` • ${otherProfile.height_cm} cm` : ''}
+                  </h3>
+                  {otherProfile?.city && (
+                    <p className="text-xs font-semibold text-white/80 mt-0.5 drop-shadow flex items-center gap-1">
+                      <span>📍</span> {otherProfile.city}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Profile Details (bio, traits, interests) */}
+              {(otherProfile?.bio || (otherProfile?.traits && otherProfile.traits.length > 0) || (otherProfile?.interests && otherProfile.interests.length > 0)) && (
+                <div
+                  className="p-4 overflow-y-auto max-h-[160px] space-y-2 flex-shrink-0"
+                  style={{
+                    background: isDark ? '#0F1018' : '#F9FAFB',
+                    borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                  }}
+                >
+                  {otherProfile.bio && (
+                    <p className="text-xs leading-relaxed font-medium italic" style={{ color: textMain }}>
+                      "{otherProfile.bio}"
+                    </p>
+                  )}
+
+                  {/* Traits & Interests chips */}
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {(otherProfile.traits || []).slice(0, 4).map((t, idx) => (
+                      <span
+                        key={`trait-${idx}`}
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: 'rgba(255,75,114,0.15)', color: '#FF4B72' }}
+                      >
+                        {t}
+                      </span>
+                    ))}
+                    {(otherProfile.interests || []).slice(0, 4).map((interest, idx) => (
+                      <span
+                        key={`interest-${idx}`}
+                        className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: 'rgba(234,63,211,0.15)', color: '#EA3FD3' }}
+                      >
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

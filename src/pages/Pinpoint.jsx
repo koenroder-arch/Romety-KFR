@@ -12,7 +12,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { fetchReportedEmails } from '@/lib/reportUtils';
 import { getCountryByName, venueInCountry, DEFAULT_COUNTRY } from '@/lib/countries';
 
-const GRAD = 'linear-gradient(135deg, #8E54E9 0%, #EA3FD3 100%)';
+const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
 export default function Pinpoint() {
   const { lang } = useLang();
@@ -261,7 +261,13 @@ export default function Pinpoint() {
 
   const handleSearch = (q) => {
     setSearchQuery(q);
-    if (q.length < 2) { setSearchSuggestions([]); return; }
+    clearTimeout(searchDebounceRef.current);
+
+    if (q.trim().length < 2) {
+      setSearchSuggestions([]);
+      setSearchLoading(false);
+      return;
+    }
 
     const clubMatches = clubs
       .filter((v) => v.name.toLowerCase().includes(q.toLowerCase()) || (v.city && v.city.toLowerCase().includes(q.toLowerCase())))
@@ -269,19 +275,18 @@ export default function Pinpoint() {
       .map((v) => ({ type: 'club', id: v.id, label: v.name, sublabel: v.city, lat: v.lat, lng: v.lng, venue: v }));
 
     setSearchSuggestions(clubMatches);
+    setSearchLoading(true);
 
-    clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(async () => {
-      setSearchLoading(true);
       const userCountry = getCountryByName(myProfile?.country);
       const countryCode = userCountry?.code || DEFAULT_COUNTRY.code;
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=${countryCode}&limit=4&addressdetails=1`,
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q.trim())}&countrycodes=${countryCode}&limit=4&addressdetails=1`,
           { headers: { 'Accept-Language': 'nl' } }
         );
         const data = await res.json();
-        const geoResults = data.map((item) => {
+        const geoResults = Array.isArray(data) ? data.map((item) => {
           const roadPart = item.display_name.split(',').slice(1, 3).join(',').trim();
           const cityPart = item.address?.city || item.address?.town || item.address?.village || item.address?.municipality || '';
           let sublabel = roadPart;
@@ -297,14 +302,14 @@ export default function Pinpoint() {
             lng: parseFloat(item.lon),
             venue: null
           };
-        });
+        }) : [];
         setSearchSuggestions((prev) => {
           const existing = prev.filter((s) => s.type === 'club');
           return [...existing, ...geoResults].slice(0, 8);
         });
       } catch (e) {}
       setSearchLoading(false);
-    }, 350);
+    }, 450);
   };
 
   const saveSearch = async (item) => {
@@ -345,6 +350,8 @@ export default function Pinpoint() {
   };
 
   const handleSelectSuggestion = (item) => {
+    clearTimeout(searchDebounceRef.current);
+    setSearchLoading(false);
     setSearchQuery(item.label);
     setSearchSuggestions([]);
     setSearchFocused(false);
@@ -557,23 +564,23 @@ export default function Pinpoint() {
   const pageBg = isDark ? '#08090E' : '#F8F9FB';
   const searchBarBg = isDark ? 'rgba(13,14,21,0.88)' : 'rgba(255,255,255,0.92)';
   const searchBarBorder = (focused) => focused
-    ? 'rgba(255,107,74,0.9)'
-    : isDark ? 'rgba(255,107,74,0.5)' : 'rgba(255,107,74,0.4)';
+    ? 'rgba(255, 75, 114, 0.55)'
+    : isDark ? 'rgba(255, 75, 114, 0.28)' : 'rgba(255, 75, 114, 0.20)';
   const searchTextColor = isDark ? 'text-white' : 'text-gray-900';
   const searchPlaceholderColor = isDark ? 'placeholder-white/30' : 'placeholder-gray-400';
   const dropdownBg = isDark ? 'rgba(13,14,21,0.95)' : 'rgba(255,255,255,0.98)';
-  const dropdownBorder = isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,0,0,0.08)';
+  const dropdownBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.07)';
   const rowBorderColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
   const labelColor = isDark ? '#FFFFFF' : '#111827';
   const subColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)';
-  const sectionLabelColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.35)';
+  const sectionLabelColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)';
   const crosshairBg = isDark ? 'rgba(13,14,21,0.88)' : 'rgba(255,255,255,0.95)';
   const crosshairBorder = isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.1)';
 
   if (loading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center" style={{ background: pageBg }}>
-        <div className="w-10 h-10 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+        <div className="w-10 h-10 rounded-full border-4 border-pink-200 border-t-pink-500 animate-spin" />
       </div>
     );
   }
@@ -583,8 +590,8 @@ export default function Pinpoint() {
       <style>{`
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
         @keyframes borderPulse {
-          0%, 100% { box-shadow: 0 8px 28px rgba(255,107,74,0.45), 0 0 0 0px rgba(255,107,74,0); }
-          50% { box-shadow: 0 8px 28px rgba(255,107,74,0.6), 0 0 0 6px rgba(255,107,74,0.35); }
+          0%, 100% { box-shadow: 0 4px 16px rgba(255,75,114,0.2), 0 0 0 0px rgba(255,75,114,0); }
+          50% { box-shadow: 0 4px 18px rgba(234,63,211,0.25), 0 0 0 3px rgba(255,75,114,0.12); }
         }
         .overlay-fadeout { animation: fadeOut 0.6s ease-out forwards; }
         .search-panel { max-height: min(60vh, 420px); overflow-y: auto; }
@@ -635,7 +642,7 @@ export default function Pinpoint() {
         <div className="relative">
           <div
             className="flex items-center gap-3 px-4 rounded-[20px]"
-            style={{ height: 52, background: searchBarBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1.5px solid ${searchBarBorder(searchFocused)}`, boxShadow: searchFocused ? '0 4px 28px rgba(255,75,114,0.3)' : '0 4px 24px rgba(0,0,0,0.15)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+            style={{ height: 52, background: searchBarBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1.5px solid ${searchBarBorder(searchFocused)}`, boxShadow: searchFocused ? '0 4px 18px rgba(255,75,114,0.18)' : isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
           >
             {searchLoading
               ? <div className="w-5 h-5 flex-shrink-0 rounded-full border-2 border-pink-300 border-t-pink-600 animate-spin" />
@@ -650,11 +657,27 @@ export default function Pinpoint() {
               onChange={(e) => handleSearch(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-              onKeyDown={(e) => { if (e.key === 'Escape') { setSearchSuggestions([]); setSearchQuery(''); setSearchFocused(false); searchInputRef.current?.blur(); } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  clearTimeout(searchDebounceRef.current);
+                  setSearchLoading(false);
+                  setSearchSuggestions([]);
+                  setSearchQuery('');
+                  setSearchFocused(false);
+                  searchInputRef.current?.blur();
+                }
+              }}
             />
             {searchQuery.length > 0 && (
               <button
-                onClick={() => { setSearchQuery(''); setSearchSuggestions([]); setSearchPin(null); setHighlightedVenueId(null); }}
+                onClick={() => {
+                  clearTimeout(searchDebounceRef.current);
+                  setSearchLoading(false);
+                  setSearchQuery('');
+                  setSearchSuggestions([]);
+                  setSearchPin(null);
+                  setHighlightedVenueId(null);
+                }}
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
               >
@@ -667,7 +690,7 @@ export default function Pinpoint() {
           {showSearchPanel && (
             <div
               className="absolute w-full rounded-[20px] shadow-2xl mt-2 search-panel"
-              style={{ background: dropdownBg, backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: dropdownBorder, boxShadow: '0 16px 48px rgba(0,0,0,0.3)' }}
+              style={{ background: dropdownBg, backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: dropdownBorder, boxShadow: '0 16px 40px rgba(0,0,0,0.35)' }}
             >
               {/* Live suggestions */}
               {searchSuggestions.length > 0 && searchSuggestions.map((item, i) => (
@@ -676,11 +699,11 @@ export default function Pinpoint() {
                   onMouseDown={() => handleSelectSuggestion(item)}
                   className="search-row w-full px-4 text-left flex items-center gap-3 transition-colors border-b"
                   style={{ borderColor: rowBorderColor }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,107,74,0.1)'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,75,114,0.10)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: item.type === 'club' ? GRAD : (isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)') }}>
-                    {item.type === 'club' ? <Building2 className="w-4 h-4 text-white" /> : <MapPin className="w-4 h-4" style={{ color: subColor }} />}
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: item.type === 'club' ? GRAD : (isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.10)') }}>
+                    {item.type === 'club' ? <Building2 className="w-4 h-4 text-white" /> : <MapPin className="w-4 h-4" style={{ color: '#FF4B72' }} />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate" style={{ color: labelColor }}>{item.label}</p>
@@ -697,7 +720,7 @@ export default function Pinpoint() {
               {/* Recent searches (shown when focused but no query) */}
               {searchQuery.length === 0 && recentSearches.length > 0 && (
                 <>
-                  <div className="px-4 pt-3 pb-1">
+                  <div className="px-4 pt-3.5 pb-1">
                     <p className="text-xs font-bold uppercase tracking-widest" style={{ color: sectionLabelColor }}>{t.recentSearches}</p>
                   </div>
                   {Object.values(recentSearches.reduce((acc, s) => {
@@ -713,10 +736,10 @@ export default function Pinpoint() {
                       }}
                       className="search-row w-full px-4 text-left flex items-center gap-3 border-b"
                       style={{ borderColor: rowBorderColor }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,75,114,0.08)'}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,75,114,0.10)'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.10)' }}>
                         <MapPin className="w-3.5 h-3.5" style={{ color: '#FF4B72' }} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -731,8 +754,16 @@ export default function Pinpoint() {
                 </>
               )}
 
-              {/* Empty state */}
-              {searchQuery.length > 2 && !searchLoading && searchSuggestions.length === 0 && (
+              {/* Loading state indicator */}
+              {searchLoading && searchSuggestions.length === 0 && searchQuery.trim().length >= 2 && (
+                <div className="px-4 py-5 flex items-center justify-center gap-2 text-sm" style={{ color: subColor }}>
+                  <div className="w-4 h-4 rounded-full border-2 border-pink-300 border-t-pink-600 animate-spin" />
+                  <span>Zoeken...</span>
+                </div>
+              )}
+
+              {/* Empty state (only when search has completed and no results exist) */}
+              {searchQuery.trim().length >= 3 && !searchLoading && searchSuggestions.length === 0 && (
                 <div className="px-4 py-5 text-center text-sm" style={{ color: subColor }}>Geen resultaten gevonden</div>
               )}
             </div>

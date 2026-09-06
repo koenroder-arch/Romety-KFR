@@ -168,18 +168,6 @@ export default function RevealedLikesSheet({
                     dotsClassName="top-[102px] left-4 z-30"
                   />
 
-                  {/* "HEEFT JOU GELIKED!" Badge */}
-                  <div
-                    className="absolute left-4 z-20 px-3 py-1.5 rounded-full text-[9px] font-black text-white tracking-widest shadow-md"
-                    style={{
-                      top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 58px)',
-                      background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-                      boxShadow: '0 4px 12px rgba(255, 75, 114, 0.4)',
-                    }}
-                  >
-                    HEEFT JOU GELIKED! 💖
-                  </div>
-
                   {/* ── Three-dots options button (top right) ── */}
                   <div
                     className="absolute right-4 z-30 pointer-events-auto"
@@ -190,10 +178,10 @@ export default function RevealedLikesSheet({
                         e.stopPropagation();
                         setOpenMenuProfileId(prev => prev === profile.id ? null : profile.id);
                       }}
-                      className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
+                      className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
                       title="Opties"
                     >
-                      <MoreVertical className="w-4.5 h-4.5 text-white" />
+                      <MoreVertical className="w-4 h-4 text-white" />
                     </button>
 
                     {/* Dropdown menu */}

@@ -327,8 +327,11 @@ export default function Hints() {
   if (!myCheckIn) {
     return (
       <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
-        {/* No location locked state without header */}
-        <div className="flex-1 flex flex-col items-center justify-start pt-[156px] sm:pt-[164px] p-3">
+        {/* Invisible spacer matching Matches header height for exact 1-to-1 vertical positioning */}
+        <div className="h-[104px] flex-shrink-0" />
+
+        {/* No location locked state */}
+        <div className="flex-1 flex flex-col items-center justify-center p-4 pb-20">
           <div 
             className="w-full max-w-sm p-6 rounded-[28px] text-center flex flex-col items-center border shadow-2xl transition-all"
             style={{
@@ -398,9 +401,9 @@ export default function Hints() {
                 <AlertCircle className="w-14 h-14 text-red-400 mb-1" />
                 {permissionError === 'blocked' && (
                   <>
-                    <p className="text-base font-bold text-white">Camera geblokkeerd 🚫</p>
+                    <p className="text-base font-bold text-white">Cameratoegang vereist 🚫</p>
                     <p className="text-sm text-white/70 max-w-xs">
-                      Je browser heeft toegang tot de camera geblokkeerd. Ga naar de adresbalk → 🔒 → Camera → Toestaan, en probeer opnieuw.
+                      Ga naar instellingen om Romety toegang tot je camera te geven om foto's en verhalen te kunnen maken.
                     </p>
                   </>
                 )}
@@ -408,7 +411,7 @@ export default function Hints() {
                   <>
                     <p className="text-base font-bold text-white">Geen camera gevonden 📷</p>
                     <p className="text-sm text-white/70 max-w-xs">
-                      Er is geen camera beschikbaar op dit apparaat of de camera is al in gebruik door een andere app.
+                      Er is geen camera beschikbaar op dit toestel of de camera is in gebruik door een andere app.
                     </p>
                   </>
                 )}
@@ -416,7 +419,7 @@ export default function Hints() {
                   <>
                     <p className="text-base font-bold text-white">Camera niet beschikbaar</p>
                     <p className="text-sm text-white/70 max-w-xs">
-                      Camera toegang geweigerd of niet beschikbaar. Geef toestemming in de browser en probeer opnieuw.
+                      Cameratoegang is niet ingeschakeld. Geef toestemming in je instellingen en probeer opnieuw.
                     </p>
                   </>
                 )}

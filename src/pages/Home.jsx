@@ -536,7 +536,7 @@ export default function Home() {
 
   return (
     <div 
-      className="min-h-screen max-w-md mx-auto relative pb-32" 
+      className="min-h-screen max-w-md mx-auto relative pb-2" 
       style={{ 
         background: bg, 
         fontFamily: "'Inter', sans-serif", 
@@ -712,7 +712,7 @@ export default function Home() {
       </div>
 
       {/* Action Buttons List: Reveal Likes, Super Matches, Hints, Games, Discounts with 3px side margin */}
-      <div className="px-[3px] mt-3.5 mb-4 relative">
+      <div className="px-[3px] mt-3.5 mb-2 relative">
         <div className={`space-y-2 sm:space-y-2.5 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
             {/* 1. Onthul wie je heeft geliked (#FF4B72 - Felroze / Kersenrood) */}
             <button

@@ -9,10 +9,13 @@ import HotspotSection from './HotspotSection';
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
 const SHEET_H = () => Math.round(window.innerHeight * 0.85);
-// Set PEEK_VISIBLE to 50% of the screen so it opens significantly higher than the usual 27%
-const PEEK_VISIBLE = () => Math.round(window.innerHeight * 0.50);
+// Set PEEK_VISIBLE to 52% of screen height
+const PEEK_VISIBLE = () => Math.round(window.innerHeight * 0.52);
+// Collapsed: nav bar height (64px) + header handle/title visible (60px) = 124px total from screen bottom
+const COLLAPSED_VISIBLE = () => 124;
 const FULL_Y = 0;
 const getPeekY = () => SHEET_H() - PEEK_VISIBLE();
+const getCollapsedY = () => SHEET_H() - COLLAPSED_VISIBLE();
 const getHiddenY = () => SHEET_H() + 40;
 
 export default function HomeInfoSheet({
@@ -35,10 +38,11 @@ export default function HomeInfoSheet({
   const { theme } = useTheme();
   const isDark = theme !== 'light';
   const PEEK_Y = getPeekY();
+  const COLLAPSED_Y = getCollapsedY();
   const HIDDEN_Y = getHiddenY();
   const sheetHeight = SHEET_H();
 
-  const [snapState, setSnapState] = useState('peek'); // 'peek' | 'full'
+  const [snapState, setSnapState] = useState('peek'); // 'collapsed' | 'peek' | 'full'
   const y = useMotionValue(PEEK_Y);
   const sheetRef = useRef(null);
 
@@ -88,32 +92,62 @@ export default function HomeInfoSheet({
   }, [myProfile, allProfiles, allDestinations, clubs]);
 
   useEffect(() => {
-    const target = snapState === 'full' ? FULL_Y : PEEK_Y;
+    const target = snapState === 'full' ? FULL_Y : snapState === 'peek' ? PEEK_Y : COLLAPSED_Y;
     animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
-  }, [snapState]);
+  }, [snapState, PEEK_Y, COLLAPSED_Y]);
 
   const handleDragEnd = (_, info) => {
     const velocity = info.velocity.y;
     const currentY = y.get();
     let targetState;
 
-    if (velocity > 500 || currentY > PEEK_Y + 100) {
-      targetState = 'peek';
-    } else if (velocity < -500 || currentY < PEEK_Y - 100) {
-      targetState = 'full';
+    const midFullPeek = (FULL_Y + PEEK_Y) / 2;
+    const midPeekCollapsed = (PEEK_Y + COLLAPSED_Y) / 2;
+
+    if (velocity > 400) {
+      // Dragging down fast
+      if (currentY < PEEK_Y) {
+        targetState = 'peek';
+      } else {
+        targetState = 'collapsed';
+      }
+    } else if (velocity < -400) {
+      // Dragging up fast
+      if (currentY > PEEK_Y) {
+        targetState = 'peek';
+      } else {
+        targetState = 'full';
+      }
     } else {
-      targetState = currentY < PEEK_Y ? 'full' : 'peek';
+      // Nearest position snap
+      if (currentY < midFullPeek) {
+        targetState = 'full';
+      } else if (currentY < midPeekCollapsed) {
+        targetState = 'peek';
+      } else {
+        targetState = 'collapsed';
+      }
     }
 
     if (targetState === snapState) {
-      const target = targetState === 'full' ? FULL_Y : PEEK_Y;
+      const target = targetState === 'full' ? FULL_Y : targetState === 'peek' ? PEEK_Y : COLLAPSED_Y;
       animate(y, target, { type: 'spring', stiffness: 400, damping: 38 });
     } else {
       setSnapState(targetState);
     }
   };
 
-  const bgOpacity = useTransform(y, [FULL_Y, PEEK_Y, HIDDEN_Y], [0.6, 0.05, 0]);
+  const handleHeaderClick = () => {
+    if (snapState === 'collapsed') {
+      setSnapState('peek');
+    } else if (snapState === 'peek') {
+      setSnapState('full');
+    } else {
+      setSnapState('collapsed');
+    }
+  };
+
+  const bgOpacity = useTransform(y, [FULL_Y, PEEK_Y, COLLAPSED_Y, HIDDEN_Y], [0.6, 0.05, 0, 0]);
 
   const cardBg = isDark ? '#1A1A2E' : '#FFFFFF';
   const cardBorder = isDark ? '1.5px solid #FF6B4A' : 'none';
@@ -128,13 +162,13 @@ export default function HomeInfoSheet({
       {/* Backdrop — only visible when fully open */}
       <motion.div
         className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 1990, background: 'rgba(0,0,0,1)', opacity: bgOpacity }}
+        style={{ zIndex: 140, background: 'rgba(0,0,0,1)', opacity: bgOpacity }}
       />
 
       <motion.div
         ref={sheetRef}
         drag="y"
-        dragConstraints={{ top: FULL_Y, bottom: PEEK_Y }}
+        dragConstraints={{ top: FULL_Y, bottom: COLLAPSED_Y }}
         dragElastic={0.05}
         onDragEnd={handleDragEnd}
         style={{
@@ -145,7 +179,7 @@ export default function HomeInfoSheet({
           translateX: '-50%',
           width: '100%',
           maxWidth: 448,
-          zIndex: 2000,
+          zIndex: 150,
           touchAction: 'none',
         }}
       >
@@ -161,13 +195,13 @@ export default function HomeInfoSheet({
             height: sheetHeight,
           }}
         >
-          {/* Drag handle */}
+          {/* Drag handle & Header */}
           <div
-            className="flex flex-col items-center pt-3 pb-2 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
-            onClick={() => setSnapState(snapState === 'full' ? 'peek' : 'full')}
+            className="flex flex-col items-center pt-3 pb-2.5 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
+            onClick={handleHeaderClick}
           >
-            <div className="w-10 h-1 rounded-full mb-3" style={{ background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }} />
-            <h3 className={`font-black text-lg ${textMain}`}>Verken Hotspots & Matches</h3>
+            <div className="w-10 h-1 rounded-full mb-2.5" style={{ background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }} />
+            <h3 className={`font-black text-base sm:text-lg tracking-tight ${textMain}`}>Verken Hotspots & Matches</h3>
           </div>
 
           {/* Scrollable full content */}
