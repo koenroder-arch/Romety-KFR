@@ -536,10 +536,11 @@ export default function Home() {
 
   return (
     <div 
-      className="min-h-screen max-w-md mx-auto relative pb-2" 
+      className="min-h-screen max-w-md mx-auto relative" 
       style={{ 
         background: bg, 
         fontFamily: "'Inter', sans-serif", 
+        paddingBottom: 'calc(84px + env(safe-area-inset-bottom, 16px))',
         overflow: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'hidden' : 'auto',
         height: showSheet || showSuperMatchSheet || selectedStoryGroup ? '100vh' : 'auto',
         position: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'relative' : 'static'

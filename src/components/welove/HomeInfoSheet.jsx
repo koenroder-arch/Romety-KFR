@@ -11,8 +11,8 @@ const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 const SHEET_H = () => Math.round(window.innerHeight * 0.85);
 // Set PEEK_VISIBLE to 52% of screen height
 const PEEK_VISIBLE = () => Math.round(window.innerHeight * 0.52);
-// Collapsed: nav bar height (64px) + header handle/title visible (60px) = 124px total from screen bottom
-const COLLAPSED_VISIBLE = () => 124;
+// Collapsed: nav bar height (~88px with safe area) + header handle/title visible (~82px) = 170px total from screen bottom
+const COLLAPSED_VISIBLE = () => 170;
 const FULL_Y = 0;
 const getPeekY = () => SHEET_H() - PEEK_VISIBLE();
 const getCollapsedY = () => SHEET_H() - COLLAPSED_VISIBLE();
@@ -205,7 +205,10 @@ export default function HomeInfoSheet({
           </div>
 
           {/* Scrollable full content */}
-          <div className="flex-1 overflow-y-auto px-5 pb-10 space-y-4">
+          <div 
+            className="flex-1 overflow-y-auto px-5 space-y-4" 
+            style={{ paddingBottom: 'calc(90px + env(safe-area-inset-bottom, 24px))' }}
+          >
             {/* Active Checkin CTA or Destination Banner */}
             {myCheckIn ? (
               <div className="rounded-[20px] p-4 flex items-center justify-between" style={{ background: cardBg, border: plainCardBorder, boxShadow: plainCardShadow }}>

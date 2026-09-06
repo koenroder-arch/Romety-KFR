@@ -454,7 +454,14 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen max-w-md mx-auto relative pb-3 select-none" style={{ background: bg, fontFamily: "'Inter', sans-serif" }}>
+    <div 
+      className="min-h-screen max-w-md mx-auto relative select-none" 
+      style={{ 
+        background: bg, 
+        fontFamily: "'Inter', sans-serif", 
+        paddingBottom: 'calc(84px + env(safe-area-inset-bottom, 16px))' 
+      }}
+    >
       
       {/* Top Header Background */}
       <div className="px-5 pt-14 sm:pt-16 pb-20 relative overflow-hidden" style={{ background: headerBg }}>
