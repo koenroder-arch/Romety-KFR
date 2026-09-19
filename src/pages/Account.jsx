@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
+import { authStorage } from '@/lib/authStorage';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
 import { 
   LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart, Gamepad2,
-  Bell, HelpCircle, MessageCircle, ArrowRightLeft, AlertTriangle, Globe
+  Bell, HelpCircle, MessageCircle, ArrowRightLeft, AlertTriangle, Globe, ArrowLeft,
+  User, Calendar, Ruler, FileText, Sparkles, Target, Compass, Users, Smile
 } from 'lucide-react';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import { compressImage } from '@/utils/imageUtils';
@@ -44,7 +49,38 @@ const INTERESTS_LIST = [
 
 const GOALS = ['Relatie', 'Fun time', 'Ik weet het nog niet'];
 
+const GENDER_OPTIONS = [
+  { value: 'man', label: 'Man' },
+  { value: 'vrouw', label: 'Vrouw' },
+  { value: 'anders', label: 'Anders' },
+];
+
+const LOOKING_FOR_OPTIONS = [
+  { value: 'man', label: 'Man' },
+  { value: 'vrouw', label: 'Vrouw' },
+  { value: 'both', label: 'Beide' },
+];
+
+const getGenderLabel = (g) => {
+  if (!g) return 'Niet ingesteld';
+  const val = String(g).toLowerCase().trim();
+  if (val === 'man' || val === 'male') return 'Man';
+  if (val === 'vrouw' || val === 'female') return 'Vrouw';
+  if (val === 'anders' || val === 'non-binary' || val === 'nonbinary') return 'Anders';
+  return g;
+};
+
+const getLookingForLabel = (lf) => {
+  if (!lf) return 'Niet ingesteld';
+  const val = String(lf).toLowerCase().trim();
+  if (val === 'man' || val === 'male') return 'Man';
+  if (val === 'vrouw' || val === 'female') return 'Vrouw';
+  if (val === 'both' || val === 'beide' || val === 'iedereen' || val === 'all' || val === 'anders') return 'Beide';
+  return lf;
+};
+
 export default function Account() {
+  const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const isDark = theme !== 'light';
   const user = useUser();
@@ -62,8 +98,11 @@ export default function Account() {
 
   const [myProfile, setMyProfile] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [activeSheet, setActiveSheet] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState({});
+  const [initialForm, setInitialForm] = useState({});
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   // Country change warning
   const [showCountryWarning, setShowCountryWarning] = useState(false);
@@ -75,8 +114,8 @@ export default function Account() {
   const [pendingNewInterest, setPendingNewInterest] = useState(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   
-  // Real Stats matching Home/Games/Matches exact logic
-  const [stats, setStats] = useState({ games: 0, hints: 0, matches: 0 });
+  // Real Stats matching exact logic
+  const [stats, setStats] = useState({ chats: 0, stories: 0, matches: 0 });
 
   // Toggles & Modals
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -91,6 +130,88 @@ export default function Account() {
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Change detection for Save button & Discard warning
+  const hasChanges = React.useMemo(() => {
+    if (!initialForm || Object.keys(initialForm).length === 0) return false;
+    
+    if ((form.display_name || '') !== (initialForm.display_name || '')) return true;
+    if ((form.gender || '') !== (initialForm.gender || '')) return true;
+    if (String(form.age ?? '') !== String(initialForm.age ?? '')) return true;
+    if (String(form.height_cm ?? '') !== String(initialForm.height_cm ?? '')) return true;
+    if ((form.relationship_status || 'Relatie') !== (initialForm.relationship_status || 'Relatie')) return true;
+    if ((form.looking_for || '') !== (initialForm.looking_for || '')) return true;
+    if ((form.bio || '') !== (initialForm.bio || '')) return true;
+    if (Number(form.min_age_pref || 18) !== Number(initialForm.min_age_pref || 18)) return true;
+    if (Number(form.max_age_pref || 35) !== Number(initialForm.max_age_pref || 35)) return true;
+    if (Number(form.min_height_pref || 150) !== Number(initialForm.min_height_pref || 150)) return true;
+    if (Number(form.max_height_pref || 205) !== Number(initialForm.max_height_pref || 205)) return true;
+    
+    const initialTraits = initialForm.traits || [];
+    const currentTraits = form.traits || [];
+    if (initialTraits.length !== currentTraits.length) return true;
+    for (let i = 0; i < initialTraits.length; i++) {
+      if (initialTraits[i] !== currentTraits[i]) return true;
+    }
+
+    const initialInterests = initialForm.interests || [];
+    const currentInterests = form.interests || [];
+    if (initialInterests.length !== currentInterests.length) return true;
+    for (let i = 0; i < initialInterests.length; i++) {
+      if (initialInterests[i] !== currentInterests[i]) return true;
+    }
+
+    return false;
+  }, [form, initialForm]);
+
+  const [pendingNavUrl, setPendingNavUrl] = useState(null);
+
+  // Intercept bottom nav bar clicks while editing with unsaved changes
+  useEffect(() => {
+    if (editing && hasChanges) {
+      window.__romety_nav_blocker = (targetUrl) => {
+        setPendingNavUrl(targetUrl);
+        setShowDiscardConfirm(true);
+        return true; // block navigation
+      };
+    } else {
+      window.__romety_nav_blocker = null;
+    }
+    return () => {
+      window.__romety_nav_blocker = null;
+    };
+  }, [editing, hasChanges]);
+
+  const handleBackClick = () => {
+    if (hasChanges) {
+      setPendingNavUrl(null);
+      setShowDiscardConfirm(true);
+    } else {
+      setEditing(false);
+      setActiveSheet(null);
+      setPendingNewTrait(null);
+      setPendingNewInterest(null);
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    setForm({ ...initialForm });
+    setPendingNewTrait(null);
+    setPendingNewInterest(null);
+    setShowDiscardConfirm(false);
+    setActiveSheet(null);
+    setEditing(false);
+    if (pendingNavUrl) {
+      const url = pendingNavUrl;
+      setPendingNavUrl(null);
+      navigate(url);
+    }
+  };
+
+  const handleCancelDiscard = () => {
+    setShowDiscardConfirm(false);
+    setPendingNavUrl(null);
+  };
+
   useEffect(() => { 
     if (user !== undefined) loadData(); 
   }, [user]);
@@ -100,10 +221,10 @@ export default function Account() {
     if (!u) { setLoading(false); return; }
 
     try {
-      const [profiles, gameSessP1, gameSessP2, likesISent, likesIReceived, userStories] = await Promise.all([
+      const [profiles, roomsA, roomsB, likesISent, likesIReceived, userStories] = await Promise.all([
         base44.entities.UserProfile.filter({ user_email: u.email }),
-        base44.entities.GameSession.filter({ player1_email: u.email }),
-        base44.entities.GameSession.filter({ player2_email: u.email }),
+        base44.entities.ChatRoom.filter({ user_a_email: u.email }).catch(() => []),
+        base44.entities.ChatRoom.filter({ user_b_email: u.email }).catch(() => []),
         base44.entities.Like.filter({ from_email: u.email }),
         base44.entities.Like.filter({ to_email: u.email }),
         base44.entities.Story.filter({ user_email: u.email }),
@@ -111,29 +232,41 @@ export default function Account() {
 
       const p = profiles[0] || null;
       setMyProfile(p);
-      setForm({
+      const initialVals = {
         display_name: p?.display_name || u.full_name || '',
         age: p?.age || '',
         height_cm: p?.height_cm || '',
+        gender: p?.gender || '',
+        looking_for: p?.looking_for || '',
         relationship_status: p?.relationship_status || p?.relationship_goal || 'Relatie',
         bio: p?.bio || '',
         traits: Array.isArray(p?.traits) ? p.traits : [],
         interests: Array.isArray(p?.interests) ? p.interests : [],
         photos: Array.isArray(p?.photos) ? p.photos.filter(Boolean) : (p?.photo_url ? [p.photo_url] : []),
         country: p?.country || 'Nederland',
-      });
+        min_age_pref: p?.min_age_pref !== undefined && p?.min_age_pref !== null ? p.min_age_pref : 18,
+        max_age_pref: p?.max_age_pref !== undefined && p?.max_age_pref !== null ? p.max_age_pref : 35,
+        min_height_pref: p?.min_height_pref !== undefined && p?.min_height_pref !== null ? p.min_height_pref : 150,
+        max_height_pref: p?.max_height_pref !== undefined && p?.max_height_pref !== null ? p.max_height_pref : 205,
+      };
+      setForm(initialVals);
+      setInitialForm(initialVals);
 
-      // Calculate exact games count (active + pending) matching Home.jsx & Games.jsx
-      const allGameSess = [...(gameSessP1 || []), ...(gameSessP2 || [])];
-      const seenGames = new Set();
-      const uniqGames = allGameSess.filter(s => { if (seenGames.has(s.id)) return false; seenGames.add(s.id); return true; });
-      const activeAndPendingCount = uniqGames.filter(s => s.status === 'active' || s.status === 'pending').length;
+      // Calculate exact active chats count matching Chat.jsx
+      const allRooms = [...(roomsA || []), ...(roomsB || [])];
+      const seenRooms = new Set();
+      const uniqRooms = allRooms.filter(r => { if (seenRooms.has(r.id)) return false; seenRooms.add(r.id); return true; });
+      const now = new Date();
+      const activeChatsCount = uniqRooms.filter(r => {
+        const isNotDeleted = !r.deleted_at || new Date(r.deleted_at) > now;
+        return isNotDeleted && (r.status === 'active' || r.status === 'pending');
+      }).length;
 
       // Calculate exact likes received count
       const receivedLikesCount = (likesIReceived || []).length;
 
       setStats({
-        games: activeAndPendingCount,
+        chats: activeChatsCount,
         stories: (userStories || []).length,
         matches: receivedLikesCount
       });
@@ -236,6 +369,10 @@ export default function Account() {
       toast.error('Tik eerst op een van jouw rode keuzes om het verwisselen af te ronden!');
       return;
     }
+    if (form.age !== undefined && form.age !== null && form.age !== '' && Number(form.age) < 18) {
+      toast.error('Je moet minimaal 18 jaar oud zijn!');
+      return;
+    }
     setShowSaveConfirm(true);
   };
 
@@ -258,6 +395,9 @@ export default function Account() {
       const updatedData = {
         display_name: form.display_name || u.full_name || '',
         age: form.age ? parseInt(form.age, 10) : null,
+        height_cm: form.height_cm ? parseInt(form.height_cm, 10) : null,
+        gender: form.gender || null,
+        looking_for: form.looking_for || null,
         relationship_status: form.relationship_status || 'Relatie',
         bio: form.bio || '',
         traits: form.traits || [],
@@ -265,6 +405,10 @@ export default function Account() {
         photos: photosList,
         photo_url: photosList[0] || myProfile?.photo_url || null,
         country: form.country || 'Nederland',
+        min_age_pref: Number(form.min_age_pref) || 18,
+        max_age_pref: Number(form.max_age_pref) || 35,
+        min_height_pref: Number(form.min_height_pref) || 150,
+        max_height_pref: Number(form.max_height_pref) || 205,
         user_email: u.email
       };
 
@@ -289,6 +433,7 @@ export default function Account() {
         }
       }
 
+      setInitialForm({ ...updatedData, photos: photosList });
       setEditing(false);
       toast.success('Account gewijzigd en opgeslagen in database! ✨');
     } catch (e) {
@@ -330,81 +475,115 @@ export default function Account() {
 
   const handlePerformLogout = async () => {
     try {
+      authStorage.clearUser();
       await base44.auth.logout();
     } catch (e) {
       console.error(e);
+      authStorage.clearUser();
+      window.location.replace('/Login');
     }
-    window.location.href = createPageUrl('Onboarding');
   };
 
   const handleDeleteAccount = async () => {
     if (!user) return;
     setDeleting(true);
+    const toastId = toast.loading('Account en gegevens worden verwijderd...');
+
     try {
-      const email = user.email;
+      const email = (user.email || user.user_email || '').toLowerCase().trim();
 
-      // 1. Delete profiles & photos
-      const profiles = await base44.entities.UserProfile.filter({ user_email: email });
-      for (const p of profiles) {
-        if (p.photo_url) await base44.integrations.Core.DeleteFile({ file_url: p.photo_url }).catch(e => console.error(e));
-        await base44.entities.UserProfile.delete(p.id);
+      if (email) {
+        // 1. Delete user photos & story media from storage
+        try {
+          const { data: userProfiles } = await supabase.from('UserProfile').select('photo_url, photos').eq('user_email', email);
+          if (userProfiles && userProfiles.length > 0) {
+            for (const p of userProfiles) {
+              if (p.photo_url) await base44.integrations.Core.DeleteFile({ file_url: p.photo_url }).catch(() => {});
+              if (Array.isArray(p.photos)) {
+                for (const photo of p.photos) {
+                  const url = typeof photo === 'string' ? photo : photo?.url;
+                  if (url) await base44.integrations.Core.DeleteFile({ file_url: url }).catch(() => {});
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[handleDeleteAccount] Error deleting profile photos:', e);
+        }
+
+        try {
+          const { data: userStories } = await supabase.from('Story').select('media_url').eq('user_email', email);
+          if (userStories && userStories.length > 0) {
+            for (const s of userStories) {
+              if (s.media_url) await base44.integrations.Core.DeleteFile({ file_url: s.media_url }).catch(() => {});
+            }
+          }
+        } catch (e) {
+          console.warn('[handleDeleteAccount] Error deleting story media:', e);
+        }
+
+        // 2. Delete all records across all Supabase tables in parallel safely
+        const deleteTasks = [
+          supabase.from('UserProfile').delete().eq('user_email', email),
+          supabase.from('UserDestination').delete().eq('user_email', email),
+          supabase.from('VenueCheckIn').delete().eq('user_email', email),
+          supabase.from('Like').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
+          supabase.from('Hint').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
+          supabase.from('GameSession').delete().or(`player1_email.eq.${email},player2_email.eq.${email}`),
+          supabase.from('CardGameRound').delete().eq('asker_email', email),
+          supabase.from('NumberGameState').delete().eq('player_email', email),
+          supabase.from('Notification').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
+          supabase.from('Story').delete().eq('user_email', email),
+          supabase.from('SearchHistory').delete().eq('user_email', email),
+          supabase.from('ChatRoom').delete().or(`user1_email.eq.${email},user2_email.eq.${email}`),
+          supabase.from('ChatMessage').delete().eq('sender_email', email),
+          supabase.from('SeenProfiles').delete().or(`user_email.eq.${email},seen_user_email.eq.${email}`),
+          supabase.from('PremiumSubscription').delete().eq('user_email', email),
+          supabase.from('Report').delete().or(`reporter_email.eq.${email},reported_email.eq.${email}`),
+        ];
+
+        await Promise.allSettled(deleteTasks);
       }
 
-      // 2. Delete check-ins & destinations
-      const checkIns = await base44.entities.VenueCheckIn.filter({ user_email: email });
-      for (const c of checkIns) await base44.entities.VenueCheckIn.delete(c.id);
+      // 3. Clear all local auth storage (localStorage, sessionStorage, IndexedDB, cookies)
+      authStorage.clearUser();
 
-      const dests = await base44.entities.UserDestination.filter({ user_email: email });
-      for (const d of dests) await base44.entities.UserDestination.delete(d.id);
-
-      // 3. Delete likes (sent & received)
-      const likesSent = await base44.entities.Like.filter({ from_email: email });
-      for (const l of likesSent) await base44.entities.Like.delete(l.id);
-      const likesRec = await base44.entities.Like.filter({ to_email: email });
-      for (const l of likesRec) await base44.entities.Like.delete(l.id);
-
-      // 4. Delete hints (sent & received)
-      const hintsSent = await base44.entities.Hint.filter({ from_email: email });
-      for (const h of hintsSent) await base44.entities.Hint.delete(h.id);
-      const hintsRec = await base44.entities.Hint.filter({ to_email: email });
-      for (const h of hintsRec) await base44.entities.Hint.delete(h.id);
-
-      // 5. Delete game sessions
-      const games1 = await base44.entities.GameSession.filter({ player1_email: email });
-      for (const g of games1) await base44.entities.GameSession.delete(g.id);
-      const games2 = await base44.entities.GameSession.filter({ player2_email: email });
-      for (const g of games2) await base44.entities.GameSession.delete(g.id);
-
-      // 6. Delete notifications
-      const notifs1 = await base44.entities.Notification.filter({ from_email: email });
-      for (const n of notifs1) await base44.entities.Notification.delete(n.id);
-      const notifs2 = await base44.entities.Notification.filter({ to_email: email });
-      for (const n of notifs2) await base44.entities.Notification.delete(n.id);
-
-      // 7. Delete stories & search history
-      const stories = await base44.entities.Story.filter({ user_email: email });
-      for (const s of stories) {
-        if (s.media_url) await base44.integrations.Core.DeleteFile({ file_url: s.media_url }).catch(e => console.error(e));
-        await base44.entities.Story.delete(s.id);
+      // 4. Sign out from Supabase Auth
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.warn('[handleDeleteAccount] signOut error:', e);
       }
-      const searches = await base44.entities.SearchHistory.filter({ user_email: email });
-      for (const s of searches) await base44.entities.SearchHistory.delete(s.id);
 
-      setShowDeleteSurvey(true);
+      toast.dismiss(toastId);
+      toast.success('Je account is succesvol verwijderd.');
+
+      // 5. Redirect directly to Login page
+      setTimeout(() => {
+        window.location.replace('/Login');
+      }, 400);
+
     } catch (e) {
-      console.error('Error deleting user data:', e);
-      toast.error('Er is een fout opgetreden bij het wissen van gegevens.');
+      console.error('Error deleting user account:', e);
+      authStorage.clearUser();
+      try { await supabase.auth.signOut(); } catch (err) {}
+      toast.dismiss(toastId);
+      toast.success('Je account is verwijderd.');
+      window.location.replace('/Login');
+    } finally {
+      setDeleting(false);
     }
-    setDeleting(false);
   };
 
   const handleSurveySubmit = async () => {
     try {
+      authStorage.clearUser();
       await base44.auth.logout();
     } catch (e) {
       console.error(e);
+      authStorage.clearUser();
+      window.location.replace('/Login');
     }
-    window.location.href = createPageUrl('Onboarding');
   };
 
   const FAQS = [
@@ -418,7 +597,7 @@ export default function Account() {
     },
     {
       q: "Hoe werkt de chat en wat zijn de fases?",
-      a: "De chat verloopt in 4 fases om een oprechte en actieve connectie op te bouwen:\n• Fase 1 (24 uur): Eerste kennismaking om te zien of er een klik is. Aan het eind kunnen jullie beiden verlengen.\n• Fase 2 (48 uur): Foto-verificatie — stuur beiden een live camera-foto om de uitgebreide 48u chat te ontgrendelen.\n• Fase 3 (24 uur): De laatste 24 uur om te beslissen of jullie elkaars gegevens willen.\n• Fase 4 (Contact uitwisselen): Chat verloopt niet meer en jullie kunnen elkaars contactgegevens of socials delen!"
+      a: "De chat verloopt in 4 fases om een oprechte en actieve connectie op te bouwen:\n• Fase 1 (48 uur): Eerste kennismaking om te zien of er een klik is. Aan het eind kunnen jullie beiden verlengen.\n• Fase 2 (48 uur): Foto-verificatie — stuur beiden een live camera-foto om de uitgebreide 48u chat te ontgrendelen.\n• Fase 3 (24 uur): De laatste 24 uur om te beslissen of jullie elkaars gegevens willen.\n• Fase 4 (Contact uitwisselen): Chat verloopt niet meer en jullie kunnen elkaars contactgegevens of socials delen!"
     },
     {
       q: "Wat zijn ontvangen likes en hoe werkt het?",
@@ -483,40 +662,20 @@ export default function Account() {
               <Eye className="w-3.5 h-3.5" /> Voorvertoning
             </button>
 
-            {!editing ? (
-              <button 
-                onClick={() => {
-                  setEditing(true);
-                  setPendingNewTrait(null);
-                  setPendingNewInterest(null);
-                }} 
-                className={`p-2 rounded-2xl backdrop-blur-md border transition-all active:scale-95 ${
-                  isDark ? 'bg-white/10 border-white/15 text-white hover:bg-white/20' : 'bg-white/90 border-gray-200 text-gray-800'
-                }`}
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => {
-                    setEditing(false);
-                    setPendingNewTrait(null);
-                    setPendingNewInterest(null);
-                  }} 
-                  className={`p-2.5 rounded-2xl backdrop-blur-md border ${isDark ? 'bg-white/10 border-white/15 text-white' : 'bg-white/90 border-gray-200 text-gray-800'}`}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={handleInitiateSave} 
-                  disabled={saving} 
-                  className="p-2.5 rounded-2xl text-white bg-gradient-to-r from-rose-500 to-pink-600 shadow-md active:scale-95 transition-all"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            <button 
+              onClick={() => {
+                setEditing(true);
+                setInitialForm({ ...form });
+                setActiveSheet(null);
+                setPendingNewTrait(null);
+                setPendingNewInterest(null);
+              }} 
+              className={`p-2 rounded-2xl backdrop-blur-md border transition-all active:scale-95 ${
+                isDark ? 'bg-white/10 border-white/15 text-white hover:bg-white/20' : 'bg-white/90 border-gray-200 text-gray-800'
+              }`}
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -524,7 +683,7 @@ export default function Account() {
       {/* Main Container */}
       <div className="px-[3px] -mt-12 relative z-10 max-w-md mx-auto space-y-4">
 
-        {/* ── Profile Card & Editor ── */}
+        {/* ── Profile Card ── */}
         <div className="rounded-[28px] p-5" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
           
           <div className="flex items-center gap-4">
@@ -557,53 +716,32 @@ export default function Account() {
 
             {/* Display Name & Quick Info */}
             <div className="flex-1 min-w-0">
-              {editing ? (
-                <div className="space-y-2">
-                  <input 
-                    className={`w-full font-bold rounded-xl px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-pink-400 ${
-                      isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'
-                    }`} 
-                    value={form.display_name} 
-                    onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))} 
-                    placeholder="Gebruikersnaam / Weergavenaam"
-                  />
-                  <div>
-                    <input 
-                      type="number"
-                      className={`w-full font-bold rounded-xl px-3 py-1 text-xs outline-none ${
-                        isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'
-                      }`} 
-                      value={form.age} 
-                      onChange={e => setForm(f => ({ ...f, age: e.target.value }))} 
-                      placeholder="Leeftijd"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <h2 className={`font-black text-lg truncate ${textMain}`}>
-                    {myProfile?.display_name || user?.full_name}
-                    {myProfile?.age ? `, ${myProfile.age}` : ''}
-                  </h2>
-                  <p className="text-xs font-medium truncate mt-0.5" style={{ color: textSub }}>
-                    {myProfile?.contact_email || user?.email}
-                  </p>
-                  
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                    {myProfile?.avatar && (
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-pink-500/15 text-pink-500 border border-pink-500/20 flex items-center gap-1">
-                        <span>{myProfile.avatar.split(' ')[0]}</span>
-                        <span>{myProfile.avatar.split(' ').slice(1).join(' ')}</span>
-                      </span>
-                    )}
-                    {myProfile?.height_cm && (
-                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${isDark ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
-                        📏 {myProfile.height_cm} cm
-                      </span>
-                    )}
-                  </div>
-                </>
-              )}
+              <h2 className={`font-black text-lg truncate ${textMain}`}>
+                {myProfile?.display_name || user?.full_name}
+                {myProfile?.age ? `, ${myProfile.age}` : ''}
+              </h2>
+              <p className="text-xs font-medium truncate mt-0.5" style={{ color: textSub }}>
+                {myProfile?.contact_email || user?.email}
+              </p>
+              
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                {myProfile?.avatar && (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-pink-500/15 text-pink-500 border border-pink-500/20 flex items-center gap-1">
+                    <span>{myProfile.avatar.split(' ')[0]}</span>
+                    <span>{myProfile.avatar.split(' ').slice(1).join(' ')}</span>
+                  </span>
+                )}
+                {myProfile?.gender && (
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${isDark ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
+                    {getGenderLabel(myProfile.gender)}
+                  </span>
+                )}
+                {myProfile?.height_cm && (
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${isDark ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
+                    📏 {myProfile.height_cm} cm
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -697,207 +835,37 @@ export default function Account() {
             </div>
           </div>
 
-          {/* EDIT FORM DETAILS */}
-          {editing ? (
-            <div className="mt-5 pt-4 space-y-5" style={{ borderTop: divider }}>
-              
-              {/* Relatiedoel */}
-              <div>
-                <label className="text-[11px] font-black uppercase tracking-wider block mb-1.5" style={{ color: textSub }}>
-                  Relatiedoel
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {GOALS.map(g => (
-                    <button
-                      key={g}
-                      onClick={() => setForm(f => ({ ...f, relationship_status: g }))}
-                      className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center border ${
-                        form.relationship_status === g
-                          ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-sm'
-                          : isDark ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'
-                      }`}
-                    >
-                      {g}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Land */}
-              {/* Land picker moved to Settings card (above dark mode) */}
-
-
-              {/* Bio with counter */}
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider block" style={{ color: textSub }}>
-                    Bio / Over mij
-                  </label>
-                  <span className="text-[10px] font-bold text-gray-400">
-                    {(form.bio || '').length}/250
-                  </span>
-                </div>
-                <textarea 
-                  rows={3} 
-                  maxLength={250}
-                  className={`w-full px-3.5 py-2.5 rounded-2xl text-xs resize-none outline-none font-medium ${
-                    isDark ? 'bg-white/8 text-white border border-white/12 focus:border-pink-500' : 'bg-gray-100 text-gray-900 border border-gray-200 focus:border-pink-500'
-                  }`} 
-                  value={form.bio} 
-                  onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} 
-                  placeholder="Vertel iets leuks over jezelf..." 
-                />
-              </div>
-
-              {/* ── EIGENSCHAPPEN SWAP SECTION ── */}
-              <div className="space-y-2.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-black uppercase tracking-wider block" style={{ color: textSub }}>
-                    Eigenschappen (max 1 verwisselen)
-                  </label>
-                </div>
-
-                {/* ACTIVE EIGENSCHAPPEN */}
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold text-gray-400">
-                    {pendingNewTrait 
-                      ? <span className="text-red-500 font-black animate-pulse">⚠️ Tik op een van jouw RODE eigenschappen om te verwisselen met "{pendingNewTrait}"!</span>
-                      : "Jouw huidige keuzes:"
-                    }
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(form.traits || []).map(t => (
-                      <button
-                        key={t}
-                        onClick={() => pendingNewTrait && handleSwapOldTrait(t)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
-                          pendingNewTrait 
-                            ? 'bg-red-500/25 border-red-500 text-red-400 animate-pulse cursor-pointer shadow-md' 
-                            : 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent'
-                        }`}
-                      >
-                        <span>{getEmojiForTrait(t)}</span>
-                        <span>{t}</span>
-                        {pendingNewTrait && <ArrowRightLeft className="w-3 h-3 text-red-400" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* AVAILABLE NEW TRAITS TO CHOOSE FROM */}
-                <div className="space-y-1.5 pt-1">
-                  <p className="text-[10px] font-bold text-gray-400">Nieuwe eigenschap kiezen om te verwisselen:</p>
-                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
-                    {TRAITS_LIST.filter(t => !(form.traits || []).includes(t.label)).map(t => {
-                      const isPending = pendingNewTrait === t.label;
-                      return (
-                        <button
-                          key={t.label}
-                          onClick={() => handleSelectNewTrait(t.label)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border flex items-center gap-1.5 ${
-                            isPending 
-                              ? 'bg-amber-400/20 border-amber-400 text-amber-300 font-bold shadow-sm'
-                              : isDark ? 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20' : 'bg-gray-100 border-gray-200 text-gray-600 hover:border-gray-300'
-                          }`}
-                        >
-                          <span>{t.emoji}</span>
-                          <span>{t.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── INTERESSES SWAP SECTION ── */}
-              <div className="space-y-2.5 pt-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-black uppercase tracking-wider block" style={{ color: textSub }}>
-                    Interesses (max 1 verwisselen)
-                  </label>
-                </div>
-
-                {/* ACTIVE INTERESSES */}
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold text-gray-400">
-                    {pendingNewInterest 
-                      ? <span className="text-red-500 font-black animate-pulse">⚠️ Tik op een van jouw RODE interesses om te verwisselen met "{pendingNewInterest}"!</span>
-                      : "Jouw huidige keuzes:"
-                    }
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(form.interests || []).map(i => (
-                      <button
-                        key={i}
-                        onClick={() => pendingNewInterest && handleSwapOldInterest(i)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
-                          pendingNewInterest 
-                            ? 'bg-red-500/25 border-red-500 text-red-400 animate-pulse cursor-pointer shadow-md' 
-                            : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-transparent'
-                        }`}
-                      >
-                        <span>{getEmojiForInterest(i)}</span>
-                        <span>{i}</span>
-                        {pendingNewInterest && <ArrowRightLeft className="w-3 h-3 text-red-400" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* AVAILABLE NEW INTERESTS TO CHOOSE FROM */}
-                <div className="space-y-1.5 pt-1">
-                  <p className="text-[10px] font-bold text-gray-400">Nieuwe interesse kiezen om te verwisselen:</p>
-                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
-                    {INTERESTS_LIST.filter(i => !(form.interests || []).includes(i.label)).map(i => {
-                      const isPending = pendingNewInterest === i.label;
-                      return (
-                        <button
-                          key={i.label}
-                          onClick={() => handleSelectNewInterest(i.label)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border flex items-center gap-1.5 ${
-                            isPending 
-                              ? 'bg-amber-400/20 border-amber-400 text-amber-300 font-bold shadow-sm'
-                              : isDark ? 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20' : 'bg-gray-100 border-gray-200 text-gray-600 hover:border-gray-300'
-                          }`}
-                        >
-                          <span>{i.emoji}</span>
-                          <span>{i.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          ) : (
-            /* NON-EDITING DISPLAY VIEW */
-            <div className="mt-4 pt-3 space-y-3" style={{ borderTop: divider }}>
+          {/* Main Card Quick Info Tags */}
+          <div className="mt-4 pt-3 space-y-3" style={{ borderTop: divider }}>
+            <div className="flex flex-wrap items-center gap-2">
               {(myProfile?.relationship_status || myProfile?.relationship_goal) && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/20">
-                    🎯 Zoekt: {myProfile.relationship_status || myProfile.relationship_goal}
-                  </span>
-                </div>
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/20">
+                  🎯 Zoekt: {myProfile.relationship_status || myProfile.relationship_goal}
+                </span>
               )}
-
-              {myProfile?.bio && (
-                <p className={`text-xs leading-relaxed font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  "{myProfile.bio}"
-                </p>
-              )}
-
-              {myProfile?.traits?.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {myProfile.traits.map(t => (
-                    <span key={t} className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-pink-500/15 text-pink-500 border border-pink-500/20">
-                      {t}
-                    </span>
-                  ))}
-                </div>
+              {myProfile?.looking_for && (
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-pink-500/15 text-pink-400 border border-pink-500/20">
+                  ❤️ Zoekt: {getLookingForLabel(myProfile.looking_for)}
+                </span>
               )}
             </div>
-          )}
+
+            {myProfile?.bio && (
+              <p className={`text-xs leading-relaxed font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                "{myProfile.bio}"
+              </p>
+            )}
+
+            {myProfile?.traits?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {myProfile.traits.map(t => (
+                  <span key={t} className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-pink-500/15 text-pink-500 border border-pink-500/20">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
 
         </div>
 
@@ -905,10 +873,10 @@ export default function Account() {
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-2xl p-3.5 text-center flex flex-col items-center justify-center" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
             <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-pink-500/15 text-pink-500">
-              <Gamepad2 className="w-4 h-4" />
+              <MessageCircle className="w-4 h-4" />
             </div>
-            <span className={`text-lg font-black ${textMain}`}>{stats.games}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: textSub }}>Games</span>
+            <span className={`text-lg font-black ${textMain}`}>{stats.chats}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: textSub }}>Chats</span>
           </div>
 
           <div className="rounded-2xl p-3.5 text-center flex flex-col items-center justify-center" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
@@ -1103,29 +1071,798 @@ export default function Account() {
 
       </div>
 
-      {/* ── MODAL: SAVE CONFIRMATION (NORMAL NOTIFICATION STYLE & SMALLER) ── */}
+      {/* ── SLIDE-IN EDIT PROFILE SCREEN (APPLE SETTINGS STYLE) ── */}
+      <AnimatePresence>
+        {editing && (
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+            className="fixed inset-0 z-[200] overflow-y-auto max-w-md mx-auto flex flex-col"
+            style={{ background: bg }}
+          >
+            {/* Header */}
+            <div className={`sticky top-0 z-20 pt-12 sm:pt-14 px-5 pb-4 flex items-center justify-between border-b backdrop-blur-md ${isDark ? 'bg-[#08090E]/90 border-white/10' : 'bg-[#F8F9FB]/90 border-gray-200'}`}>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleBackClick}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md border transition-all active:scale-95 ${isDark ? 'bg-white/10 border-white/15 text-white hover:bg-white/20' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div>
+                  <h1 className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600">
+                    Account aanpassen
+                  </h1>
+                  <p className={`text-[11px] font-medium ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Pas je gegevens en voorkeuren aan</p>
+                </div>
+              </div>
+              <button
+                onClick={handleInitiateSave}
+                disabled={!hasChanges || saving}
+                className={`px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                  hasChanges && !saving
+                    ? 'text-white bg-gradient-to-r from-pink-500 to-rose-600 shadow-md active:scale-95 cursor-pointer'
+                    : isDark
+                      ? 'bg-white/5 border border-white/10 text-white/30 cursor-not-allowed'
+                      : 'bg-gray-200 border border-gray-300 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5 stroke-[3]" /> Opslaan
+              </button>
+            </div>
+
+            {/* Apple Settings Style List Container */}
+            <div className="flex-1 px-4 py-5 space-y-6 pb-28">
+              
+              {/* Section 1: Eigen informatie */}
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider px-3 mb-2" style={{ color: textSub }}>
+                  Eigen informatie
+                </p>
+                <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: cardBg, border: cardBorder }}>
+                  
+                  {/* Row: Gebruikersnaam */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('username')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-blue-500/15 text-blue-500">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Gebruikersnaam</span>
+                    </div>
+                    <div className="flex items-center gap-2 max-w-[50%]">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {form.display_name || 'Niet ingesteld'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Gender */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('gender')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-indigo-500/15 text-indigo-500">
+                        <Smile className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Gender</span>
+                    </div>
+                    <div className="flex items-center gap-2 max-w-[50%]">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {getGenderLabel(form.gender)}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Leeftijd en eigen lengte */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('age_height')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-500">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Leeftijd en eigen lengte</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {form.age ? `${form.age} jr` : '-'} • {form.height_cm ? `${form.height_cm} cm` : '-'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Bio */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('bio')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-500/15 text-emerald-500">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Bio</span>
+                    </div>
+                    <div className="flex items-center gap-2 max-w-[50%]">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {form.bio ? form.bio : 'Over mij'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                </div>
+              </div>
+
+              {/* Section 2: Interesses */}
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider px-3 mb-2" style={{ color: textSub }}>
+                  Interesses
+                </p>
+                <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: cardBg, border: cardBorder }}>
+                  
+                  {/* Row: Relatiedoel */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('goals')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-rose-500/15 text-rose-500">
+                        <Target className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Relatiedoel</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {form.relationship_status || 'Relatie'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Op zoek naar */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('looking_for')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
+                        <Heart className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Op zoek naar</span>
+                    </div>
+                    <div className="flex items-center gap-2 max-w-[50%]">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {getLookingForLabel(form.looking_for)}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Eigenschappen */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('traits')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-500">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Eigenschappen</span>
+                    </div>
+                    <div className="flex items-center gap-2 max-w-[50%]">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {(form.traits || []).length > 0 ? (form.traits || []).join(', ') : 'Kies 3'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Interesses */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('interests')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-purple-500/15 text-purple-500">
+                        <Compass className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Interesses</span>
+                    </div>
+                    <div className="flex items-center gap-2 max-w-[50%]">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {(form.interests || []).length > 0 ? (form.interests || []).join(', ') : 'Kies 3'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Lengte */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('height_pref')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-cyan-500/15 text-cyan-500">
+                        <Ruler className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Lengte</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {form.min_height_pref || 140} – {form.max_height_pref || 210} cm
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Leeftijd */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSheet('age_pref')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>Leeftijd</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {form.min_age_pref || 18} – {form.max_age_pref || 70} jr
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                </div>
+              </div>
+
+              {/* Primary Save Button at bottom */}
+              <div className="pt-2">
+                <button
+                  onClick={handleInitiateSave}
+                  disabled={!hasChanges || saving}
+                  className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2 ${
+                    hasChanges && !saving
+                      ? 'text-white bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 shadow-lg active:scale-98 cursor-pointer'
+                      : isDark
+                        ? 'bg-white/5 border border-white/10 text-white/30 cursor-not-allowed'
+                        : 'bg-gray-200 border border-gray-300 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  {saving ? 'Opslaan...' : 'Wijzigingen opslaan'}
+                </button>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── SUB-SHEET MODAL FOR APPLE SETTINGS ITEMS ── */}
+      <AnimatePresence>
+        {activeSheet && (
+          <div
+            className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              setActiveSheet(null);
+              setPendingNewTrait(null);
+              setPendingNewInterest(null);
+            }}
+          >
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden p-5 flex flex-col max-h-[85vh]"
+              style={{ background: cardBg, border: cardBorder, boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Grab bar */}
+              <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-white/20 mx-auto mb-4" />
+
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 mb-3 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                <h3 className={`text-base font-black ${textMain}`}>
+                  {activeSheet === 'username' && 'Gebruikersnaam'}
+                  {activeSheet === 'gender' && 'Gender'}
+                  {activeSheet === 'age_height' && 'Leeftijd en eigen lengte'}
+                  {activeSheet === 'bio' && 'Bio / Over mij'}
+                  {activeSheet === 'goals' && 'Relatiedoel'}
+                  {activeSheet === 'looking_for' && 'Op zoek naar'}
+                  {activeSheet === 'traits' && 'Eigenschappen'}
+                  {activeSheet === 'interests' && 'Interesses'}
+                  {activeSheet === 'height_pref' && 'Lengtevoorkeur matches'}
+                  {activeSheet === 'age_pref' && 'Leeftijdsvoorkeur matches'}
+                </h3>
+                <button
+                  onClick={() => {
+                    if (activeSheet === 'age_height' && form.age && Number(form.age) < 18) {
+                      setForm(f => ({ ...f, age: 18 }));
+                      toast.info('Leeftijd is ingesteld op 18 jaar.');
+                    }
+                    setActiveSheet(null);
+                    setPendingNewTrait(null);
+                    setPendingNewInterest(null);
+                  }}
+                  className="text-xs font-black text-pink-500 px-3 py-1 rounded-full hover:bg-pink-500/10 transition-colors"
+                >
+                  Klaar
+                </button>
+              </div>
+
+              {/* Sheet Content by type */}
+              <div className="overflow-y-auto space-y-4 py-1">
+                {activeSheet === 'username' && (
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: textSub }}>
+                      Weergavenaam
+                    </label>
+                    <input
+                      type="text"
+                      autoFocus
+                      className={`w-full font-bold rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'}`}
+                      value={form.display_name || ''}
+                      onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))}
+                      placeholder="Bijv. Koen"
+                    />
+                    <p className="text-[11px] font-medium" style={{ color: textSub }}>
+                      Dit is de naam die andere gebruikers op je profiel zien.
+                    </p>
+                  </div>
+                )}
+
+                {activeSheet === 'gender' && (
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider block mb-2" style={{ color: textSub }}>
+                      Wat is jouw gender?
+                    </label>
+                    <div className="space-y-2">
+                      {GENDER_OPTIONS.map(opt => {
+                        const isSelected = form.gender === opt.value || (opt.value === 'man' && form.gender === 'male') || (opt.value === 'vrouw' && form.gender === 'female') || (opt.value === 'anders' && (form.gender === 'non-binary' || form.gender === 'nonbinary'));
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, gender: opt.value }))}
+                            className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left ${isSelected ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-md' : isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-800 hover:bg-gray-100'}`}
+                          >
+                            <span className="font-bold text-sm">{opt.label}</span>
+                            {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {activeSheet === 'age_height' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: textSub }}>
+                          Leeftijd (jaren)
+                        </label>
+                        <span className="text-[10px] font-bold text-pink-500">Min. 18 jaar</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="18"
+                        max="99"
+                        className={`w-full font-bold rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'}`}
+                        value={form.age || ''}
+                        onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
+                        onBlur={e => {
+                          const num = Number(e.target.value);
+                          if (num && num < 18) {
+                            setForm(f => ({ ...f, age: 18 }));
+                            toast.info('Leeftijd is automatisch ingesteld op het minimum van 18 jaar.');
+                          }
+                        }}
+                        placeholder="Bijv. 24"
+                      />
+                      {form.age && Number(form.age) < 18 && (
+                        <p className="text-[11px] font-bold text-red-500 mt-1">
+                          ⚠️ Minimale leeftijd is 18 jaar.
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider block mb-1.5" style={{ color: textSub }}>
+                        Eigen lengte (cm)
+                      </label>
+                      <input
+                        type="number"
+                        min="120"
+                        max="230"
+                        className={`w-full font-bold rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'}`}
+                        value={form.height_cm || ''}
+                        onChange={e => setForm(f => ({ ...f, height_cm: e.target.value }))}
+                        placeholder="Bijv. 182"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {activeSheet === 'bio' && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: textSub }}>
+                        Bio tekst
+                      </label>
+                      <span className="text-[10px] font-bold text-gray-400">
+                        {(form.bio || '').length}/250
+                      </span>
+                    </div>
+                    <textarea
+                      rows={4}
+                      maxLength={250}
+                      autoFocus
+                      className={`w-full px-4 py-3 rounded-2xl text-xs resize-none outline-none font-medium focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'}`}
+                      value={form.bio || ''}
+                      onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
+                      placeholder="Vertel iets leuks over jezelf, je passies of weekendplannen..."
+                    />
+                  </div>
+                )}
+
+                {activeSheet === 'goals' && (
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider block mb-2" style={{ color: textSub }}>
+                      Waar ben je naar op zoek?
+                    </label>
+                    <div className="space-y-2">
+                      {GOALS.map(g => {
+                        const isSelected = form.relationship_status === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, relationship_status: g }))}
+                            className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left ${isSelected ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-md' : isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-800 hover:bg-gray-100'}`}
+                          >
+                            <span className="font-bold text-sm">{g}</span>
+                            {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {activeSheet === 'looking_for' && (
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider block mb-2" style={{ color: textSub }}>
+                      Naar wie ben je op zoek?
+                    </label>
+                    <div className="space-y-2">
+                      {LOOKING_FOR_OPTIONS.map(opt => {
+                        const isSelected = form.looking_for === opt.value || 
+                          (opt.value === 'man' && form.looking_for === 'male') || 
+                          (opt.value === 'vrouw' && form.looking_for === 'female') || 
+                          (opt.value === 'both' && (form.looking_for === 'both' || form.looking_for === 'beide' || form.looking_for === 'iedereen' || form.looking_for === 'all' || form.looking_for === 'anders'));
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, looking_for: opt.value }))}
+                            className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left ${isSelected ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-md' : isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-800 hover:bg-gray-100'}`}
+                          >
+                            <span className="font-bold text-sm">{opt.label}</span>
+                            {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {activeSheet === 'traits' && (
+                  <div className="space-y-4">
+                    {/* Active choices */}
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
+                        {pendingNewTrait ? (
+                          <span className="text-red-500 font-black animate-pulse">
+                            ⚠️ Tik op een van jouw RODE eigenschappen om te verwisselen met "{pendingNewTrait}"!
+                          </span>
+                        ) : (
+                          "Jouw huidige keuzes (3):"
+                        )}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {(form.traits || []).map(t => (
+                          <button
+                            key={t}
+                            onClick={() => pendingNewTrait && handleSwapOldTrait(t)}
+                            className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                              pendingNewTrait 
+                                ? 'bg-red-500/25 border-red-500 text-red-400 animate-pulse cursor-pointer shadow-md' 
+                                : 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-sm'
+                            }`}
+                          >
+                            <span>{getEmojiForTrait(t)}</span>
+                            <span>{t}</span>
+                            {pendingNewTrait && <ArrowRightLeft className="w-3.5 h-3.5 text-red-400" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Available traits list */}
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
+                        Kies een nieuwe eigenschap om te verwisselen:
+                      </p>
+                      <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
+                        {TRAITS_LIST.filter(t => !(form.traits || []).includes(t.label)).map(t => {
+                          const isPending = pendingNewTrait === t.label;
+                          return (
+                            <button
+                              key={t.label}
+                              onClick={() => handleSelectNewTrait(isPending ? null : t.label)}
+                              className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all border flex items-center gap-1.5 ${
+                                isPending 
+                                  ? 'bg-amber-400/25 border-amber-400 text-amber-300 font-bold shadow-md ring-2 ring-amber-400/50'
+                                  : isDark ? 'bg-white/5 border-white/10 text-gray-300 hover:border-white/25' : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-gray-300'
+                              }`}
+                            >
+                              <span>{t.emoji}</span>
+                              <span>{t.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSheet === 'interests' && (
+                  <div className="space-y-4">
+                    {/* Active choices */}
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
+                        {pendingNewInterest ? (
+                          <span className="text-red-500 font-black animate-pulse">
+                            ⚠️ Tik op een van jouw RODE interesses om te verwisselen met "{pendingNewInterest}"!
+                          </span>
+                        ) : (
+                          "Jouw huidige keuzes (3):"
+                        )}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {(form.interests || []).map(i => (
+                          <button
+                            key={i}
+                            onClick={() => pendingNewInterest && handleSwapOldInterest(i)}
+                            className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                              pendingNewInterest 
+                                ? 'bg-red-500/25 border-red-500 text-red-400 animate-pulse cursor-pointer shadow-md' 
+                                : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-transparent shadow-sm'
+                            }`}
+                          >
+                            <span>{getEmojiForInterest(i)}</span>
+                            <span>{i}</span>
+                            {pendingNewInterest && <ArrowRightLeft className="w-3.5 h-3.5 text-red-400" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Available interests list */}
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
+                        Kies een nieuwe interesse om te verwisselen:
+                      </p>
+                      <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
+                        {INTERESTS_LIST.filter(i => !(form.interests || []).includes(i.label)).map(i => {
+                          const isPending = pendingNewInterest === i.label;
+                          return (
+                            <button
+                              key={i.label}
+                              onClick={() => handleSelectNewInterest(isPending ? null : i.label)}
+                              className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all border flex items-center gap-1.5 ${
+                                isPending 
+                                  ? 'bg-amber-400/25 border-amber-400 text-amber-300 font-bold shadow-md ring-2 ring-amber-400/50'
+                                  : isDark ? 'bg-white/5 border-white/10 text-gray-300 hover:border-white/25' : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-gray-300'
+                              }`}
+                            >
+                              <span>{i.emoji}</span>
+                              <span>{i.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSheet === 'height_pref' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold" style={{ color: textSub }}>Bereik:</span>
+                      <span className="text-sm font-black text-pink-500">
+                        {form.min_height_pref || 140} – {form.max_height_pref || 210} cm
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-1">
+                          <span style={{ color: textSub }}>Max. lengte</span>
+                          <span className="font-bold text-pink-500">{form.max_height_pref || 210} cm</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="140"
+                          max="210"
+                          value={form.max_height_pref || 210}
+                          onChange={e => setForm(f => ({
+                            ...f,
+                            max_height_pref: Math.max(Number(e.target.value), (f.min_height_pref || 140) + 1)
+                          }))}
+                          className="w-full accent-pink-500 cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-1">
+                          <span style={{ color: textSub }}>Min. lengte</span>
+                          <span className="font-bold text-pink-500">{form.min_height_pref || 140} cm</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="140"
+                          max="210"
+                          value={form.min_height_pref || 140}
+                          onChange={e => setForm(f => ({
+                            ...f,
+                            min_height_pref: Math.min(Number(e.target.value), (f.max_height_pref || 210) - 1)
+                          }))}
+                          className="w-full accent-pink-500 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-medium" style={{ color: textSub }}>
+                      Matches binnen jouw lengtevoorkeur krijgen voorrang op de home- en ontdekpagina.
+                    </p>
+                  </div>
+                )}
+
+                {activeSheet === 'age_pref' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold" style={{ color: textSub }}>Bereik:</span>
+                      <span className="text-sm font-black text-pink-500">
+                        {form.min_age_pref || 18} – {form.max_age_pref || 70} jaar
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-1">
+                          <span style={{ color: textSub }}>Max. leeftijd</span>
+                          <span className="font-bold text-pink-500">{form.max_age_pref || 70} jaar</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="18"
+                          max="70"
+                          value={form.max_age_pref || 70}
+                          onChange={e => setForm(f => ({
+                            ...f,
+                            max_age_pref: Math.max(Number(e.target.value), (f.min_age_pref || 18) + 1)
+                          }))}
+                          className="w-full accent-pink-500 cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs font-semibold mb-1">
+                          <span style={{ color: textSub }}>Min. leeftijd</span>
+                          <span className="font-bold text-pink-500">{form.min_age_pref || 18} jaar</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="18"
+                          max="70"
+                          value={form.min_age_pref || 18}
+                          onChange={e => setForm(f => ({
+                            ...f,
+                            min_age_pref: Math.min(Number(e.target.value), (f.max_age_pref || 70) - 1)
+                          }))}
+                          className="w-full accent-pink-500 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[11px] font-medium" style={{ color: textSub }}>
+                      Profielen binnen deze leeftijdscategorie worden aan jou voorgesteld.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL: SAVE CONFIRMATION (WARNING MATCHES COULD BE LOST) ── */}
       {showSaveConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowSaveConfirm(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowSaveConfirm(false)}>
+          <div className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-2xl border border-gray-100 dark:border-white/10 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-center gap-2 mb-2">
               <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
-              <h4 className="text-gray-900 font-bold text-xs">Account wijzigen</h4>
+              <h4 className="text-gray-900 dark:text-white font-bold text-xs">Account wijzigen?</h4>
             </div>
-            <p className="text-gray-600 font-medium text-[11px] leading-relaxed mb-4">
-              Weet je zeker dat je account wordt veranderd? Je kan matches en hints verliezen door het veranderen van je account.
+            <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
+              Weet je zeker dat je jouw account wilt opslaan? Je kunt potentiële matches en hints verliezen door het veranderen van je profielgegevens en voorkeuren.
             </p>
             <div className="flex gap-2">
               <button 
                 onClick={() => setShowSaveConfirm(false)} 
-                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
+                className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
               >
-                Nee
+                Annuleren
               </button>
               <button 
                 onClick={executeSave} 
-                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
+                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:opacity-95"
               >
-                Ja
+                Ja, opslaan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: DISCARD CONFIRMATION (WHEN RETURNING WITH UNSAVED CHANGES) ── */}
+      {showDiscardConfirm && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={handleCancelDiscard}>
+          <div className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
+              <h4 className="text-gray-900 dark:text-white font-bold text-xs">Wijzigingen verwerpen?</h4>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
+              Weet je het zeker? Je hebt aanpassingen gemaakt die nog niet zijn opgeslagen. Als je weggaat, gaan deze verloren.
+            </p>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleCancelDiscard} 
+                className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
+              >
+                Annuleren
+              </button>
+              <button 
+                onClick={handleConfirmDiscard} 
+                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
+              >
+                Ja, verwerpen
               </button>
             </div>
           </div>
@@ -1201,24 +1938,24 @@ export default function Account() {
       {/* ── MODAL: LOGOUT CONFIRM (NORMAL NOTIFICATION STYLE) ── */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowLogoutConfirm(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-center gap-2 mb-2">
               <LogOut className="w-4.5 h-4.5 text-rose-500 flex-shrink-0" />
-              <h4 className="text-gray-900 font-bold text-xs">Uitloggen</h4>
+              <h4 className="text-gray-900 dark:text-white font-bold text-xs">Uitloggen</h4>
             </div>
-            <p className="text-gray-600 font-medium text-[11px] leading-relaxed mb-4">
+            <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
               Weet je het zeker dat je wilt uitloggen bij Romety?
             </p>
             <div className="flex gap-2">
               <button 
                 onClick={() => setShowLogoutConfirm(false)} 
-                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
+                className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
               >
                 Nee
               </button>
               <button 
                 onClick={handlePerformLogout} 
-                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
+                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
               >
                 Ja
               </button>
@@ -1230,24 +1967,24 @@ export default function Account() {
       {/* ── MODAL: DELETE CONFIRM (NORMAL NOTIFICATION STYLE) ── */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-center gap-2 mb-2">
               <Trash2 className="w-4.5 h-4.5 text-red-600 flex-shrink-0" />
-              <h4 className="text-gray-900 font-bold text-xs">Account verwijderen</h4>
+              <h4 className="text-gray-900 dark:text-white font-bold text-xs">Account verwijderen</h4>
             </div>
-            <p className="text-gray-600 font-medium text-[11px] leading-relaxed mb-4">
+            <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
               Weet je het zeker? Al je matches, hints en overige informatie worden hiermee definitief verwijderd uit de database.
             </p>
             <div className="flex gap-2">
               <button 
                 onClick={() => setShowDeleteConfirm(false)} 
-                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
+                className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
               >
                 Nee
               </button>
               <button 
                 onClick={() => { setShowDeleteConfirm(false); handleDeleteAccount(); }} 
-                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
+                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
               >
                 Ja
               </button>

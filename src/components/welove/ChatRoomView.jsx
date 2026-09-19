@@ -12,7 +12,7 @@ const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
 // Phase durations in milliseconds
 const PHASE_DURATIONS = {
-  1: 24 * 60 * 60 * 1000,   // 24 hours
+  1: 48 * 60 * 60 * 1000,   // 48 hours
   2: 48 * 60 * 60 * 1000,   // 48 hours
   3: 24 * 60 * 60 * 1000,   // 24 hours
   4: null,                    // No timer, contact exchange
@@ -335,19 +335,33 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       await base44.entities.ChatRoom.update(localRoom.id, updates);
 
       if (!accept) {
-        // Declined → close chat
+        // Declined → close chat and delete immediately
         await base44.entities.ChatRoom.update(localRoom.id, {
-          status: 'archived',
+          status: 'deleted',
           chat_closed_at: new Date().toISOString(),
-          deleted_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+          deleted_at: new Date().toISOString(),
         });
         await base44.entities.ChatMessage.create({
           room_id: localRoom.id,
           sender_email: currentUserEmail,
-          content: `Chat beëindigd. De ander wil niet doorgaan.`,
+          content: `Chat beëindigd. Er is gekozen om niet verder te gaan.`,
           type: 'system',
           is_system: true,
         });
+
+        // Send notification to the other user
+        const otherEmail = isUserA ? localRoom.user_b_email : localRoom.user_a_email;
+        if (otherEmail) {
+          await base44.entities.Notification.create({
+            to_email: otherEmail,
+            from_email: currentUserEmail,
+            type: 'chat_rejected',
+            message: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
+            is_read: false,
+            created_date: new Date().toISOString(),
+          }).catch(() => {});
+        }
+
         toast.info('Chat is beëindigd');
         onBack?.();
       } else {
@@ -454,7 +468,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const otherAvatar = otherPhotos[0] || null;
 
   const phaseLabels = {
-    1: { label: 'Fase 1 – 24u chat', color: '#FF4B72' },
+    1: { label: 'Fase 1 – 48u chat', color: '#FF4B72' },
     2: { label: myPhotoSent ? 'Fase 2 – 48u chat' : 'Fase 2 – Stuur een foto', color: myPhotoSent ? '#FF4B72' : '#EA3FD3' },
     3: { label: 'Fase 3 – Laatste 24u', color: '#8B5CF6' },
     4: { label: 'Fase 4 – Contactgegevens uitwisselen', color: '#10B981' },

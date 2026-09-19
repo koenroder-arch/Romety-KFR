@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Users, Crown } from 'lucide-react';
+import { Flame, Users, Crown, MapPin } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
+import { calculateDistanceKm, formatDistance } from '@/lib/geoUtils';
 
-export default function HotspotSection({ hotspots, isPremium, onHotspotClick }) {
+export default function HotspotSection({ hotspots, isPremium, onHotspotClick, userPosition = null }) {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isDark = theme !== 'light';
@@ -117,9 +118,23 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick }) 
                     {spot.venue_name}
                   </p>
                   
-                  <p className="text-[11px] font-medium mt-0.5 truncate" style={{ color: subColor }}>
-                    {spot.city || 'Utrecht, NL'}
-                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <p className="text-[11px] font-medium truncate" style={{ color: subColor }}>
+                      {spot.city || 'Utrecht, NL'}
+                    </p>
+                    {(() => {
+                      const dist = spot.distanceKm != null
+                        ? spot.distanceKm
+                        : (userPosition && spot.lat && spot.lng ? calculateDistanceKm(userPosition[0], userPosition[1], spot.lat, spot.lng) : null);
+                      const dLabel = dist != null ? formatDistance(dist) : null;
+                      return dLabel ? (
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5" style={{ background: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.12)', color: '#3B82F6' }}>
+                          <MapPin className="w-2.5 h-2.5" />
+                          {dLabel}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
 
                 {/* Footer Count */}

@@ -67,22 +67,45 @@ export function getArray(val) {
   return [];
 }
 
+function normGender(g) {
+  if (!g) return '';
+  const s = String(g).toLowerCase().trim();
+  if (s === 'male' || s === 'man') return 'man';
+  if (s === 'female' || s === 'vrouw') return 'vrouw';
+  return 'anders';
+}
+
+function normLookingFor(lf) {
+  if (!lf) return '';
+  const s = String(lf).toLowerCase().trim();
+  if (s === 'male' || s === 'man') return 'man';
+  if (s === 'female' || s === 'vrouw') return 'vrouw';
+  if (s === 'both' || s === 'beide' || s === 'iedereen' || s === 'all' || s === 'anders') return 'both';
+  return s;
+}
+
 /**
- * Controleert geslacht en zoekvoorkeur (man, vrouw, both/allebei/overig).
+ * Controleert geslacht en zoekvoorkeur (man, vrouw, both/beide).
+ * Als een profiel 'beide' kiest, matcht deze uitsluitend met profielen die ook 'beide' hebben gekozen.
  */
-function genderMatch(myProfile, other) {
+export function genderMatch(myProfile, other) {
   if (!myProfile || !other) return false;
   
-  const myGender = (myProfile.gender || '').toLowerCase().trim();
-  const myLookingFor = (myProfile.looking_for || 'both').toLowerCase().trim();
-  const otherGender = (other.gender || '').toLowerCase().trim();
-  const otherLookingFor = (other.looking_for || 'both').toLowerCase().trim();
+  const myG = normGender(myProfile.gender);
+  const myLF = normLookingFor(myProfile.looking_for);
+  const otherG = normGender(other.gender);
+  const otherLF = normLookingFor(other.looking_for);
 
   // Als data nog ontbreekt, sluit niet direct uit
-  if (!myGender || !otherGender) return true;
+  if (!myG || !otherG) return true;
 
-  const iWantThem = myLookingFor === 'both' || myLookingFor === 'iedereen' || myLookingFor === 'all' || myLookingFor === otherGender;
-  const theyWantMe = otherLookingFor === 'both' || otherLookingFor === 'iedereen' || otherLookingFor === 'all' || otherLookingFor === myGender;
+  // Als iemand 'both' (beide) zoekt, moeten ze ALLEBEI 'both' hebben ingegeven
+  if (myLF === 'both' || otherLF === 'both') {
+    return myLF === 'both' && otherLF === 'both';
+  }
+
+  const iWantThem = myLF === otherG;
+  const theyWantMe = otherLF === myG;
 
   return iWantThem && theyWantMe;
 }

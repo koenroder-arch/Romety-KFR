@@ -14,14 +14,14 @@ import { createPageUrl } from '@/utils';
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
 const PHASE_DURATIONS = {
-  1: 24 * 60 * 60 * 1000,
+  1: 48 * 60 * 60 * 1000,
   2: 48 * 60 * 60 * 1000,
   3: 24 * 60 * 60 * 1000,
   4: null,
 };
 
 const PHASE_LABELS = {
-  1: { label: 'Fase 1 · 24u chat', color: '#FF4B72' },
+  1: { label: 'Fase 1 · 48u chat', color: '#FF4B72' },
   2: { label: 'Fase 2 · 48u chat', color: '#FF4B72' },
   3: { label: 'Fase 3 · Laatste 24u', color: '#8B5CF6' },
   4: { label: 'Fase 4 · Contact uitwisselen', color: '#10B981' },
@@ -230,8 +230,41 @@ export default function Chat() {
         })
       );
 
+      // Filter out rooms with > 7 days of inactivity and notify users
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const activeRooms = [];
+      for (const r of visible) {
+        const lastTime = latestActivity[r.id] || new Date(r.created_at || 0).getTime();
+        if (now.getTime() - lastTime > SEVEN_DAYS_MS) {
+          // Mark room as deleted
+          base44.entities.ChatRoom.update(r.id, {
+            status: 'deleted',
+            deleted_at: now.toISOString(),
+          }).catch(() => {});
+
+          // Notify both users
+          base44.entities.Notification.create({
+            to_email: r.user_a_email,
+            type: 'chat_inactive',
+            message: 'Een chat is beëindigd en verwijderd vanwege 7 dagen inactiviteit.',
+            is_read: false,
+            created_date: now.toISOString(),
+          }).catch(() => {});
+
+          base44.entities.Notification.create({
+            to_email: r.user_b_email,
+            type: 'chat_inactive',
+            message: 'Een chat is beëindigd en verwijderd vanwege 7 dagen inactiviteit.',
+            is_read: false,
+            created_date: now.toISOString(),
+          }).catch(() => {});
+        } else {
+          activeRooms.push(r);
+        }
+      }
+
       // Sort: pending first, then by latest message activity descending with stable ID tiebreaker
-      visible.sort((a, b) => {
+      activeRooms.sort((a, b) => {
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (b.status === 'pending' && a.status !== 'pending') return 1;
         const timeA = latestActivity[a.id] || new Date(a.created_at || 0).getTime();
@@ -243,7 +276,7 @@ export default function Chat() {
       if (Object.keys(profMap).length > 0) {
         setProfiles(prev => ({ ...prev, ...profMap }));
       }
-      setRooms([...visible]);
+      setRooms([...activeRooms]);
       setMessageCounts(counts);
     } catch (e) {}
     setLoading(false);
@@ -283,7 +316,7 @@ export default function Chat() {
         await base44.entities.ChatMessage.create({
           room_id: room.id,
           sender_email: 'system',
-          content: '💬 Chat gestart! Jullie hebben 24 uur om te chatten.',
+          content: '💬 Chat gestart! Jullie hebben 48 uur om te chatten.',
           type: 'system',
         });
       } catch (msgErr) {
@@ -295,7 +328,7 @@ export default function Chat() {
         await base44.entities.Notification.create({
           user_email: room.user_a_email,
           type: 'chat_accepted',
-          message: 'Je chat-uitnodiging is geaccepteerd! 🎉 Jullie hebben 24u.',
+          message: 'Je chat-uitnodiging is geaccepteerd! 🎉 Jullie hebben 48u.',
           read: false,
           created_date: new Date().toISOString(),
         });
@@ -319,6 +352,20 @@ export default function Chat() {
         status: 'deleted',
         deleted_at: new Date().toISOString(),
       });
+
+      // Send rejection notification to the other user
+      const otherEmail = room.user_a_email === user?.email ? room.user_b_email : room.user_a_email;
+      if (otherEmail) {
+        await base44.entities.Notification.create({
+          to_email: otherEmail,
+          from_email: user?.email,
+          type: 'chat_rejected',
+          message: 'Je chat-uitnodiging is afgewezen.',
+          is_read: false,
+          created_date: new Date().toISOString(),
+        }).catch(() => {});
+      }
+
       toast.info('Uitnodiging geweigerd');
       await loadData();
     } catch (e) {

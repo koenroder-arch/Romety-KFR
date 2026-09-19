@@ -7,7 +7,7 @@ import ProfilePhotoCarousel from '@/components/welove/ProfilePhotoCarousel';
 import { authStorage } from '@/lib/authStorage';
 import { toast } from 'sonner';
 
-const MAX_CHARS = 25;
+const MAX_CHARS = 40;
 
 export default function SendHintSheet({ 
   user, myProfile, myCheckIn, matches, mutualMatches, onClose, onSent, isDark, initialProfile = null,
@@ -636,7 +636,7 @@ export default function SendHintSheet({
                               <textarea
                                 value={message}
                                 onChange={e => setMessage(e.target.value.slice(0, MAX_CHARS))}
-                                placeholder="Schrijf je hint..."
+                                placeholder='Type bijvoorbeeld "Ik sta aan de bar!"'
                                 className="w-full rounded-2xl px-4 py-3 text-sm resize-none outline-none"
                                 style={{
                                   background: inputBg,

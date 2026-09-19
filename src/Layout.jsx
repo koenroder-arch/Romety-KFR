@@ -159,29 +159,49 @@ export default function Layout({ children, currentPageName }) {
         >
           <div className="flex justify-around items-center px-2 py-4">
             {NAV_ITEMS.map(({ name, icon: Icon, page }) => {
-            const isActive = currentPageName === page;
-            const inactiveColor = isDark ? 'rgba(255,255,255,0.5)' : '#888888';
-            return (
-              <Link key={name} to={createPageUrl(page)} className="px-4 py-0 rounded flex flex-col items-center gap-0.5 active:scale-90 transition-transform duration-200" onClick={() => { if (page === 'Matches') markAllRead(); if (navigator.vibrate) navigator.vibrate(40); }}>
+              const isActive = currentPageName === page;
+              const inactiveColor = isDark ? 'rgba(255,255,255,0.5)' : '#888888';
+              const targetUrl = createPageUrl(page);
+
+              const handleNavClick = (e) => {
+                if (typeof window !== 'undefined' && window.__romety_nav_blocker) {
+                  const blocked = window.__romety_nav_blocker(targetUrl);
+                  if (blocked) {
+                    e.preventDefault();
+                    return;
+                  }
+                }
+                if (page === 'Matches') markAllRead();
+                if (navigator.vibrate) navigator.vibrate(40);
+              };
+
+              return (
+                <Link
+                  key={name}
+                  to={targetUrl}
+                  className="px-4 py-0 rounded flex flex-col items-center gap-0.5 active:scale-90 transition-transform duration-200"
+                  onClick={handleNavClick}
+                >
                   <div className="relative">
                     <Icon
-                    className="w-6 h-6 transition-all duration-200"
-                    style={isActive ? { color: '#FF4B72', filter: 'drop-shadow(0 0 8px rgba(255,75,114,0.8))' } : { color: inactiveColor }} />
+                      className="w-6 h-6 transition-all duration-200"
+                      style={isActive ? { color: '#FF4B72', filter: 'drop-shadow(0 0 8px rgba(255,75,114,0.8))' } : { color: inactiveColor }}
+                    />
 
-                    {page === 'Matches' && unreadCount > 0 &&
-                  <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>
+                    {page === 'Matches' && unreadCount > 0 && (
+                      <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </div>
-                  }
-                    {page === 'Chat' && unreadChatCount > 0 &&
-                  <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>
+                    )}
+                    {page === 'Chat' && unreadChatCount > 0 && (
+                      <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>
                         {unreadChatCount > 9 ? '9+' : unreadChatCount}
                       </div>
-                  }
+                    )}
                   </div>
-                </Link>);
-
-          })}
+                </Link>
+              );
+            })}
           </div>
         </nav>
       }

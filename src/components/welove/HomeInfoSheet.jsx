@@ -4,6 +4,7 @@ import { MapPin, AlertCircle, X, Heart, Users, ChevronRight } from 'lucide-react
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
 import { isMatch } from '@/lib/matchUtils';
+import { calculateDistanceKm, formatDistance } from '@/lib/geoUtils';
 import HotspotSection from './HotspotSection';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -33,6 +34,12 @@ export default function HomeInfoSheet({
   onShowPremium,
   onVenueNavigate,
   onCancelGoing,
+  userPosition = null,
+  referencePosition = null,
+  useNearbyFilter = false,
+  selectedCity = null,
+  onEnableNearby,
+  onDisableNearby,
 }) {
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -56,8 +63,19 @@ export default function HomeInfoSheet({
     const matchingEmailSet = new Set(matchingProfiles.map((p) => p.user_email));
 
     // Filter active destinations for matches
-    const matchDests = allDestinations.filter((d) => matchingEmailSet.has(d.user_email));
+    let matchDests = allDestinations.filter((d) => matchingEmailSet.has(d.user_email));
     if (!matchDests.length) return null;
+
+    // When nearby/city filter is active, filter destinations strictly for that city
+    if (useNearbyFilter && selectedCity) {
+      const cityQuery = selectedCity.trim().toLowerCase();
+      matchDests = matchDests.filter((d) => {
+        const club = clubs.find((c) => c.id === d.venue_id || c.name === d.venue_name);
+        const destCity = (d.venue_city || club?.city || '').toLowerCase();
+        return destCity.length > 0 && (destCity.includes(cityQuery) || cityQuery.includes(destCity));
+      });
+      if (!matchDests.length) return null;
+    }
 
     const counts = {};
     const metaMap = {};
@@ -89,7 +107,7 @@ export default function HomeInfoSheet({
       city: club?.city || meta.venue_city || '',
       club: club || { id: meta.venue_id, name: meta.venue_name, city: meta.venue_city }
     };
-  }, [myProfile, allProfiles, allDestinations, clubs]);
+  }, [myProfile, allProfiles, allDestinations, clubs, useNearbyFilter, selectedCity]);
 
   useEffect(() => {
     const target = snapState === 'full' ? FULL_Y : snapState === 'peek' ? PEEK_Y : COLLAPSED_Y;
@@ -271,6 +289,7 @@ export default function HomeInfoSheet({
             {/* Hotspots - Beste locaties vanavond */}
             <HotspotSection
               hotspots={hotspots}
+              userPosition={useNearbyFilter ? userPosition : null}
               isPremium={true}
               onHotspotClick={(hotspot) => {
                 if (onVenueClick) {
@@ -316,12 +335,28 @@ export default function HomeInfoSheet({
                     <h3 className={`font-black text-[15px] sm:text-base leading-tight truncate ${textMain}`}>
                       {topMatchVenue.venue_name}
                     </h3>
-                    {topMatchVenue.city && (
-                      <p className="text-[11px] font-bold text-pink-500/80 mt-0.5 truncate flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-pink-500" />
-                        <span>{topMatchVenue.city}</span>
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {topMatchVenue.city && (
+                        <p className="text-[11px] font-bold text-pink-500/80 truncate flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-pink-500" />
+                          <span>{topMatchVenue.city}</span>
+                        </p>
+                      )}
+                      {(() => {
+                        if (!useNearbyFilter) return null;
+                        const ref = userPosition || referencePosition;
+                        const clubLat = topMatchVenue.club?.lat;
+                        const clubLng = topMatchVenue.club?.lng;
+                        const dist = ref && clubLat && clubLng ? calculateDistanceKm(ref[0], ref[1], clubLat, clubLng) : null;
+                        const dLabel = dist != null ? formatDistance(dist) : null;
+                        return dLabel ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.12)', color: '#3B82F6' }}>
+                            <MapPin className="w-2.5 h-2.5" />
+                            {dLabel}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
                 </div>
 

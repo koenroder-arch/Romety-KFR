@@ -42,6 +42,13 @@ export default function NotificationBell({ isDark = true }) {
     loadNotifications();
   };
 
+  const handleNotificationClick = async (n) => {
+    if (!n.is_read && n.id) {
+      await base44.entities.Notification.update(n.id, { is_read: true }).catch(() => {});
+      setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true } : item));
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
     const handler = (e) => {
@@ -147,7 +154,7 @@ export default function NotificationBell({ isDark = true }) {
                         <Bell className="w-7 h-7" style={{ color: '#A061FF' }} />
                       </div>
                       <p className="font-bold text-sm" style={{ color: textMain }}>Nog geen meldingen</p>
-                      <p className="text-xs mt-1" style={{ color: textSub }}>Je ziet hier likes en supermatches</p>
+                      <p className="text-xs mt-1" style={{ color: textSub }}>Je ziet hier updates, likes en chats</p>
                     </div>
                   ) : (
                     <div>
@@ -230,9 +237,18 @@ export default function NotificationBell({ isDark = true }) {
                                 const isHint = n.type === 'hint';
 
                                 let titleText = 'Melding';
-                                let descText = 'Je hebt een update.';
+                                let descText = n.message || 'Je hebt een update.';
 
-                                if (n.type === 'game_invite') {
+                                if (n.type === 'chat_rejected') {
+                                  titleText = 'Chat beëindigd ❌';
+                                  descText = n.message || 'Een chat is beëindigd door afwijzing.';
+                                } else if (n.type === 'chat_inactive') {
+                                  titleText = 'Chat beëindigd ⌛';
+                                  descText = n.message || 'Een chat is verwijderd vanwege 7 dagen inactiviteit.';
+                                } else if (n.type === 'chat_accepted') {
+                                  titleText = 'Chat geaccepteerd! 💬';
+                                  descText = n.message || 'Je chat-uitnodiging is geaccepteerd! 🎉';
+                                } else if (n.type === 'game_invite') {
                                   titleText = 'Speluitnodiging';
                                   descText = 'Je match heeft je uitgenodigd voor een game!';
                                 } else if (n.type === 'game_accepted') {
@@ -244,7 +260,7 @@ export default function NotificationBell({ isDark = true }) {
                                 } else if (isHint) {
                                   titleText = 'Hint ontvangen';
                                   descText = 'Je hebt een nieuwe hint gekregen van een match!';
-                                } else {
+                                } else if (n.type === 'like') {
                                   titleText = 'Nieuwe like';
                                   descText = 'Iemand vindt je leuk! 💜';
                                 }

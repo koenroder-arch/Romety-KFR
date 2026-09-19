@@ -55,12 +55,38 @@ export function normalizeInterest(i) {
   return INTEREST_MAP[clean] || clean;
 }
 
-function genderMatch(myProfile, other) {
-  if (!myProfile.gender || !myProfile.looking_for) return false;
-  if (!other.gender || !other.looking_for) return false;
+function normGender(g) {
+  if (!g) return '';
+  const s = String(g).toLowerCase().trim();
+  if (s === 'male' || s === 'man') return 'man';
+  if (s === 'female' || s === 'vrouw') return 'vrouw';
+  return 'anders';
+}
 
-  const iWantThem = myProfile.looking_for === 'both' || myProfile.looking_for === other.gender;
-  const theyWantMe = other.looking_for === 'both' || other.looking_for === myProfile.gender;
+function normLookingFor(lf) {
+  if (!lf) return '';
+  const s = String(lf).toLowerCase().trim();
+  if (s === 'male' || s === 'man') return 'man';
+  if (s === 'female' || s === 'vrouw') return 'vrouw';
+  if (s === 'both' || s === 'beide' || s === 'iedereen' || s === 'all' || s === 'anders') return 'both';
+  return s;
+}
+
+function genderMatch(myProfile, other) {
+  const myG = normGender(myProfile.gender);
+  const myLF = normLookingFor(myProfile.looking_for);
+  const otherG = normGender(other.gender);
+  const otherLF = normLookingFor(other.looking_for);
+
+  if (!myG || !otherG) return false;
+
+  // Als iemand 'both' (beide) zoekt, moeten ze ALLEBEI 'both' hebben ingegeven
+  if (myLF === 'both' || otherLF === 'both') {
+    return myLF === 'both' && otherLF === 'both';
+  }
+
+  const iWantThem = myLF === otherG;
+  const theyWantMe = otherLF === myG;
   return iWantThem && theyWantMe;
 }
 

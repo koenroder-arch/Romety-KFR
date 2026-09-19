@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
-import { Search, MapPin, X, Building2, Crosshair } from 'lucide-react';
+import { Search, MapPin, X, Building2, Crosshair, Navigation, SlidersHorizontal } from 'lucide-react';
 import { useLang } from '@/lib/LanguageContext';
 import { T } from '@/lib/translations';
-import { isMatch, calculateCompatibility, getArray, normalizeTrait, normalizeInterest } from '@/lib/matchUtils';
+import { isMatch, calculateCompatibility, getArray, normalizeTrait, normalizeInterest, genderMatch } from '@/lib/matchUtils';
+import { calculateDistanceKm, formatDistance, sortVenuesByDistance } from '@/lib/geoUtils';
 import MapView from '@/components/welove/MapView';
 import VenueBottomSheet from '@/components/welove/VenueBottomSheet';
 import HomeInfoSheet from '@/components/welove/HomeInfoSheet';
+import LocationFilterModal from '@/components/welove/LocationFilterModal';
 import { useTheme } from '@/lib/ThemeContext';
 import { fetchReportedEmails } from '@/lib/reportUtils';
 import { getCountryByName, venueInCountry, DEFAULT_COUNTRY } from '@/lib/countries';
@@ -29,6 +31,10 @@ export default function Pinpoint() {
   const [myCheckIn, setMyCheckIn] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userPosition, setUserPosition] = useState(null);
+  const [useNearbyFilter, setUseNearbyFilter] = useState(false);
+  const [selectedCity, setSelectedCity] = useState(null);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [selectedRadius, setSelectedRadius] = useState('all'); // 'all' | '5' | '15' | '30' | '50'
   const [bottomSheet, setBottomSheet] = useState(null);
   const [clubs, setClubs] = useState([]);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -44,11 +50,113 @@ export default function Pinpoint() {
   const [allDestinations, setAllDestinations] = useState([]);
   const [allProfiles, setAllProfiles] = useState([]);
   const [highMatches, setHighMatches] = useState([]);
-  const [hotspots, setHotspots] = useState([]);
   const watchIdRef = useRef(null);
   const mapRef = useRef(null);
   const searchDebounceRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  // Active reference position: search location has priority, then GPS position (only when useNearbyFilter is active)
+  const referencePosition = useMemo(() => {
+    if (searchPin && searchPin.lat && searchPin.lng) {
+      return [searchPin.lat, searchPin.lng];
+    }
+    if (useNearbyFilter && userPosition) {
+      return userPosition;
+    }
+    return null;
+  }, [searchPin, userPosition, useNearbyFilter]);
+
+  // Location pin for the map: only shown when location filter is active, removed when filter is cleared or expired
+  const locationPin = useMemo(() => {
+    if (!useNearbyFilter) return null;
+    if (searchPin && searchPin.lat && searchPin.lng) {
+      return {
+        lat: searchPin.lat,
+        lng: searchPin.lng,
+        label: selectedCity || searchPin.label || 'Gekozen stad',
+      };
+    }
+    if (userPosition) {
+      return {
+        lat: userPosition[0],
+        lng: userPosition[1],
+        label: selectedCity || 'Huidige locatie',
+      };
+    }
+    return null;
+  }, [useNearbyFilter, searchPin, userPosition, selectedCity]);
+
+  // Clubs sorted by proximity to the reference position (or standard list when no filter)
+  const sortedClubs = useMemo(() => {
+    if (!referencePosition || !clubs.length) return clubs;
+    return sortVenuesByDistance(clubs, referencePosition[0], referencePosition[1]);
+  }, [clubs, referencePosition]);
+
+  // Clubs filtered by selected radius
+  const displayedClubs = useMemo(() => {
+    if (selectedRadius === 'all' || !referencePosition) return sortedClubs;
+    const maxKm = Number(selectedRadius);
+    return sortedClubs.filter((c) => c.distanceKm != null && c.distanceKm <= maxKm);
+  }, [sortedClubs, selectedRadius, referencePosition]);
+
+  // Hotspots: if useNearbyFilter is active with a selectedCity, strictly filter destinations for that city
+  const displayedHotspots = useMemo(() => {
+    if (!allDestinations.length) return [];
+
+    const sameCountryEmails = new Set(
+      allProfiles
+        .filter((prof) => (prof.country || 'Nederland') === (myProfile?.country || 'Nederland'))
+        .map((prof) => prof.user_email)
+    );
+
+    const clubMap = {};
+    clubs.forEach((c) => {
+      if (c.id) clubMap[c.id] = c;
+      if (c.name) clubMap[c.name] = c;
+    });
+
+    let filteredDests = allDestinations.filter((d) => sameCountryEmails.has(d.user_email));
+
+    // If city filter is active (via GPS reverse-geocode or user city input)
+    if (useNearbyFilter && selectedCity) {
+      const cityQuery = selectedCity.trim().toLowerCase();
+      filteredDests = filteredDests.filter((d) => {
+        const club = clubMap[d.venue_id] || clubMap[d.venue_name];
+        const destCity = (d.venue_city || club?.city || '').toLowerCase();
+        return destCity.length > 0 && (destCity.includes(cityQuery) || cityQuery.includes(destCity));
+      });
+
+      // If no destinations match this city, return empty array immediately (empty state)
+      if (filteredDests.length === 0) {
+        return [];
+      }
+    }
+
+    const hotspotsCountMap = {};
+    const hotspotsMetaMap = {};
+    filteredDests.forEach((d) => {
+      const key = d.venue_id || d.venue_name;
+      hotspotsCountMap[key] = (hotspotsCountMap[key] || 0) + 1;
+      if (!hotspotsMetaMap[key] || (!hotspotsMetaMap[key].venue_city && d.venue_city)) {
+        hotspotsMetaMap[key] = { venue_id: d.venue_id, venue_name: d.venue_name, venue_city: d.venue_city };
+      }
+    });
+
+    return Object.entries(hotspotsCountMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([key, count]) => {
+        const meta = hotspotsMetaMap[key];
+        const club = clubMap[meta?.venue_id] || clubMap[meta?.venue_name];
+        return {
+          ...meta,
+          count,
+          city: club?.city || meta?.venue_city || '',
+          lat: club?.lat,
+          lng: club?.lng,
+        };
+      });
+  }, [allDestinations, clubs, allProfiles, myProfile, useNearbyFilter, selectedCity]);
 
   const startGPS = () => {
     if (!navigator.geolocation || watchIdRef.current) return;
@@ -70,183 +178,178 @@ export default function Pinpoint() {
 
   const loadData = async () => {
     setLoading(true);
-    const u = user;
-    if (!u) { setLoading(false); return; }
+    try {
+      const u = user;
+      if (!u) { setLoading(false); return; }
 
-    const [
-      profiles = [],
-      allClubs = [],
-      checkIns = [],
-      searches = [],
-      allCheckIns = [],
-      allDests = [],
-      allProfs = [],
-      reportedEmails = new Set()
-    ] = await Promise.all([
-      base44.entities.UserProfile.filter({ user_email: u.email }).catch(() => []),
-      base44.entities.Club.list().catch(() => []),
-      base44.entities.VenueCheckIn.filter({ user_email: u.email }).catch(() => []),
-      base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 10).catch(() => []),
-      base44.entities.VenueCheckIn.list().catch(() => []),
-      base44.entities.UserDestination.list().catch(() => []),
-      base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
-      fetchReportedEmails(u.email).catch(() => new Set())
-    ]);
+      const [
+        profiles = [],
+        allClubs = [],
+        checkIns = [],
+        searches = [],
+        allCheckIns = [],
+        allDests = [],
+        allProfs = [],
+        reportedEmails = new Set()
+      ] = await Promise.all([
+        base44.entities.UserProfile.filter({ user_email: u.email }).catch(() => []),
+        base44.entities.Club.list().catch(() => []),
+        base44.entities.VenueCheckIn.filter({ user_email: u.email }).catch(() => []),
+        base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 10).catch(() => []),
+        base44.entities.VenueCheckIn.list().catch(() => []),
+        base44.entities.UserDestination.list().catch(() => []),
+        base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
+        fetchReportedEmails(u.email).catch(() => new Set())
+      ]);
 
-    const safeProfs = allProfs.filter(p => p && p.user_email && !reportedEmails.has(p.user_email));
-    const safeDests = allDests.filter(d => d && d.user_email && !reportedEmails.has(d.user_email));
-    const safeCheckIns = allCheckIns.filter(c => c && c.user_email && !reportedEmails.has(c.user_email));
+      const safeProfs = allProfs.filter(p => p && p.user_email && !reportedEmails.has(p.user_email));
+      const safeDests = allDests.filter(d => d && d.user_email && !reportedEmails.has(d.user_email));
+      const safeCheckIns = allCheckIns.filter(c => c && c.user_email && !reportedEmails.has(c.user_email));
 
-    setRecentSearches(searches);
-    setAllProfiles(safeProfs);
+      setRecentSearches(searches);
+      setAllProfiles(safeProfs);
 
-    // Automatic background pruning: ensure user has at most 10 SearchHistory & 10 UserDestination rows in Supabase
-    setTimeout(async () => {
-      try {
-        const allUserSearches = await base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 100);
-        if (allUserSearches.length > 10) {
-          const excess = allUserSearches.slice(10);
-          for (const s of excess) {
-            if (s.id) await base44.entities.SearchHistory.delete(s.id).catch(() => {});
+      // Automatic background pruning: ensure user has at most 10 SearchHistory & 10 UserDestination rows in Supabase
+      setTimeout(async () => {
+        try {
+          const allUserSearches = await base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 100);
+          if (allUserSearches.length > 10) {
+            const excess = allUserSearches.slice(10);
+            for (const s of excess) {
+              if (s.id) await base44.entities.SearchHistory.delete(s.id).catch(() => {});
+            }
           }
-        }
-        const allUserDests = await base44.entities.UserDestination.filter({ user_email: u.email }, '-created_date', 100);
-        if (allUserDests.length > 10) {
-          const excess = allUserDests.slice(10);
-          for (const d of excess) {
-            if (d.id) await base44.entities.UserDestination.delete(d.id).catch(() => {});
+          const allUserDests = await base44.entities.UserDestination.filter({ user_email: u.email }, '-created_date', 100);
+          if (allUserDests.length > 10) {
+            const excess = allUserDests.slice(10);
+            for (const d of excess) {
+              if (d.id) await base44.entities.UserDestination.delete(d.id).catch(() => {});
+            }
           }
-        }
-      } catch (err) {}
-    }, 1000);
+        } catch (err) {}
+      }, 1000);
 
-    const nowIso = new Date().toISOString();
-    const activeDests = safeDests.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > nowIso));
-    setAllDestinations(activeDests);
-    const myDest = activeDests.find((d) => d.user_email === u.email) || null;
-    if (myDest && !myDest.venue_city && allClubs.length > 0) {
-      const matched = allClubs.find((c) => c.id === myDest.venue_id || c.name === myDest.venue_name);
-      if (matched) myDest.venue_city = matched.city;
-    }
-    setMyDestination(myDest);
-
-    const p = profiles[0] || null;
-    setMyProfile(p);
-
-    // Determine country for filtering
-    const userCountry = getCountryByName(p?.country);
-
-    // Filter destinations to same country (profiles from same country only)
-    const sameCountryEmails = new Set(
-      allProfs
-        .filter(prof => (prof.country || 'Nederland') === (p?.country || 'Nederland'))
-        .map(prof => prof.user_email)
-    );
-
-    const countMap = {};
-    const now = new Date().toISOString();
-    safeCheckIns
-      .filter(c => sameCountryEmails.has(c.user_email))
-      .forEach((c) => {
-        if (!c.expires_at || c.expires_at > now) {
-          const key = c.venue_id || c.venue_name;
-          countMap[key] = (countMap[key] || 0) + 1;
-        }
-      });
-
-    const destCountMap = {};
-    activeDests
-      .filter(d => sameCountryEmails.has(d.user_email))
-      .forEach((d) => {
-        const key = d.venue_id || d.venue_name;
-        destCountMap[key] = (destCountMap[key] || 0) + 1;
-      });
-
-    const venues = allClubs
-      .filter((c) => c.lat && c.lng && venueInCountry(c.lat, c.lng, userCountry))
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        city: c.city,
-        lat: c.lat,
-        lng: c.lng,
-        matchCount: countMap[c.id] || countMap[c.name] || 0,
-        destCount: (destCountMap[c.id] || 0) + (destCountMap[c.name] || 0)
-      }));
-    setClubs(venues);
-
-    // Fly map to user's country on first load
-    setTimeout(() => {
-      if (mapRef.current && userCountry) {
-        mapRef.current.flyTo(userCountry.center[0], userCountry.center[1], userCountry.zoom);
+      const nowIso = new Date().toISOString();
+      const activeDests = safeDests.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > nowIso));
+      setAllDestinations(activeDests);
+      const myDest = activeDests.find((d) => d.user_email === u.email) || null;
+      if (myDest && !myDest.venue_city && allClubs.length > 0) {
+        const matched = allClubs.find((c) => c.id === myDest.venue_id || c.name === myDest.venue_name);
+        if (matched) myDest.venue_city = matched.city;
       }
-    }, 800);
+      setMyDestination(myDest);
 
-    const active = checkIns.find((c) => !c.expires_at || c.expires_at > now);
-    if (active) {
-      if (!active.venue_city && allClubs.length > 0) {
-        const matched = allClubs.find((c) => c.id === active.venue_id || c.name === active.venue_name);
-        if (matched) active.venue_city = matched.city;
-      }
-      setMyCheckIn(active);
-      unlock();
-    }
-    else if (p?.location_enabled) { unlock(); startGPS(); }
+      const p = profiles[0] || null;
+      setMyProfile(p);
 
-    // Check URL param — open venue from hotspot click
-    const urlParams = new URLSearchParams(window.location.search);
-    const venueId = urlParams.get('venueId');
-    if (venueId) {
-      const target = venues.find((v) => v.id === venueId || v.name === venueId);
-      if (target) {
-        unlockImmediate();
-        setSelectedVenue(target);
-        setBottomSheet(target);
-        setHighlightedVenueId(target.id);
-        setSheetSnap('peek');
-        setSnapState('peek');
-        setTimeout(() => { mapRef.current?.flyTo(target.lat, target.lng, 16); }, 800);
-      }
-    }
+      // Determine country for filtering
+      const userCountry = getCountryByName(p?.country);
 
-    // Calculate Hotspots — only same-country destinations
-    const hotspotsCountMap = {};
-    const hotspotsMetaMap = {};
-    activeDests
-      .filter(d => sameCountryEmails.has(d.user_email))
-      .forEach((d) => {
-      const key = d.venue_id || d.venue_name;
-      hotspotsCountMap[key] = (hotspotsCountMap[key] || 0) + 1;
-      if (!hotspotsMetaMap[key] || (!hotspotsMetaMap[key].venue_city && d.venue_city)) {
-        hotspotsMetaMap[key] = { venue_id: d.venue_id, venue_name: d.venue_name, venue_city: d.venue_city };
-      }
-    });
-    const clubMap = {};
-    allClubs.forEach((c) => { clubMap[c.id] = c; clubMap[c.name] = c; });
-    const top5Hotspots = Object.entries(hotspotsCountMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([key, count]) => {
-        const meta = hotspotsMetaMap[key];
-        const club = clubMap[meta.venue_id] || clubMap[meta.venue_name];
-        return { ...meta, count, city: club?.city || meta.venue_city || '' };
-      });
-    setHotspots(top5Hotspots);
+      // Filter destinations to same country (profiles from same country only)
+      const sameCountryEmails = new Set(
+        allProfs
+          .filter(prof => (prof.country || 'Nederland') === (p?.country || 'Nederland'))
+          .map(prof => prof.user_email)
+      );
 
-    // Calculate High Matches
-    if (p) {
-      const others = allProfs.filter((prof) => prof.user_email !== u.email && prof.onboarding_complete);
-      const matchData = others
-        .filter((prof) => isMatch(p, prof))
-        .map((prof) => ({
-          profile: prof,
-          compatibility: calculateCompatibility(p, prof),
-          is80: isMatch(p, prof),
+      const countMap = {};
+      const now = new Date().toISOString();
+      safeCheckIns
+        .filter(c => sameCountryEmails.has(c.user_email))
+        .forEach((c) => {
+          if (!c.expires_at || c.expires_at > now) {
+            const key = c.venue_id || c.venue_name;
+            countMap[key] = (countMap[key] || 0) + 1;
+          }
+        });
+
+      const destCountMap = {};
+      activeDests
+        .filter(d => sameCountryEmails.has(d.user_email))
+        .forEach((d) => {
+          const key = d.venue_id || d.venue_name;
+          destCountMap[key] = (destCountMap[key] || 0) + 1;
+        });
+
+      const venues = allClubs
+        .filter((c) => c.lat && c.lng && venueInCountry(c.lat, c.lng, userCountry))
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          city: c.city,
+          lat: c.lat,
+          lng: c.lng,
+          matchCount: countMap[c.id] || countMap[c.name] || 0,
+          destCount: (destCountMap[c.id] || 0) + (destCountMap[c.name] || 0)
         }));
-      setHighMatches(matchData.filter((m) => m.is80));
-    }
+      setClubs(venues);
 
-    setLoading(false);
+      // Fly map to user's country on first load
+      setTimeout(() => {
+        if (mapRef.current && userCountry) {
+          mapRef.current.flyTo(userCountry.center[0], userCountry.center[1], userCountry.zoom);
+        }
+      }, 500);
+
+      const active = checkIns.find((c) => !c.expires_at || c.expires_at > now);
+      if (active) {
+        if (!active.venue_city && allClubs.length > 0) {
+          const matched = allClubs.find((c) => c.id === active.venue_id || c.name === active.venue_name);
+          if (matched) active.venue_city = matched.city;
+        }
+        setMyCheckIn(active);
+        unlock();
+      }
+      const storedExpiry = localStorage.getItem('pinpoint_nearby_expires_at');
+      const storedCity = localStorage.getItem('pinpoint_filter_city');
+      const isLocationActive = (storedExpiry && new Date(storedExpiry) > new Date()) || 
+        (p?.location_enabled && (!p?.location_expires_at || new Date(p.location_expires_at) > new Date()));
+
+      if (isLocationActive) {
+        setUseNearbyFilter(true);
+        if (storedCity) setSelectedCity(storedCity);
+        unlock();
+        startGPS();
+      } else {
+        setUseNearbyFilter(false);
+        setSelectedCity(null);
+        localStorage.removeItem('pinpoint_nearby_expires_at');
+        localStorage.removeItem('pinpoint_filter_city');
+      }
+
+      // Check URL param — open venue from hotspot click
+      const urlParams = new URLSearchParams(window.location.search);
+      const venueId = urlParams.get('venueId');
+      if (venueId) {
+        const target = venues.find((v) => v.id === venueId || v.name === venueId);
+        if (target) {
+          unlockImmediate();
+          setSelectedVenue(target);
+          setBottomSheet(target);
+          setHighlightedVenueId(target.id);
+          setSheetSnap('peek');
+          setSnapState('peek');
+          setTimeout(() => { mapRef.current?.flyTo(target.lat, target.lng, 16); }, 800);
+        }
+      }
+
+      // Calculate High Matches
+      if (p) {
+        const others = allProfs.filter((prof) => prof.user_email !== u.email && prof.onboarding_complete);
+        const matchData = others
+          .filter((prof) => isMatch(p, prof))
+          .map((prof) => ({
+            profile: prof,
+            compatibility: calculateCompatibility(p, prof),
+            is80: isMatch(p, prof),
+          }));
+        setHighMatches(matchData.filter((m) => m.is80));
+      }
+    } catch (err) {
+      console.error('Error loading Pinpoint data:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const unlock = () => {
@@ -269,10 +372,19 @@ export default function Pinpoint() {
       return;
     }
 
-    const clubMatches = clubs
+    const clubMatches = sortedClubs
       .filter((v) => v.name.toLowerCase().includes(q.toLowerCase()) || (v.city && v.city.toLowerCase().includes(q.toLowerCase())))
-      .slice(0, 4)
-      .map((v) => ({ type: 'club', id: v.id, label: v.name, sublabel: v.city, lat: v.lat, lng: v.lng, venue: v }));
+      .slice(0, 5)
+      .map((v) => ({
+        type: 'club',
+        id: v.id,
+        label: v.name,
+        sublabel: v.city,
+        lat: v.lat,
+        lng: v.lng,
+        venue: v,
+        distanceKm: v.distanceKm
+      }));
 
     setSearchSuggestions(clubMatches);
     setSearchLoading(true);
@@ -293,14 +405,18 @@ export default function Pinpoint() {
           if (cityPart && !roadPart.toLowerCase().includes(cityPart.toLowerCase())) {
             sublabel = `${roadPart}, ${cityPart}`;
           }
+          const itemLat = parseFloat(item.lat);
+          const itemLng = parseFloat(item.lon);
+          const distFromUser = userPosition ? calculateDistanceKm(userPosition[0], userPosition[1], itemLat, itemLng) : null;
           return {
             type: 'location',
             id: item.place_id,
             label: item.display_name.split(',')[0],
             sublabel,
-            lat: parseFloat(item.lat),
-            lng: parseFloat(item.lon),
-            venue: null
+            lat: itemLat,
+            lng: itemLng,
+            venue: null,
+            distanceKm: distFromUser
           };
         }) : [];
         setSearchSuggestions((prev) => {
@@ -364,7 +480,7 @@ export default function Pinpoint() {
 
     if (item.venue) {
       setHighlightedVenueId(item.venue.id);
-      setSearchPin(null);
+      setSearchPin({ lat: item.lat, lng: item.lng, label: item.label });
       setSelectedVenue(item.venue);
       setBottomSheet(item.venue);
       setSheetSnap('peek');
@@ -378,7 +494,7 @@ export default function Pinpoint() {
       setBottomSheet(locVenue);
       setSheetSnap('peek');
       setSnapState('peek');
-      setTimeout(() => { mapRef.current?.flyTo(item.lat, item.lng, 14); }, 300);
+      setTimeout(() => { mapRef.current?.flyTo(item.lat, item.lng, 12); }, 300);
     }
   };
 
@@ -411,28 +527,29 @@ export default function Pinpoint() {
           if (oldD.id) await base44.entities.UserDestination.delete(oldD.id).catch(() => {});
         }
       }
-    } catch (e) {
-      console.error("Error pruning old UserDestinations:", e);
-    }
 
-    let resolvedCity = venue.city || '';
-    if (!resolvedCity && allDestinations.length > 0) {
-      const found = allDestinations.find(d => d.venue_city && (d.venue_id === venue.id || d.venue_name === venue.name));
-      if (found) resolvedCity = found.venue_city;
-    }
+      let resolvedCity = venue.city || '';
+      if (!resolvedCity && allDestinations.length > 0) {
+        const found = allDestinations.find(d => d.venue_city && (d.venue_id === venue.id || d.venue_name === venue.name));
+        if (found) resolvedCity = found.venue_city;
+      }
 
-    const newDest = await base44.entities.UserDestination.create({
-      user_email: user.email,
-      venue_id: venue.id,
-      venue_name: venue.name,
-      venue_city: resolvedCity,
-      status: 'active',
-      expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
-    });
-    setMyDestination(newDest);
-    const all = await base44.entities.UserDestination.list();
-    const refreshNow = new Date().toISOString();
-    setAllDestinations(all.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > refreshNow)));
+      const newDest = await base44.entities.UserDestination.create({
+        user_email: user.email,
+        venue_id: venue.id,
+        venue_name: venue.name,
+        venue_city: resolvedCity,
+        status: 'active',
+        created_date: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+      });
+      setMyDestination(newDest);
+      const all = await base44.entities.UserDestination.list();
+      const refreshNow = new Date().toISOString();
+      setAllDestinations(all.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > refreshNow)));
+    } catch (err) {
+      console.error('Error creating destination:', err);
+    }
   };
 
   const handleCancelGoing = async () => {
@@ -458,22 +575,97 @@ export default function Pinpoint() {
     setAllDestinations(all.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > refreshNow)));
   };
 
+  const handleCancelDestination = handleCancelGoing;
+
   const handleEnableLocation = async () => {
-    if (!user) return;
-    const expires = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
-    if (myProfile) {
-      await base44.entities.UserProfile.update(myProfile.id, { location_enabled: true, location_expires_at: expires });
-      setMyProfile((p) => ({ ...p, location_enabled: true, location_expires_at: expires }));
+    const expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+    localStorage.setItem('pinpoint_nearby_expires_at', expiresAt);
+    setUseNearbyFilter(true);
+    unlockImmediate();
+    startGPS();
+
+    // If we already have a cached position, react immediately
+    if (userPosition && userPosition[0] && userPosition[1]) {
+      setSearchPin({ lat: userPosition[0], lng: userPosition[1], label: selectedCity || 'Huidige locatie' });
+      if (mapRef.current) {
+        mapRef.current.flyTo(userPosition[0], userPosition[1], 10);
+      }
     }
+
+    if (user && myProfile) {
+      base44.entities.UserProfile.update(myProfile.id, { location_enabled: true, location_expires_at: expiresAt }).catch(() => {});
+      setMyProfile((p) => ({ ...p, location_enabled: true, location_expires_at: expiresAt }));
+    }
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => setUserPosition([pos.coords.latitude, pos.coords.longitude]),
-        (err) => console.warn('Locatie geweigerd:', err.message),
-        { enableHighAccuracy: true, timeout: 10000 }
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setUserPosition([lat, lng]);
+          setUseNearbyFilter(true);
+          setSearchPin({ lat, lng, label: selectedCity || 'Huidige locatie' });
+          if (mapRef.current) {
+            mapRef.current.flyTo(lat, lng, 10);
+          }
+          // Reverse-geocode in the background without blocking the UI
+          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`, { headers: { 'Accept-Language': 'nl' } })
+            .then(res => res.json())
+            .then(data => {
+              const cityName = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || '';
+              if (cityName) {
+                setSelectedCity(cityName);
+                localStorage.setItem('pinpoint_filter_city', cityName);
+                setSearchPin({ lat, lng, label: cityName });
+              }
+            })
+            .catch(() => {});
+        },
+        (err) => console.warn('Locatie:', err.message),
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
       );
     }
-    startGPS();
+  };
+
+  const handleSelectCity = (city) => {
+    const expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+    localStorage.setItem('pinpoint_nearby_expires_at', expiresAt);
+    const rawName = (city.label || city.name || '').split(',')[0].trim();
+    setSelectedCity(rawName);
+    localStorage.setItem('pinpoint_filter_city', rawName);
+    if (city.lat && city.lng) {
+      setUserPosition([city.lat, city.lng]);
+      setSearchPin({ lat: city.lat, lng: city.lng, label: rawName });
+      if (mapRef.current) {
+        mapRef.current.flyTo(city.lat, city.lng, 10);
+      }
+    }
+    setUseNearbyFilter(true);
     unlockImmediate();
+  };
+
+  const handleClearFilter = async () => {
+    localStorage.removeItem('pinpoint_nearby_expires_at');
+    localStorage.removeItem('pinpoint_filter_city');
+    setUseNearbyFilter(false);
+    setSelectedCity(null);
+    setSearchPin(null);
+    setSelectedRadius('all');
+    if (myProfile && user) {
+      await base44.entities.UserProfile.update(myProfile.id, {
+        location_enabled: false,
+        location_expires_at: null,
+      }).catch(() => {});
+      setMyProfile((prev) => ({ ...prev, location_enabled: false, location_expires_at: null }));
+    }
+    const userCountry = getCountryByName(myProfile?.country);
+    if (mapRef.current && userCountry) {
+      mapRef.current.flyTo(userCountry.center[0], userCountry.center[1], userCountry.zoom);
+    }
+  };
+
+  const toggleNearbyFilter = () => {
+    setFilterModalOpen(true);
   };
 
   const matchVenue = (d, venue) => {
@@ -524,11 +716,7 @@ export default function Pinpoint() {
     if (!me || !other) return false;
     const myCountry = me.country || 'Nederland';
     const otherCountry = other.country || 'Nederland';
-    if (myCountry !== otherCountry) return false;
-    if (!me.gender || !me.looking_for || !other.gender || !other.looking_for) return false;
-    const iWantThem = me.looking_for === 'both' || me.looking_for === other.gender;
-    const theyWantMe = other.looking_for === 'both' || other.looking_for === me.gender;
-    if (!iWantThem || !theyWantMe) return false;
+    if (!genderMatch(me, other)) return false;
     
     const t1 = getArray(me.traits).map(normalizeTrait);
     const t2 = getArray(other.traits).map(normalizeTrait);
@@ -551,16 +739,6 @@ export default function Pinpoint() {
   };
 
   const showSearchPanel = searchFocused;
-  const crosshairBottom = bottomSheet
-    ? (snapState === 'full'
-        ? '90%'
-        : snapState === 'peek'
-        ? Math.round(window.innerHeight * 0.38) + 48
-        : snapState === 'collapsed'
-        ? 132
-        : 40)
-    : (unlocked ? '55%' : 40);
-
   const pageBg = isDark ? '#08090E' : '#F8F9FB';
   const searchBarBg = isDark ? 'rgba(13,14,21,0.88)' : 'rgba(255,255,255,0.92)';
   const searchBarBorder = (focused) => focused
@@ -574,8 +752,6 @@ export default function Pinpoint() {
   const labelColor = isDark ? '#FFFFFF' : '#111827';
   const subColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)';
   const sectionLabelColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)';
-  const crosshairBg = isDark ? 'rgba(13,14,21,0.88)' : 'rgba(255,255,255,0.95)';
-  const crosshairBorder = isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.1)';
 
   if (loading) {
     return (
@@ -608,13 +784,28 @@ export default function Pinpoint() {
       >
         <MapView
           ref={mapRef}
-          venues={clubs}
-          userPosition={userPosition}
-          myCheckIn={myCheckIn}
-          onVenueClick={(v) => { setSelectedVenue(v); setBottomSheet(v); setSheetSnap('peek'); setSnapState('peek'); }}
-          onMapClick={() => { if (!sheetJustOpenedRef.current && snapState !== 'hidden') { setSnapState('hidden'); setSelectedVenue(null); setBottomSheet(null); setSheetSnap('hidden'); } }}
-          highlightedVenueId={highlightedVenueId}
+          venues={displayedClubs}
           searchPin={searchPin}
+          myCheckIn={myCheckIn}
+          onVenueClick={(v) => {
+            setSelectedVenue(v);
+            setBottomSheet(v);
+            setHighlightedVenueId(v.id);
+            setSearchPin({ lat: v.lat, lng: v.lng, label: v.name });
+            setSheetSnap('peek');
+            setSnapState('peek');
+          }}
+          onMapClick={() => {
+            if (!sheetJustOpenedRef.current && snapState !== 'hidden') {
+              setSnapState('hidden');
+              setSelectedVenue(null);
+              setBottomSheet(null);
+              setSheetSnap('hidden');
+              setHighlightedVenueId(null);
+              setSearchPin(null);
+            }
+          }}
+          highlightedVenueId={highlightedVenueId}
           myDestination={myDestination}
         />
       </div>
@@ -638,52 +829,79 @@ export default function Pinpoint() {
           </div>
         )}
 
-        {/* Search bar */}
+        {/* Search bar row + Filter button */}
         <div className="relative">
-          <div
-            className="flex items-center gap-3 px-4 rounded-[20px]"
-            style={{ height: 52, background: searchBarBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1.5px solid ${searchBarBorder(searchFocused)}`, boxShadow: searchFocused ? '0 4px 18px rgba(255,75,114,0.18)' : isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
-          >
-            {searchLoading
-              ? <div className="w-5 h-5 flex-shrink-0 rounded-full border-2 border-pink-300 border-t-pink-600 animate-spin" />
-              : <Search className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
-            }
-            <input
-              ref={searchInputRef}
-              className={`flex-1 bg-transparent focus:outline-none ${searchTextColor} ${searchPlaceholderColor}`}
-              style={{ fontSize: '16px' }}
-              placeholder={t.searchPlaceholder}
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  clearTimeout(searchDebounceRef.current);
-                  setSearchLoading(false);
-                  setSearchSuggestions([]);
-                  setSearchQuery('');
-                  setSearchFocused(false);
-                  searchInputRef.current?.blur();
-                }
-              }}
-            />
-            {searchQuery.length > 0 && (
-              <button
-                onClick={() => {
-                  clearTimeout(searchDebounceRef.current);
-                  setSearchLoading(false);
-                  setSearchQuery('');
-                  setSearchSuggestions([]);
-                  setSearchPin(null);
-                  setHighlightedVenueId(null);
+          <div className="flex items-center gap-2.5">
+            {/* Search Input */}
+            <div
+              className="flex-1 flex items-center gap-3 px-4 rounded-[20px]"
+              style={{ height: 52, background: searchBarBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1.5px solid ${searchBarBorder(searchFocused)}`, boxShadow: searchFocused ? '0 4px 18px rgba(255,75,114,0.18)' : isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+            >
+              {searchLoading
+                ? <div className="w-5 h-5 flex-shrink-0 rounded-full border-2 border-pink-300 border-t-pink-600 animate-spin" />
+                : <Search className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
+              }
+              <input
+                ref={searchInputRef}
+                className={`flex-1 bg-transparent focus:outline-none ${searchTextColor} ${searchPlaceholderColor}`}
+                style={{ fontSize: '16px' }}
+                placeholder={t.searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    clearTimeout(searchDebounceRef.current);
+                    setSearchLoading(false);
+                    setSearchSuggestions([]);
+                    setSearchQuery('');
+                    setSearchFocused(false);
+                    searchInputRef.current?.blur();
+                  }
                 }}
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
-              >
-                <X className="w-3.5 h-3.5" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }} />
-              </button>
-            )}
+              />
+              {searchQuery.length > 0 && (
+                <button
+                  onClick={() => {
+                    clearTimeout(searchDebounceRef.current);
+                    setSearchLoading(false);
+                    setSearchQuery('');
+                    setSearchSuggestions([]);
+                    setSearchPin(null);
+                    setHighlightedVenueId(null);
+                  }}
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
+                >
+                  <X className="w-3.5 h-3.5" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }} />
+                </button>
+              )}
+            </div>
+
+            {/* Filter button next to search bar */}
+            <button
+              onClick={toggleNearbyFilter}
+              className="w-[52px] h-[52px] rounded-[20px] flex items-center justify-center flex-shrink-0 transition-all duration-300 active:scale-90"
+              style={{
+                background: useNearbyFilter ? GRAD : searchBarBg,
+                border: useNearbyFilter ? '1.5px solid rgba(255,255,255,0.35)' : `1.5px solid ${searchBarBorder(false)}`,
+                boxShadow: useNearbyFilter
+                  ? '0 4px 18px rgba(255,75,114,0.4), 0 0 12px rgba(234,63,211,0.25)'
+                  : isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(0,0,0,0.08)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+              }}
+              title={useNearbyFilter ? 'Locatiefilter uitschakelen (toont heel Nederland)' : 'Filter op jouw huidige locatie'}
+            >
+              <SlidersHorizontal
+                className="w-5 h-5 transition-transform duration-300"
+                style={{
+                  color: useNearbyFilter ? '#FFFFFF' : '#FF4B72',
+                  transform: useNearbyFilter ? 'scale(1.08)' : 'scale(1)',
+                }}
+              />
+            </button>
           </div>
 
           {/* Search suggestions + recent searches dropdown */}
@@ -709,11 +927,13 @@ export default function Pinpoint() {
                     <p className="text-sm font-semibold truncate" style={{ color: labelColor }}>{item.label}</p>
                     <p className="text-xs truncate" style={{ color: subColor }}>{item.sublabel}</p>
                   </div>
-                  {item.type === 'club' && item.venue && (
-                    <span className="text-xs font-bold px-2 py-1 rounded-full flex-shrink-0" style={{ background: 'rgba(255,75,114,0.15)', color: '#FF4B72' }}>
-                      {item.venue.matchCount} matches
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {item.type === 'club' && item.venue && (
+                      <span className="text-xs font-bold px-2 py-1 rounded-full flex-shrink-0" style={{ background: 'rgba(255,75,114,0.15)', color: '#FF4B72' }}>
+                        {item.venue.matchCount} matches
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
 
@@ -727,11 +947,11 @@ export default function Pinpoint() {
                     if (!acc[s.query]) acc[s.query] = { ...s, count: 1 };
                     else acc[s.query].count++;
                     return acc;
-                  }, {})).map((s, i) => (
+                  }, {})).slice(0, 6).map((s, i) => (
                     <button
                       key={s.id || i}
                       onMouseDown={() => {
-                        const club = s.type === 'club' ? clubs.find((c) => c.name === s.query) : null;
+                        const club = s.type === 'club' ? sortedClubs.find((c) => c.name === s.query) : null;
                         handleSelectSuggestion({ type: s.type, id: s.id, label: s.query, sublabel: s.sublabel || club?.city || '', lat: s.lat, lng: s.lng, venue: club || null });
                       }}
                       className="search-row w-full px-4 text-left flex items-center gap-3 border-b"
@@ -771,17 +991,6 @@ export default function Pinpoint() {
         </div>
       </div>
 
-      {/* ── Layer 2: Center-on-me button (right side) ── */}
-      {unlocked && userPosition && (
-        <button
-          onClick={() => mapRef.current?.flyTo(userPosition[0], userPosition[1], 15)}
-          className="absolute right-4 rounded-[14px] flex items-center justify-center"
-          style={{ bottom: crosshairBottom, zIndex: 2100, width: 44, height: 44, background: crosshairBg, backdropFilter: 'blur(12px)', border: crosshairBorder, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', transition: 'bottom 0.4s cubic-bezier(0.22,1,0.36,1)' }}
-        >
-          <Crosshair className="w-5 h-5" style={{ color: '#FF4B72' }} />
-        </button>
-      )}
-
       {/* ── Layer 3 & 4: Persistent Draggable Bottom Sheet ── */}
       {bottomSheet ? (
         <VenueBottomSheet
@@ -800,10 +1009,12 @@ export default function Pinpoint() {
           onShowPremium={() => {}}
           isPremium={true}
           currentUserEmail={user?.email}
+          userPosition={userPosition}
+          referencePosition={referencePosition}
           onVenueNavigate={(destOrVenue) => {
             const v = destOrVenue?.lat
               ? destOrVenue
-              : clubs.find((c) => c.id === destOrVenue?.venue_id || c.name === destOrVenue?.venue_name) || bottomSheet;
+              : sortedClubs.find((c) => c.id === destOrVenue?.venue_id || c.name === destOrVenue?.venue_name) || bottomSheet;
             setBottomSheet(v);
             setSelectedVenue(v);
             setHighlightedVenueId(v?.id);
@@ -817,12 +1028,24 @@ export default function Pinpoint() {
           <HomeInfoSheet
             highMatches={highMatches}
             myCheckIn={myCheckIn}
-            hotspots={hotspots}
-            clubs={clubs}
+            hotspots={displayedHotspots}
+            clubs={displayedClubs}
             allDestinations={allDestinations}
             allProfiles={allProfiles}
             myProfile={myProfile}
             myDestination={myDestination}
+            userPosition={userPosition}
+            referencePosition={referencePosition}
+            useNearbyFilter={useNearbyFilter}
+            selectedCity={selectedCity}
+            onEnableNearby={() => {
+              setUseNearbyFilter(true);
+              handleEnableLocation();
+            }}
+            onDisableNearby={() => {
+              setUseNearbyFilter(false);
+              setSelectedRadius('all');
+            }}
             onGoHere={handleGoHere}
             onEnableLocation={handleEnableLocation}
             onCancelGoing={handleCancelGoing}
@@ -901,6 +1124,20 @@ export default function Pinpoint() {
           />
         )
       )}
+
+      {/* ── Layer 5: Location Filter Modal ── */}
+      <LocationFilterModal
+        isOpen={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        isDark={isDark}
+        useNearbyFilter={useNearbyFilter}
+        activeLocationLabel={selectedCity || (userPosition ? 'Huidige locatie' : null)}
+        isGpsActive={useNearbyFilter && !selectedCity && !!userPosition}
+        onSelectGps={handleEnableLocation}
+        onSelectCity={handleSelectCity}
+        onClearFilter={handleClearFilter}
+        userCountry={getCountryByName(myProfile?.country)}
+      />
 
     </div>
   );

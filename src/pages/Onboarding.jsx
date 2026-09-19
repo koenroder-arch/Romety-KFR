@@ -465,14 +465,14 @@ export default function Onboarding() {
               <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{t.agePref(form.min_age_pref, form.max_age_pref)}</label>
               <div className="space-y-3 mt-3 bg-white/5 border border-white/10 rounded-[16px] p-4" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-white/40 w-8">{t.min}</span>
-                  <input type="range" min="18" max="70" value={form.min_age_pref} onChange={e => setForm(f => ({ ...f, min_age_pref: Math.min(Number(e.target.value), f.max_age_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
-                  <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.min_age_pref}</span>
-                </div>
-                <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.max}</span>
                   <input type="range" min="18" max="70" value={form.max_age_pref} onChange={e => setForm(f => ({ ...f, max_age_pref: Math.max(Number(e.target.value), f.min_age_pref + 1) }))} className="flex-1 accent-[#FF4B72]" />
                   <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.max_age_pref}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-white/40 w-8">{t.min}</span>
+                  <input type="range" min="18" max="70" value={form.min_age_pref} onChange={e => setForm(f => ({ ...f, min_age_pref: Math.min(Number(e.target.value), f.max_age_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
+                  <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.min_age_pref}</span>
                 </div>
               </div>
             </div>
@@ -480,14 +480,14 @@ export default function Onboarding() {
               <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{t.heightPref(form.min_height_pref, form.max_height_pref)}</label>
               <div className="space-y-3 mt-3 bg-white/5 border border-white/10 rounded-[16px] p-4" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-white/40 w-8">{t.min}</span>
-                  <input type="range" min="140" max="210" value={form.min_height_pref} onChange={e => setForm(f => ({ ...f, min_height_pref: Math.min(Number(e.target.value), f.max_height_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
-                  <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.min_height_pref}</span>
-                </div>
-                <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.max}</span>
                   <input type="range" min="140" max="210" value={form.max_height_pref} onChange={e => setForm(f => ({ ...f, max_height_pref: Math.max(Number(e.target.value), f.min_height_pref + 1) }))} className="flex-1 accent-[#FF4B72]" />
                   <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.max_height_pref}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-white/40 w-8">{t.min}</span>
+                  <input type="range" min="140" max="210" value={form.min_height_pref} onChange={e => setForm(f => ({ ...f, min_height_pref: Math.min(Number(e.target.value), f.max_height_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
+                  <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.min_height_pref}</span>
                 </div>
               </div>
             </div>

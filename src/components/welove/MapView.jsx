@@ -7,8 +7,22 @@ function FlyToHandler({ flyToRef, onMapClick }) {
   const map = useMap();
   useEffect(() => {
     if (flyToRef) {
-      flyToRef.current = (lat, lng, zoom = 15) => {
-        map.flyTo([lat, lng], zoom, { animate: true, duration: 1.2 });
+      flyToRef.current = (lat, lng, zoom = 15, options = {}) => {
+        try {
+          const targetZoom = zoom != null ? zoom : (map.getZoom() || 10);
+          // Vertical offset so target marker is centered in visible area above bottom sheet peek
+          const offsetY = options.offsetY !== undefined ? options.offsetY : Math.round(window.innerHeight * 0.18);
+          if (offsetY !== 0) {
+            const targetPoint = map.project([lat, lng], targetZoom);
+            const newCenterPoint = targetPoint.add([0, offsetY]);
+            const newCenterLatLng = map.unproject(newCenterPoint, targetZoom);
+            map.flyTo(newCenterLatLng, targetZoom, { animate: true, duration: options.duration || 1.2 });
+          } else {
+            map.flyTo([lat, lng], targetZoom, { animate: true, duration: options.duration || 1.2 });
+          }
+        } catch (e) {
+          map.flyTo([lat, lng], zoom, { animate: true, duration: 1.2 });
+        }
       };
     }
     if (onMapClick) {
@@ -16,6 +30,26 @@ function FlyToHandler({ flyToRef, onMapClick }) {
       return () => map.off('click', onMapClick);
     }
   }, [map, onMapClick]);
+  return null;
+}
+
+function InitialViewHandler({ initialCenter = [52.3676, 4.9041], initialZoom = 7 }) {
+  const map = useMap();
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      try {
+        const offsetY = Math.round(window.innerHeight * 0.18);
+        const targetPoint = map.project(initialCenter, initialZoom);
+        const newCenterPoint = targetPoint.add([0, offsetY]);
+        const newCenterLatLng = map.unproject(newCenterPoint, initialZoom);
+        map.setView(newCenterLatLng, initialZoom);
+      } catch (e) {
+        map.setView(initialCenter, initialZoom);
+      }
+    }
+  }, [map, initialCenter, initialZoom]);
   return null;
 }
 
@@ -27,14 +61,6 @@ function ResizeHandler() {
     }, 200);
     return () => clearTimeout(timer);
   }, [map]);
-  return null;
-}
-
-function RecenterMap({ position }) {
-  const map = useMap();
-  useEffect(() => {
-    if (position) map.setView(position, 15, { animate: true });
-  }, [position]);
   return null;
 }
 
@@ -64,25 +90,19 @@ const createVenueIcon = (count, isMyVenue, isHighlighted, isMyDestination, destC
 };
 
 const createPinIcon = () => L.divIcon({
-  html: `<div style="display:flex;flex-direction:column;align-items:center;"><div class="search-pin-bounce" style="background:linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%);width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 4px 14px rgba(255,75,114,0.6);"></div></div>`,
+  html: `<div style="display:flex;flex-direction:column;align-items:center;"><div class="search-pin-bounce" style="background:linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%);width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 4px 16px rgba(255,75,114,0.6);"></div></div>`,
   className: '',
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+  popupAnchor: [0, -14],
 });
 
-const MapView = forwardRef(function MapView({ venues, userPosition, myCheckIn, onVenueClick, onMapClick, highlightedVenueId, searchPin, myDestination }, ref) {
+const MapView = forwardRef(function MapView({ venues, searchPin, myCheckIn, onVenueClick, onMapClick, highlightedVenueId, myDestination }, ref) {
   const flyToRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
-    flyTo: (lat, lng, zoom) => flyToRef.current && flyToRef.current(lat, lng, zoom),
+    flyTo: (lat, lng, zoom, options) => flyToRef.current && flyToRef.current(lat, lng, zoom, options),
   }));
-
-  const userIcon = useMemo(() => L.divIcon({
-    html: `<div style="background:#A061FF; border-radius:50%; width:16px; height:16px; border:3px solid white; box-shadow:0 0 0 5px rgba(160,97,255,0.3);"></div>`,
-    className: '',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-  }), []);
 
   const pinIcon = useMemo(() => createPinIcon(), []);
 
@@ -112,26 +132,20 @@ const MapView = forwardRef(function MapView({ venues, userPosition, myCheckIn, o
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        <InitialViewHandler initialCenter={[52.3676, 4.9041]} initialZoom={7} />
         <FlyToHandler flyToRef={flyToRef} onMapClick={onMapClick} />
         <ResizeHandler />
 
-        {userPosition && (
-          <>
-            <RecenterMap position={userPosition} />
-            <Marker position={userPosition} icon={userIcon}>
-              <Popup><span style={{ fontFamily: 'Inter', fontWeight: 600 }}>Je bent hier 📍</span></Popup>
-            </Marker>
-          </>
-        )}
-
-        {searchPin && (
+        {searchPin && searchPin.lat && searchPin.lng && (
           <Marker 
-            key={`${searchPin.lat}-${searchPin.lng}`}
+            key={`search-${searchPin.lat}-${searchPin.lng}`}
             position={[searchPin.lat, searchPin.lng]} 
             icon={pinIcon}
           >
             <Popup>
-              <span style={{ fontFamily: 'Inter', fontWeight: 600 }}>{searchPin.label}</span>
+              <span style={{ fontFamily: 'Inter', fontWeight: 700, fontSize: '13px' }}>
+                {searchPin.label} 📍
+              </span>
             </Popup>
           </Marker>
         )}

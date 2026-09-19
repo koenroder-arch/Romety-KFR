@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, CheckCircle2, Navigation, Users, XCircle, Copy, Heart } from 'lucide-react';
+import { X, CheckCircle2, Navigation, Users, XCircle, Copy, Heart, MapPin } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, useDragControls } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
@@ -38,6 +38,8 @@ export default function VenueBottomSheet({
   isPremium = false,
   currentUserEmail,
   onVenueNavigate,
+  userPosition = null,
+  referencePosition = null,
 }) {
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -173,7 +175,7 @@ export default function VenueBottomSheet({
             <div className="w-full px-5 pb-1 flex items-center justify-between">
               <div className="flex-1 min-w-0 pr-2">
                 <p className="font-black text-xl truncate drop-shadow" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>{venue.name}</p>
-                <div className="flex items-center gap-3 overflow-hidden mt-1 h-5 opacity-100">
+                <div className="flex items-center gap-2 overflow-hidden mt-1 h-5 opacity-100 flex-wrap">
                   <p className="text-sm font-medium truncate" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)' }}>
                     {venue.city || 'Utrecht, NL'}
                   </p>
