@@ -35,7 +35,17 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick, us
           </p>
         </div>
       ) : (
-        <div className="flex gap-3.5 overflow-x-auto pb-2 pt-1 no-scrollbar items-stretch" style={{ scrollbarWidth: 'none' }}>
+        <div 
+          className="flex gap-3.5 overflow-x-auto pb-2 pt-1 no-scrollbar items-stretch"
+          style={{
+            scrollbarWidth: 'none',
+            touchAction: 'pan-x',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehaviorX: 'contain',
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
           {hotspots.map((spot, i) => {
             const isFirst = i === 0;
             const isSecond = i === 1;

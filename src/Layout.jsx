@@ -28,14 +28,15 @@ export default function Layout({ children, currentPageName }) {
   const [unreadChatCount, setUnreadChatCount] = React.useState(0);
   const NAV_ITEMS = React.useMemo(() => NAV_CONFIG.map((item) => ({ ...item, name: t[item.key] || item.key })), [t]);
 
-  // Poll for unread chat messages every 30s
+  // Poll for unread chat messages efficiently (only when tab is visible)
   React.useEffect(() => {
     let isMounted = true;
     const checkChats = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const email = localStorage.getItem('romety_user_email');
         if (!email) return;
-        const [rooms, rooms2] = await Promise.all([
+        const [rooms = [], rooms2 = []] = await Promise.all([
           base44.entities.ChatRoom.filter({ user_a_email: email }).catch(() => []),
           base44.entities.ChatRoom.filter({ user_b_email: email }).catch(() => [])
         ]);
@@ -56,7 +57,7 @@ export default function Layout({ children, currentPageName }) {
           await Promise.all(
             activeRooms.map(async (r) => {
               try {
-                const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
+                const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id }).catch(() => []);
                 const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== email);
                 const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
                 const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
@@ -69,13 +70,20 @@ export default function Layout({ children, currentPageName }) {
         if (isMounted) setUnreadChatCount(totalBadge);
       } catch (e) {}
     };
+
     checkChats();
-    const interval = setInterval(checkChats, 30000);
+    const interval = setInterval(checkChats, 60000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') checkChats();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [currentPageName]);
 
   return (
     <div className="min-h-[100dvh] w-full flex flex-col" style={{ background: isDark ? '#08090E' : '#F8F9FB', fontFamily: "'Inter', sans-serif" }}>
@@ -144,17 +152,18 @@ export default function Layout({ children, currentPageName }) {
         {children}
       </main>
 
-      {showNav &&
+      {showNav && (
         <nav
           className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[200]"
           style={{
+            transform: 'translateX(-50%) translateZ(0)',
             background: isDark ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)',
             borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)',
             boxShadow: isDark ? '0 -4px 24px rgba(0,0,0,0.5)' : '0 -4px 24px rgba(0,0,0,0.06)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             paddingBottom: 'env(safe-area-inset-bottom)',
-            willChange: 'transform',
+            touchAction: 'none',
           }}
         >
           <div className="flex justify-around items-center px-2 py-4">
@@ -204,7 +213,7 @@ export default function Layout({ children, currentPageName }) {
             })}
           </div>
         </nav>
-      }
+      )}
       <Toaster position="top-center" />
     </div>);
 

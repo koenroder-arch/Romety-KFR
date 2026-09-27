@@ -77,8 +77,8 @@ export default function Home() {
   const [superMatchHints, setSuperMatchHints] = useState([]);
   const [hasSentToday, setHasSentToday] = useState(false);
   const [myTodayHint, setMyTodayHint] = useState(null);
-  const [showSheet, setShowSheet] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+  const [showSheet, setShowSheet] = useState(false);
   const [mutualMatches, setMutualMatches] = useState([]);
   const [superHintsCollapsed, setSuperHintsCollapsed] = useState(true);
   const [regularHintsCollapsed, setRegularHintsCollapsed] = useState(true);
@@ -122,27 +122,7 @@ export default function Home() {
     }
   }, []);
 
-  // Countdown timer for next hint
-  useEffect(() => {
-    if (!hasSentToday || !myTodayHint) return;
-    const calcTime = () => {
-      const now = new Date();
-      const created = new Date(myTodayHint.created_date);
-      const expiry = new Date(created.getTime() + 9 * 60 * 60 * 1000);
-      const diff = expiry - now;
-      if (diff <= 0) {
-        setTimeLeft('Nu beschikbaar');
-        return;
-      }
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${h}u ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`);
-    };
-    calcTime();
-    const interval = setInterval(calcTime, 1000);
-    return () => clearInterval(interval);
-  }, [hasSentToday, myTodayHint]);
+  // Stories storage sync
 
   useEffect(() => { if (user !== undefined) loadData(); }, [user]); // undefined = still loading auth
 
@@ -299,6 +279,20 @@ export default function Home() {
       const myHintsRecent = activeHints.filter(h => h && h.from_email === u.email);
       setHasSentToday(myHintsRecent.length > 0);
       setMyTodayHint(myHintsRecent[0] || null);
+
+      if (myHintsRecent[0]) {
+        const expiresAt = new Date(new Date(myHintsRecent[0].created_date).getTime() + 9 * 60 * 60 * 1000);
+        const diffMs = expiresAt - new Date();
+        if (diffMs > 0) {
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          setTimeLeft(`${hours}u ${mins}m`);
+        } else {
+          setTimeLeft('0m');
+        }
+      } else {
+        setTimeLeft('');
+      }
 
       // Non-blocking background pruning
       setTimeout(() => {
@@ -548,8 +542,9 @@ export default function Home() {
     >
       {/* Header Container with Romety Fade */}
       <div 
-        className="pt-12 sm:pt-14 pb-2.5 px-5 relative mb-0" 
+        className="pb-2.5 px-5 relative mb-0" 
         style={{ 
+          paddingTop: 'max(48px, calc(env(safe-area-inset-top, 0px) + 12px))',
           background: isDark 
             ? 'linear-gradient(180deg, #4D122D 0%, #2E0B1B 65%, rgba(13,14,21,0) 100%)' 
             : 'linear-gradient(180deg, rgba(255,75,114,0.18) 0%, rgba(234,63,211,0.06) 70%, transparent 100%)' 
@@ -561,7 +556,7 @@ export default function Home() {
             <img 
               src="/romety-logo-transparent.png?v=3" 
               alt="Romety" 
-              className="h-8 sm:h-9 w-auto object-contain select-none transition-transform active:scale-95" 
+              className="h-8 w-auto object-contain select-none transition-transform active:scale-95" 
               style={{
                 imageRendering: 'auto',
                 mixBlendMode: isDark ? 'screen' : 'normal',
@@ -603,7 +598,7 @@ export default function Home() {
               className="flex flex-col items-center flex-shrink-0 cursor-pointer"
               onClick={() => navigate(createPageUrl('Hints'))}
             >
-              <div className="relative w-20 h-20 rounded-full p-[3px] bg-gray-300 dark:bg-gray-800 flex items-center justify-center">
+              <div className="story-bubble relative rounded-full p-[3px] bg-gray-300 dark:bg-gray-800 flex items-center justify-center">
                 <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                   {myProfile?.photo_url ? (
                     <img src={myProfile.photo_url} alt="" className="w-full h-full object-cover opacity-60" />
@@ -632,7 +627,7 @@ export default function Home() {
                 }}
               >
                 <div 
-                  className="w-20 h-20 rounded-full p-[3px] transition-transform active:scale-95"
+                  className="story-bubble rounded-full p-[3px] transition-transform active:scale-95"
                   style={{
                     background: isGroupSeen 
                       ? (isDark ? '#374151' : '#E5E7EB')
@@ -714,11 +709,11 @@ export default function Home() {
 
       {/* Action Buttons List: Reveal Likes, Super Matches, Hints, Games, Discounts with 3px side margin */}
       <div className="px-[3px] mt-3.5 mb-2 relative">
-        <div className={`space-y-2 sm:space-y-2.5 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
+        <div className={`space-y-2 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
             {/* 1. Onthul wie je heeft geliked (#FF4B72 - Felroze / Kersenrood) */}
             <button
               onClick={onRevealClick}
-              className={`w-full flex items-center justify-between rounded-[22px] sm:rounded-[26px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm ${
+              className={`w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm ${
                 unmatchedLikes.length > 0 ? '' : 'opacity-95'
               }`}
               style={{
@@ -729,27 +724,27 @@ export default function Home() {
                 boxShadow: isDark ? '0 8px 24px rgba(255, 75, 114, 0.14)' : '0 4px 18px rgba(255, 75, 114, 0.08)',
               }}
             >
-              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
                 <div 
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
                   style={{ background: isDark ? 'rgba(255, 75, 114, 0.25)' : 'rgba(255, 75, 114, 0.12)' }}
                 >
-                  <Eye className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
+                  <Eye className={`w-6 h-6 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
-                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Ontvangen likes</p>
-                  <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
+                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Ontvangen likes</p>
+                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Bekijk wie jou leuk vindt
                   </p>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full bg-[#FF4B72] text-white text-xs sm:text-sm font-black flex items-center justify-center shadow-md">
+              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
+                <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#FF4B72] text-white text-xs font-black flex items-center justify-center shadow-md">
                   {unmatchedLikes.length}
                 </div>
-                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -757,7 +752,7 @@ export default function Home() {
             {/* 2. Super matches (#F9488A - Fade stap 1) */}
             <button
               onClick={() => setShowSuperMatchSheet(true)}
-              className="w-full flex items-center justify-between rounded-[22px] sm:rounded-[26px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(249, 72, 138, 0.22) 0%, rgba(249, 72, 138, 0.08) 100%)'
@@ -766,27 +761,27 @@ export default function Home() {
                 boxShadow: isDark ? '0 8px 24px rgba(249, 72, 138, 0.14)' : '0 4px 18px rgba(249, 72, 138, 0.08)',
               }}
             >
-              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
                 <div 
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
                   style={{ background: isDark ? 'rgba(249, 72, 138, 0.25)' : 'rgba(249, 72, 138, 0.12)' }}
                 >
-                  <Flame className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
+                  <Flame className={`w-6 h-6 ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#F9488A]'}`}>SUPER</p>
-                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Super matches</p>
-                  <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#F9488A]'}`}>SUPER</p>
+                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Super matches</p>
+                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Ontdek je beste connecties
                   </p>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className="min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full bg-[#F9488A] text-white text-xs sm:text-sm font-black flex items-center justify-center shadow-md">
+              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
+                <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#F9488A] text-white text-xs font-black flex items-center justify-center shadow-md">
                   {superMatchCount}
                 </div>
-                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -794,7 +789,7 @@ export default function Home() {
             {/* 3. Hints button (Vibrant when available, muted/less colorful when hasSentToday is active) */}
             <button
               onClick={onHintClick}
-              className="w-full flex items-center justify-between rounded-[22px] sm:rounded-[26px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: hasSentToday
                   ? (isDark
@@ -811,49 +806,49 @@ export default function Home() {
                   : (isDark ? '0 8px 24px rgba(244, 69, 163, 0.14)' : '0 4px 18px rgba(244, 69, 163, 0.08)'),
               }}
             >
-              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
                 <div 
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm transition-all"
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm transition-all"
                   style={{ 
                     background: hasSentToday
                       ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)')
                       : (isDark ? 'rgba(244, 69, 163, 0.25)' : 'rgba(244, 69, 163, 0.12)') 
                   }}
                 >
-                  <Lightbulb className={`w-6 h-6 sm:w-7 sm:h-7 ${
+                  <Lightbulb className={`w-6 h-6 ${
                     hasSentToday 
                       ? (isDark ? 'text-white/60' : 'text-gray-500') 
                       : (isDark ? 'text-white' : 'text-[#F445A3]')
                   }`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${
+                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${
                     hasSentToday 
                       ? (isDark ? 'text-white/45' : 'text-gray-400') 
                       : (isDark ? 'text-white/60' : 'text-[#F445A3]')
                   }`}>
                     HINTS
                   </p>
-                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     Hints sturen
                   </p>
-                  <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/70' : 'text-gray-500'}`}>
+                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/70' : 'text-gray-500'}`}>
                     {hasSentToday 
                       ? (timeLeft ? `Verloopt over ${timeLeft} • Bekijk hints` : 'Laat anoniem je interesse weten') 
                       : 'Laat anoniem je interesse weten'}
                   </p>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className={`min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full text-xs sm:text-sm font-black flex items-center justify-center shadow-md ${
+              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
+                <div className={`min-w-[28px] h-7 px-2 rounded-full text-xs font-black flex items-center justify-center shadow-md ${
                   hasSentToday 
                     ? (isDark ? 'bg-white/15 text-white/80' : 'bg-gray-200 text-gray-700') 
                     : 'bg-[#F445A3] text-white'
                 }`}>
                   {hints.length + superMatchHints.length}
                 </div>
-                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -861,7 +856,7 @@ export default function Home() {
             {/* 4. Chat (#EE42BC - Fade stap 3) */}
             <button
               onClick={() => navigate(createPageUrl('Chat'))}
-              className="w-full flex items-center justify-between rounded-[22px] sm:rounded-[26px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(238, 66, 188, 0.22) 0%, rgba(238, 66, 188, 0.08) 100%)'
@@ -870,29 +865,29 @@ export default function Home() {
                 boxShadow: isDark ? '0 8px 24px rgba(238, 66, 188, 0.14)' : '0 4px 18px rgba(238, 66, 188, 0.08)',
               }}
             >
-              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
                 <div 
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
                   style={{ background: isDark ? 'rgba(238, 66, 188, 0.25)' : 'rgba(238, 66, 188, 0.12)' }}
                 >
-                  <MessageCircle className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
+                  <MessageCircle className={`w-6 h-6 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>CHAT</p>
-                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Chat</p>
-                  <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>CHAT</p>
+                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Chat</p>
+                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Chat met je supermatches
                   </p>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
+              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
                 {chatUnreadCount > 0 && (
-                  <div className="min-w-[28px] h-7 px-2 sm:min-w-[32px] sm:h-8 sm:px-2.5 rounded-full bg-[#EE42BC] text-white text-xs sm:text-sm font-black flex items-center justify-center shadow-md">
+                  <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#EE42BC] text-white text-xs font-black flex items-center justify-center shadow-md">
                     {chatUnreadCount}
                   </div>
                 )}
-                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -901,7 +896,7 @@ export default function Home() {
             {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars met rustig van links naar rechts pulserend lichtgoud randje) */}
             <button
               onClick={() => setShowDiscountsModal(true)}
-              className="w-full flex items-center justify-between rounded-[22px] sm:rounded-[26px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(234, 63, 211, 0.22) 0%, rgba(234, 63, 211, 0.08) 100%)'
@@ -912,7 +907,7 @@ export default function Home() {
             >
               {/* Rustig van links naar rechts pulserend lichtgoud randje in een vloeiende loop */}
               <div 
-                className="absolute inset-0 rounded-[22px] sm:rounded-[26px] pointer-events-none p-[1.5px] animate-gold-sweep"
+                className="absolute inset-0 rounded-[22px] pointer-events-none p-[1.5px] animate-gold-sweep"
                 style={{
                   background: isDark
                     ? 'linear-gradient(90deg, transparent 0%, rgba(255, 245, 205, 0.2) 20%, rgba(255, 235, 160, 0.95) 50%, rgba(255, 245, 205, 0.2) 80%, transparent 100%)'
@@ -923,24 +918,24 @@ export default function Home() {
                   maskComposite: 'exclude',
                 }}
               />
-              <div className="flex items-center gap-3.5 sm:gap-4 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
                 <div 
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
                   style={{ background: isDark ? 'rgba(234, 63, 211, 0.25)' : 'rgba(234, 63, 211, 0.12)' }}
                 >
-                  <Crown className={`w-6 h-6 sm:w-7 sm:h-7 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
+                  <Crown className={`w-6 h-6 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] sm:text-[11px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
-                  <p className={`text-[16px] sm:text-[18px] font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Bekijk VIP kortingen</p>
-                  <p className={`text-[12px] sm:text-[13.5px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
+                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Bekijk VIP kortingen</p>
+                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
                     Exclusieve deals voor jou
                   </p>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2 sm:gap-3">
-                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
+                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                  <ChevronRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -948,7 +943,7 @@ export default function Home() {
 
           {/* Location Not Set Blur Overlay */}
           {!myCheckIn && (
-            <div className="absolute inset-0 z-40 flex flex-col items-center justify-start pt-14 sm:pt-16 p-3">
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-start pt-14 p-3">
               <div 
                 className="w-full max-w-sm p-6 rounded-[28px] text-center flex flex-col items-center border shadow-2xl transition-all"
                 style={{
@@ -969,7 +964,7 @@ export default function Home() {
                 </p>
                 <button
                   onClick={() => navigate(createPageUrl('Pinpoint'))}
-                  className="w-full py-3.5 px-5 rounded-2xl font-black text-xs sm:text-sm text-white shadow-lg active:scale-95 transition-transform text-center"
+                  className="w-full py-3.5 px-5 rounded-2xl font-black text-sm text-white shadow-lg active:scale-95 transition-transform text-center"
                   style={{
                     background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
                     boxShadow: '0 6px 20px rgba(255, 75, 114, 0.4)',
@@ -1067,14 +1062,6 @@ export default function Home() {
             />
 
             <motion.div
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={{ left: 0, right: 0.8 }}
-              onDragEnd={(_, info) => {
-                if (info.offset.x > 80 || info.velocity.x > 400) {
-                  setShowDiscountsModal(false);
-                }
-              }}
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}

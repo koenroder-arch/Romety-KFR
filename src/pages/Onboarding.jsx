@@ -274,7 +274,7 @@ export default function Onboarding() {
            <h1
              className="font-black tracking-tight leading-none"
              style={{
-               fontSize: '2.4rem',
+               fontSize: 'clamp(1.75rem, 6vw, 2.4rem)',
                background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
                WebkitBackgroundClip: 'text',
                WebkitTextFillColor: 'transparent',
@@ -549,7 +549,7 @@ export default function Onboarding() {
             <h2 className="text-xl font-black text-white">{t.step3title}</h2>
             <p className="text-white/60 text-sm">{t.photoSub}</p>
             <label className="block cursor-pointer">
-              <div className={`w-full h-72 rounded-[24px] border-2 border-dashed flex items-center justify-center overflow-hidden transition-all ${photoPreview ? 'border-pink-400' : 'border-white/10 hover:border-pink-400/50 bg-white/5'}`} style={!photoPreview ? { boxShadow: '0 10px 30px rgba(0,0,0,0.15)' } : {}}>
+              <div className={`w-full rounded-[24px] border-2 border-dashed flex items-center justify-center overflow-hidden transition-all ${photoPreview ? 'border-pink-400' : 'border-white/10 hover:border-pink-400/50 bg-white/5'}`} style={!photoPreview ? { height: 'clamp(220px, 60vw, 288px)', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' } : { height: 'clamp(220px, 60vw, 288px)' }}>
                 {photoPreview ? (
                   <img src={photoPreview} alt="preview" className="w-full h-full object-cover" />
                 ) : (

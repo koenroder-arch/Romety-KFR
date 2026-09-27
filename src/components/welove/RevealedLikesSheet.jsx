@@ -125,14 +125,6 @@ export default function RevealedLikesSheet({
   return createPortal(
     <AnimatePresence>
       <motion.div
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={{ left: 0, right: 0.8 }}
-        onDragEnd={(_, info) => {
-          if (info.offset.x > 80 || info.velocity.x > 400) {
-            onClose();
-          }
-        }}
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}

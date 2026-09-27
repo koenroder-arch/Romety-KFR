@@ -197,26 +197,9 @@ export default function Login() {
     }
   };
 
-  const handleOAuthLogin = async (provider) => {
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: window.location.origin + getRedirectUrl(),
-        },
-      });
-      if (error) throw error;
-    } catch (err) {
-      setMessage({ type: 'error', text: err.message || t.errorTitle });
-      setLoading(false);
-    }
-  };
-
   return (
     <div
-      className="min-h-screen w-full max-w-lg mx-auto relative shadow-2xl flex flex-col justify-center items-center px-4 sm:px-6 py-10"
+      className="min-h-screen w-full max-w-lg mx-auto relative shadow-2xl flex flex-col justify-center items-center px-4 py-10"
       style={{ background: bg, fontFamily: "'Inter', sans-serif" }}
     >
       <div className="w-full space-y-6">
@@ -226,7 +209,7 @@ export default function Login() {
             <img 
               src="/romety-logo-transparent.png?v=3" 
               alt="Romety" 
-              className="h-16 sm:h-20 w-auto object-contain select-none mb-1" 
+              className="h-16 w-auto object-contain select-none mb-1" 
               style={{
                 mixBlendMode: isDark ? 'screen' : 'normal',
                 filter: isDark ? 'drop-shadow(0 0 16px rgba(234, 63, 211, 0.5))' : 'drop-shadow(0 4px 12px rgba(255, 75, 114, 0.3))'
@@ -243,7 +226,7 @@ export default function Login() {
 
         {/* Auth Card */}
         <div
-          className="rounded-[28px] p-6 sm:p-8 shadow-2xl border transition-all duration-300 w-full"
+          className="rounded-[28px] p-6 shadow-2xl border transition-all duration-300 w-full"
           style={{
             background: cardBg,
             borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
@@ -329,50 +312,6 @@ export default function Login() {
               )}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="relative my-6 flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}></div>
-            </div>
-            <span className={`relative px-4 text-xs font-semibold uppercase tracking-wider ${isDark ? 'bg-[#141521]' : 'bg-white'}`} style={{ color: textSub }}>
-              {t.or || 'of'}
-            </span>
-          </div>
-
-          {/* Social Logins */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin('google')}
-              disabled={loading}
-              className={`flex items-center justify-center gap-2.5 py-3.5 px-4 border rounded-2xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50 ${
-                isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.69c-.29 1.5-.14 2.69-1.3 3.47v2.88h2.09c1.23-1.13 2.17-2.8 2.17-5.2z"/>
-                <path fill="#34A853" d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-3.87-3c-1.08.72-2.45 1.16-4.09 1.16-3.15 0-5.81-2.13-6.76-5.01H1.27v3.1C3.25 21.27 7.31 24 12 24z"/>
-                <path fill="#FBBC05" d="M5.24 14.24a7.16 7.16 0 0 1 0-4.48v-3.1H1.27a11.94 11.94 0 0 0 0 10.68l3.97-3.1z"/>
-                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.73 1.27 6.66l3.97 3.1c.95-2.88 3.61-5.01 6.76-5.01z"/>
-              </svg>
-              Google
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin('apple')}
-              disabled={loading}
-              className={`flex items-center justify-center gap-2.5 py-3.5 px-4 border rounded-2xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50 ${
-                isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill={isDark ? '#FFFFFF' : '#000000'}>
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.22.67-2.94 1.5-.62.72-1.16 1.87-1.01 2.97 1.11.09 2.27-.57 2.96-1.41z"/>
-              </svg>
-              Apple
-            </button>
-          </div>
 
           {/* Toggle Login / Register */}
           <div className="mt-6 flex flex-col items-center gap-3">

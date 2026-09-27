@@ -26,6 +26,7 @@ export default function ProfilePhotoCarousel({
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
   const isDraggingMouse = useRef(false);
+  const isSwiping = useRef(false);
   const mouseStartX = useRef(null);
   const lastTapRef = useRef(0);
   const singleTapTimeoutRef = useRef(null);
@@ -67,6 +68,7 @@ export default function ProfilePhotoCarousel({
 
     // Trigger swipe if horizontal movement is significant
     if (Math.abs(deltaX) > 25 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      isSwiping.current = true;
       if (deltaX > 0) {
         // Swiped Left -> Next
         if (currentIndex < totalPhotos - 1) {
@@ -93,6 +95,7 @@ export default function ProfilePhotoCarousel({
     if (!isDraggingMouse.current || mouseStartX.current === null) return;
     const deltaX = mouseStartX.current - e.clientX;
     if (Math.abs(deltaX) > 30) {
+      isSwiping.current = true;
       if (deltaX > 0) {
         goToNext();
       } else {
@@ -105,13 +108,27 @@ export default function ProfilePhotoCarousel({
 
   // --- TAP / CLICK HANDLER ---
   const handleTap = (e) => {
+    if (isSwiping.current) {
+      isSwiping.current = false;
+      return;
+    }
+
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 280;
+    const DOUBLE_TAP_DELAY = 330;
     const lastTap = lastTapRef.current;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const clientX = e.clientX || (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : (rect.left + rect.width / 2));
-    const clientY = e.clientY || (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : (rect.top + rect.height / 2));
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+    if ((clientX === undefined || clientX === 0) && (clientY === undefined || clientY === 0)) {
+      if (e.changedTouches && e.changedTouches[0]) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else {
+        clientX = rect.left + rect.width / 2;
+        clientY = rect.top + rect.height / 2;
+      }
+    }
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 

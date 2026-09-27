@@ -9,6 +9,10 @@ const __dirname = path.dirname(__filename);
 // https://vite.dev/config/
 export default defineConfig({
   logLevel: 'error', // Suppress warnings, only show errors
+  server: {
+    host: true,
+    port: 5173,
+  },
   plugins: [
     react(),
   ],

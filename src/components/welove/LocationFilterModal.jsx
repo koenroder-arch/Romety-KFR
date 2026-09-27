@@ -82,6 +82,41 @@ export default function LocationFilterModal({
     }, 400);
   };
 
+  const safeDismissModal = () => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    onClose();
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 200);
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 400);
+    }
+  };
+
+  const handleCitySelect = (s) => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    onSelectCity(s);
+    safeDismissModal();
+  };
+
   const bgModal = isDark ? '#11131F' : '#FFFFFF';
   const borderModal = isDark ? '1.5px solid rgba(255,255,255,0.14)' : '1.5px solid rgba(0,0,0,0.10)';
   const textMain = isDark ? 'text-white' : 'text-gray-900';
@@ -95,26 +130,29 @@ export default function LocationFilterModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 sm:p-6">
-          {/* Lightweight Backdrop */}
+        <div
+          className="fixed inset-0 z-[2500] flex items-start justify-center p-4 sm:p-6 overflow-y-auto"
+          style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}
+        >
+          {/* Backdrop */}
           <motion.div
             key="location-filter-modal-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60"
+            onClick={safeDismissModal}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md"
           />
 
           {/* Dialog Container */}
           <motion.div
             key="location-filter-modal-dialog"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            initial={{ opacity: 0, scale: 0.96, y: -12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            exit={{ opacity: 0, scale: 0.96, y: -12 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-md rounded-[32px] p-6 sm:p-7 shadow-2xl overflow-visible z-10"
+            className="relative w-full max-w-md rounded-[32px] p-6 sm:p-7 shadow-2xl overflow-visible z-10 mt-2 sm:mt-4"
             style={{
               background: bgModal,
               border: borderModal,
@@ -130,7 +168,7 @@ export default function LocationFilterModal({
                 <h3 className={`font-black text-lg leading-tight ${textMain}`}>Locatiefilter</h3>
               </div>
               <button
-                onClick={onClose}
+                onClick={safeDismissModal}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-transform active:scale-90 cursor-pointer ${
                   isDark ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
@@ -142,35 +180,24 @@ export default function LocationFilterModal({
             {/* Active Filter Indicator */}
             {useNearbyFilter && (
               <div
-                className="mb-3.5 p-3 px-3.5 rounded-[20px] flex items-center justify-between gap-2.5 shadow-sm"
+                className="mb-3.5 p-3 px-3.5 rounded-[20px] flex items-center gap-2.5 shadow-sm"
                 style={{
                   background: isDark ? 'rgba(255, 75, 114, 0.12)' : 'rgba(255, 75, 114, 0.08)',
                   border: '1.5px solid rgba(255, 75, 114, 0.45)',
                 }}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-2.5 h-2.5 rounded-full bg-pink-500 animate-pulse flex-shrink-0" />
-                  <p className={`text-xs sm:text-sm font-bold truncate ${textMain}`}>
-                    Actief: <span className="text-pink-500 font-extrabold">{activeLocationLabel || 'Gekozen stad'}</span>
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    onClearFilter();
-                    onClose();
-                  }}
-                  className="text-xs font-bold text-pink-500 hover:underline px-2.5 py-1 rounded-xl flex items-center gap-1 flex-shrink-0 cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" /> Wis
-                </button>
+                <span className="w-2.5 h-2.5 rounded-full bg-pink-500 animate-pulse flex-shrink-0" />
+                <p className={`text-xs sm:text-sm font-bold truncate ${textMain}`}>
+                  Actief: <span className="text-pink-500 font-extrabold">{activeLocationLabel || 'Gekozen stad'}</span>
+                </p>
               </div>
             )}
 
             {/* GPS Button (Same gradient & style as venue CTA button) */}
             <button
               onClick={() => {
-                onClose();
                 onSelectGps();
+                safeDismissModal();
               }}
               className="w-full rounded-[20px] p-3.5 sm:p-4 flex items-center justify-between text-left transition-all active:scale-[0.98] cursor-pointer text-white"
               style={{
@@ -241,18 +268,15 @@ export default function LocationFilterModal({
                     : isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(0,0,0,0.08)',
                 }}
               >
-                {loading ? (
-                  <div className="w-5 h-5 rounded-full border-2 border-pink-400 border-t-pink-600 animate-spin flex-shrink-0" />
-                ) : (
-                  <Search className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
-                )}
+                <Search className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
                 <input
                   value={cityQuery}
                   onChange={(e) => handleSearchCity(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
                   placeholder="Typ bijvoorbeeld Amsterdam..."
-                  className={`flex-1 bg-transparent text-sm sm:text-base focus:outline-none ${textMain} placeholder-gray-400`}
+                  className={`flex-1 bg-transparent text-base focus:outline-none ${textMain} placeholder-gray-400`}
+                  style={{ fontSize: '16px' }}
                 />
                 {cityQuery.length > 0 && (
                   <button
@@ -265,7 +289,7 @@ export default function LocationFilterModal({
                 )}
               </div>
 
-              {/* Overlapping Suggestions Dropdown (Max 1 result) */}
+              {/* Overlapping Suggestions Dropdown */}
               {suggestions.length > 0 && (
                 <div
                   className="absolute left-0 right-0 top-full mt-2 rounded-[22px] shadow-2xl z-[100] overflow-hidden"
@@ -275,14 +299,30 @@ export default function LocationFilterModal({
                     boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
                   }}
                 >
-                  {suggestions.slice(0, 1).map((s, idx) => (
+                  {suggestions.slice(0, 3).map((s, idx) => (
                     <button
                       key={s.id || idx}
-                      onClick={() => {
-                        onSelectCity(s);
-                        onClose();
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCitySelect(s);
                       }}
-                      className="w-full px-4 py-3.5 text-left flex items-center gap-3 hover:bg-pink-500/15 transition-colors cursor-pointer"
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        handleCitySelect(s);
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCitySelect(s);
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCitySelect(s);
+                      }}
+                      className="w-full px-4 py-3.5 text-left flex items-center gap-3 hover:bg-pink-500/15 active:bg-pink-500/25 transition-colors cursor-pointer"
                     >
                       <MapPin className="w-4.5 h-4.5 text-pink-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -300,7 +340,7 @@ export default function LocationFilterModal({
               <button
                 onClick={() => {
                   onClearFilter();
-                  onClose();
+                  safeDismissModal();
                 }}
                 className="w-full py-3 rounded-[20px] text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-sm"
                 style={{
@@ -310,7 +350,7 @@ export default function LocationFilterModal({
                 }}
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>Filter wissen</span>
+                <span>Filter verwijderen</span>
               </button>
             )}
           </motion.div>

@@ -8,8 +8,8 @@ import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
 import { 
   LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart, Gamepad2,
-  Bell, HelpCircle, MessageCircle, ArrowRightLeft, AlertTriangle, Globe, ArrowLeft,
-  User, Calendar, Ruler, FileText, Sparkles, Target, Compass, Users, Smile
+  Bell, HelpCircle, MessageCircle, MessageSquare, ArrowRightLeft, AlertTriangle, Globe, ArrowLeft,
+  User, Calendar, Ruler, FileText, Sparkles, Target, Compass, Users, Smile, Send
 } from 'lucide-react';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import { compressImage } from '@/utils/imageUtils';
@@ -123,12 +123,29 @@ export default function Account() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteSurvey, setShowDeleteSurvey] = useState(false);
   const [deleteAnswers, setDeleteAnswers] = useState({ foundMatch: '', reason: '' });
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [sendingFeedback, setSendingFeedback] = useState(false);
   
   const [openFaq, setOpenFaq] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Lock body and background scrolling when activeSheet popup is open
+  useEffect(() => {
+    if (activeSheet) {
+      const originalOverflow = document.body.style.overflow;
+      const originalTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.touchAction = originalTouchAction;
+      };
+    }
+  }, [activeSheet]);
 
   // Change detection for Save button & Discard warning
   const hasChanges = React.useMemo(() => {
@@ -493,6 +510,22 @@ export default function Account() {
       const email = (user.email || user.user_email || '').toLowerCase().trim();
 
       if (email) {
+        // 0. Save exit feedback to Supabase if provided
+        try {
+          if (deleteAnswers?.selectedOption) {
+            await supabase.from('AccountDeletionSurvey').insert([
+              {
+                reason: deleteAnswers.selectedOption,
+                custom_feedback: deleteAnswers.customText?.trim() || null,
+                user_email: email,
+                created_at: new Date().toISOString()
+              }
+            ]).catch(() => {});
+          }
+        } catch (e) {
+          console.warn('[handleDeleteAccount] Error saving deletion feedback:', e);
+        }
+
         // 1. Delete user photos & story media from storage
         try {
           const { data: userProfiles } = await supabase.from('UserProfile').select('photo_url, photos').eq('user_email', email);
@@ -547,6 +580,10 @@ export default function Account() {
 
       // 3. Clear all local auth storage (localStorage, sessionStorage, IndexedDB, cookies)
       authStorage.clearUser();
+      try {
+        sessionStorage.removeItem('romety_splash_shown');
+        sessionStorage.clear();
+      } catch (err) {}
 
       // 4. Sign out from Supabase Auth
       try {
@@ -558,18 +595,22 @@ export default function Account() {
       toast.dismiss(toastId);
       toast.success('Je account is succesvol verwijderd.');
 
-      // 5. Redirect directly to Login page
+      // 5. Redirect directly to Onboarding page (full new user trajectory)
       setTimeout(() => {
-        window.location.replace('/Login');
+        window.location.replace('/Onboarding');
       }, 400);
 
     } catch (e) {
       console.error('Error deleting user account:', e);
       authStorage.clearUser();
-      try { await supabase.auth.signOut(); } catch (err) {}
+      try {
+        sessionStorage.removeItem('romety_splash_shown');
+        sessionStorage.clear();
+        await supabase.auth.signOut();
+      } catch (err) {}
       toast.dismiss(toastId);
       toast.success('Je account is verwijderd.');
-      window.location.replace('/Login');
+      window.location.replace('/Onboarding');
     } finally {
       setDeleting(false);
     }
@@ -578,11 +619,73 @@ export default function Account() {
   const handleSurveySubmit = async () => {
     try {
       authStorage.clearUser();
+      sessionStorage.removeItem('romety_splash_shown');
+      sessionStorage.clear();
       await base44.auth.logout();
     } catch (e) {
       console.error(e);
       authStorage.clearUser();
-      window.location.replace('/Login');
+      window.location.replace('/Onboarding');
+    }
+  };
+
+  const handleSendFeedback = async (e) => {
+    e?.preventDefault();
+    if (!feedbackText.trim()) {
+      toast.error('Typ eerst je feedback');
+      return;
+    }
+    setSendingFeedback(true);
+    try {
+      const email = (user?.email || user?.user_email || '').toLowerCase().trim();
+      const today = new Date().toISOString().slice(0, 10);
+      const storageKey = `romety_fb_count_${email || 'anon'}`;
+      
+      let currentFeedbackData = { date: today, count: 0 };
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.date === today && typeof parsed.count === 'number') {
+            currentFeedbackData = parsed;
+          }
+        }
+      } catch (err) {}
+
+      // Only insert into Supabase if user sent less than 2 feedback requests today
+      if (currentFeedbackData.count < 2) {
+        const { error } = await supabase.from('Feedback').insert([
+          {
+            message: feedbackText.trim(),
+            user_email: email || null,
+            created_at: new Date().toISOString()
+          }
+        ]);
+        if (error) {
+          console.warn('Feedback insert error:', error);
+        }
+        // Update local daily counter
+        try {
+          localStorage.setItem(storageKey, JSON.stringify({
+            date: today,
+            count: currentFeedbackData.count + 1
+          }));
+        } catch (err) {}
+      } else {
+        // Silent throttle: user reaches 2/day -> skip database insert to prevent spam
+        console.log('[Feedback] Daily limit of 2 reached; silently skipping database write.');
+      }
+
+      toast.success('Bedankt voor je feedback! 🙌');
+      setFeedbackText('');
+      setShowFeedbackModal(false);
+    } catch (err) {
+      console.error('Feedback error:', err);
+      toast.success('Bedankt voor je feedback! 🙌');
+      setFeedbackText('');
+      setShowFeedbackModal(false);
+    } finally {
+      setSendingFeedback(false);
     }
   };
 
@@ -643,7 +746,7 @@ export default function Account() {
     >
       
       {/* Top Header Background */}
-      <div className="px-5 pt-14 sm:pt-16 pb-20 relative overflow-hidden" style={{ background: headerBg }}>
+      <div className="px-5 pb-20 relative overflow-hidden" style={{ background: headerBg, paddingTop: 'max(56px, calc(env(safe-area-inset-top, 0px) + 14px))' }}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className={`text-2xl sm:text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Mijn Account</h1>
@@ -1035,6 +1138,21 @@ export default function Account() {
 
         {/* ── Account Actions ── */}
         <div className="space-y-2.5 pt-2">
+
+          {/* Feedback Button */}
+          <button 
+            onClick={() => setShowFeedbackModal(true)} 
+            className="w-full rounded-2xl p-3.5 flex items-center justify-between transition-all active:scale-[0.99]" 
+            style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <span className={`font-bold text-xs ${textMain}`}>Feedback geven</span>
+            </div>
+            <ChevronRight className="w-4 h-4" style={{ color: textSub }} />
+          </button>
           
           {/* Logout Button */}
           <button 
@@ -1079,7 +1197,7 @@ export default function Account() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="fixed inset-0 z-[200] overflow-y-auto max-w-md mx-auto flex flex-col"
+            className={`fixed inset-0 z-[200] ${activeSheet ? 'overflow-hidden pointer-events-none' : 'overflow-y-auto'} max-w-md mx-auto flex flex-col`}
             style={{ background: bg }}
           >
             {/* Header */}
@@ -1370,8 +1488,15 @@ export default function Account() {
       {/* ── SUB-SHEET MODAL FOR APPLE SETTINGS ITEMS ── */}
       <AnimatePresence>
         {activeSheet && (
-          <div
-            className="fixed inset-0 z-[250] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.24, ease: "easeOut" }}
+            className="fixed inset-0 z-[250] pointer-events-auto flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md select-none"
+            onTouchMove={(e) => {
+              if (e.target === e.currentTarget) e.preventDefault();
+            }}
             onClick={() => {
               setActiveSheet(null);
               setPendingNewTrait(null);
@@ -1379,17 +1504,26 @@ export default function Account() {
             }}
           >
             <motion.div
-              initial={{ y: '100%', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100%', opacity: 0 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden p-5 flex flex-col max-h-[85vh]"
-              style={{ background: cardBg, border: cardBorder, boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 10 }}
+              transition={{
+                type: "spring",
+                damping: 28,
+                stiffness: 340,
+                mass: 0.85
+              }}
+              className={`relative w-full max-w-sm sm:max-w-md rounded-[28px] sm:rounded-[32px] overflow-hidden p-5 sm:p-6 flex flex-col max-h-[82vh] ${
+                activeSheet === 'username'
+                  ? '-translate-y-22 sm:-translate-y-24'
+                  : activeSheet === 'bio'
+                    ? '-translate-y-28 sm:-translate-y-32'
+                    : '-translate-y-6 sm:-translate-y-8'
+              }`}
+              style={{ background: cardBg, border: cardBorder, boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
               onClick={e => e.stopPropagation()}
+              onTouchMove={e => e.stopPropagation()}
             >
-              {/* Grab bar */}
-              <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-white/20 mx-auto mb-4" />
-
               {/* Header */}
               <div className="flex items-center justify-between pb-3 mb-3 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <h3 className={`text-base font-black ${textMain}`}>
@@ -1414,9 +1548,14 @@ export default function Account() {
                     setPendingNewTrait(null);
                     setPendingNewInterest(null);
                   }}
-                  className="text-xs font-black text-pink-500 px-3 py-1 rounded-full hover:bg-pink-500/10 transition-colors"
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer shadow-md"
+                  style={{
+                    background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+                    color: '#FFFFFF',
+                  }}
+                  title="Opslaan & Sluiten"
                 >
-                  Klaar
+                  <Check className="w-4 h-4 stroke-[3]" />
                 </button>
               </div>
 
@@ -1807,320 +1946,573 @@ export default function Account() {
                 )}
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
       {/* ── MODAL: SAVE CONFIRMATION (WARNING MATCHES COULD BE LOST) ── */}
-      {showSaveConfirm && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowSaveConfirm(false)}>
-          <div className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-2xl border border-gray-100 dark:border-white/10 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
-              <h4 className="text-gray-900 dark:text-white font-bold text-xs">Account wijzigen?</h4>
-            </div>
-            <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
-              Weet je zeker dat je jouw account wilt opslaan? Je kunt potentiële matches en hints verliezen door het veranderen van je profielgegevens en voorkeuren.
-            </p>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setShowSaveConfirm(false)} 
-                className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
-              >
-                Annuleren
-              </button>
-              <button 
-                onClick={executeSave} 
-                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:opacity-95"
-              >
-                Ja, opslaan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showSaveConfirm && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.22 }} 
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
+            onClick={() => setShowSaveConfirm(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-2xl border border-gray-100 dark:border-white/10" 
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
+                <h4 className="text-gray-900 dark:text-white font-bold text-xs">Account wijzigen?</h4>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
+                Weet je zeker dat je jouw account wilt opslaan? Je kunt potentiële matches en hints verliezen door het veranderen van je profielgegevens en voorkeuren.
+              </p>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowSaveConfirm(false)} 
+                  className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
+                >
+                  Annuleren
+                </button>
+                <button 
+                  onClick={executeSave} 
+                  className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:opacity-95"
+                >
+                  Ja, opslaan
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── MODAL: DISCARD CONFIRMATION (WHEN RETURNING WITH UNSAVED CHANGES) ── */}
-      {showDiscardConfirm && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={handleCancelDiscard}>
-          <div className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
-              <h4 className="text-gray-900 dark:text-white font-bold text-xs">Wijzigingen verwerpen?</h4>
-            </div>
-            <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
-              Weet je het zeker? Je hebt aanpassingen gemaakt die nog niet zijn opgeslagen. Als je weggaat, gaan deze verloren.
-            </p>
-            <div className="flex gap-2">
-              <button 
-                onClick={handleCancelDiscard} 
-                className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
-              >
-                Annuleren
-              </button>
-              <button 
-                onClick={handleConfirmDiscard} 
-                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
-              >
-                Ja, verwerpen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showDiscardConfirm && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.22 }} 
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
+            onClick={handleCancelDiscard}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10" 
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
+                <h4 className="text-gray-900 dark:text-white font-bold text-xs">Wijzigingen verwerpen?</h4>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
+                Weet je het zeker? Je hebt aanpassingen gemaakt die nog niet zijn opgeslagen. Als je weggaat, gaan deze verloren.
+              </p>
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleCancelDiscard} 
+                  className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
+                >
+                  Annuleren
+                </button>
+                <button 
+                  onClick={handleConfirmDiscard} 
+                  className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
+                >
+                  Ja, verwerpen
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── MODAL: PROFILE PREVIEW (MATCHES PAGE SWIPER CARD STYLE) ── */}
-      {showPreview && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setShowPreview(false)}>
-          <div className="w-full max-w-sm h-[560px] rounded-[32px] overflow-hidden relative shadow-2xl flex flex-col justify-end" onClick={e => e.stopPropagation()}>
-            
-            {/* Close Button */}
-            <button 
-              onClick={() => setShowPreview(false)} 
-              className="absolute top-4 right-4 z-30 p-2 rounded-full bg-black/40 text-white backdrop-blur-md border border-white/20 hover:bg-black/60 transition-all"
+      <AnimatePresence>
+        {showPreview && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.24 }} 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" 
+            onClick={() => setShowPreview(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.90, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className="w-full max-w-sm h-[560px] rounded-[32px] overflow-hidden relative shadow-2xl flex flex-col justify-end" 
+              onClick={e => e.stopPropagation()}
             >
-              <X className="w-5 h-5" />
-            </button>
+              
+              {/* Close Button */}
+              <button 
+                onClick={() => setShowPreview(false)} 
+                className="absolute top-4 right-4 z-30 p-2 rounded-full bg-black/40 text-white backdrop-blur-md border border-white/20 hover:bg-black/60 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
-            {/* Photo Background Carousel with Indicator Dots */}
-            <ProfilePhotoCarousel 
-              profile={{
-                ...myProfile,
-                ...form,
-                photos: (form.photos && form.photos.length > 0) 
-                  ? form.photos 
-                  : (myProfile?.photos || (myProfile?.photo_url ? [myProfile.photo_url] : []))
-              }} 
-              dotsClassName="top-4 left-4 z-30" 
-            />
+              {/* Photo Background Carousel with Indicator Dots */}
+              <ProfilePhotoCarousel 
+                profile={{
+                  ...myProfile,
+                  ...form,
+                  photos: (form.photos && form.photos.length > 0) 
+                    ? form.photos 
+                    : (myProfile?.photos || (myProfile?.photo_url ? [myProfile.photo_url] : []))
+                }} 
+                dotsClassName="top-4 left-4 z-30" 
+              />
 
-            {/* Foreground Card Content matching MatchesSwiper */}
-            <div className="relative z-10 p-6 flex flex-col pointer-events-none">
-              <div className="pointer-events-auto flex flex-col">
-                {/* Name / Age / Height */}
-                <h2 className="text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide">
-                  {form.age || myProfile?.age || '24'} jaar {form.height_cm || myProfile?.height_cm ? `• ${form.height_cm || myProfile.height_cm} cm` : ''}
-                </h2>
+              {/* Foreground Card Content matching MatchesSwiper */}
+              <div className="relative z-10 p-6 flex flex-col pointer-events-none">
+                <div className="pointer-events-auto flex flex-col">
+                  {/* Name / Age / Height */}
+                  <h2 className="text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide">
+                    {form.age || myProfile?.age || '24'} jaar {form.height_cm || myProfile?.height_cm ? `• ${form.height_cm || myProfile.height_cm} cm` : ''}
+                  </h2>
 
-                {/* Tags (Avatar first, then interests/traits) */}
-                <div className="flex flex-wrap gap-1.5 mb-5 items-center">
-                  {myProfile?.avatar && (
-                    <span className="px-3.5 py-1 rounded-full text-[13px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5">
-                      <span className="text-sm">{myProfile.avatar.split(' ')[0]}</span>
-                      <span className="text-pink-100">{myProfile.avatar.split(' ').slice(1).join(' ')}</span>
-                    </span>
-                  )}
-                  {[...(form.interests || myProfile?.interests || []).slice(0, 2), ...(form.traits || myProfile?.traits || []).slice(0, 1)].map((tag) => (
-                    <span key={tag} className="px-3.5 py-1 rounded-full text-[13px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                  {/* Tags (Avatar first, then interests/traits) */}
+                  <div className="flex flex-wrap gap-1.5 mb-5 items-center">
+                    {myProfile?.avatar && (
+                      <span className="px-3.5 py-1 rounded-full text-[13px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5">
+                        <span className="text-sm">{myProfile.avatar.split(' ')[0]}</span>
+                        <span className="text-pink-100">{myProfile.avatar.split(' ').slice(1).join(' ')}</span>
+                      </span>
+                    )}
+                    {[...(form.interests || myProfile?.interests || []).slice(0, 2), ...(form.traits || myProfile?.traits || []).slice(0, 1)].map((tag) => (
+                      <span key={tag} className="px-3.5 py-1 rounded-full text-[13px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
 
-                {/* Fake Action Buttons (Like & Hint) */}
-                <div className="flex gap-3">
-                  <button className="flex-1 py-3 px-3 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg active:scale-95 transition-transform">
-                    <Heart className="w-4.5 h-4.5" color="white" fill="transparent" strokeWidth={2.4} />
-                    Like
-                  </button>
-                  <button className="flex-1 py-3 px-3 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg active:scale-95 transition-transform">
-                    <MessageCircle className="w-4.5 h-4.5" color="white" strokeWidth={2.4} />
-                    Hint
-                  </button>
+                  {/* Fake Action Buttons (Like & Hint) */}
+                  <div className="flex gap-3">
+                    <button className="flex-1 py-3 px-3 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg active:scale-95 transition-transform">
+                      <Heart className="w-4.5 h-4.5" color="white" fill="transparent" strokeWidth={2.4} />
+                      Like
+                    </button>
+                    <button className="flex-1 py-3 px-3 rounded-full border-2 border-white/35 bg-black/40 backdrop-blur-md flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg active:scale-95 transition-transform">
+                      <MessageCircle className="w-4.5 h-4.5" color="white" strokeWidth={2.4} />
+                      Hint
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
 
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── MODAL: LOGOUT CONFIRM (NORMAL NOTIFICATION STYLE) ── */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowLogoutConfirm(false)}>
-          <div className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <LogOut className="w-4.5 h-4.5 text-rose-500 flex-shrink-0" />
-              <h4 className="text-gray-900 dark:text-white font-bold text-xs">Uitloggen</h4>
-            </div>
-            <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
-              Weet je het zeker dat je wilt uitloggen bij Romety?
-            </p>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setShowLogoutConfirm(false)} 
-                className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
-              >
-                Nee
-              </button>
-              <button 
-                onClick={handlePerformLogout} 
-                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
-              >
-                Ja
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.22 }} 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
+            onClick={() => setShowLogoutConfirm(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10" 
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <LogOut className="w-4.5 h-4.5 text-rose-500 flex-shrink-0" />
+                <h4 className="text-gray-900 dark:text-white font-bold text-xs">Uitloggen</h4>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
+                Weet je het zeker dat je wilt uitloggen bij Romety?
+              </p>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowLogoutConfirm(false)} 
+                  className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
+                >
+                  Nee
+                </button>
+                <button 
+                  onClick={handlePerformLogout} 
+                  className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
+                >
+                  Ja
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── MODAL: DELETE CONFIRM (NORMAL NOTIFICATION STYLE) ── */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Trash2 className="w-4.5 h-4.5 text-red-600 flex-shrink-0" />
-              <h4 className="text-gray-900 dark:text-white font-bold text-xs">Account verwijderen</h4>
-            </div>
-            <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
-              Weet je het zeker? Al je matches, hints en overige informatie worden hiermee definitief verwijderd uit de database.
-            </p>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setShowDeleteConfirm(false)} 
-                className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
-              >
-                Nee
-              </button>
-              <button 
-                onClick={() => { setShowDeleteConfirm(false); handleDeleteAccount(); }} 
-                className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
-              >
-                Ja
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── MODAL: DELETE SURVEY ── */}
-      {showDeleteSurvey && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-white rounded-[28px] w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
-            <div className="text-4xl mb-2">👋</div>
-            <h3 className="text-xl font-black text-gray-900 mb-1">Account Verwijderd</h3>
-            <p className="text-xs text-gray-500 mb-5">Laat ons weten waarom je weggaat zodat we Romety kunnen verbeteren:</p>
-            
-            <div className="text-left mb-4">
-              <p className="text-xs font-bold text-gray-800 mb-2">Heb je een match gevonden via Romety?</p>
-              <div className="flex gap-2">
-                {['Ja! 🎉', 'Nee 😔'].map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => setDeleteAnswers(a => ({ ...a, foundMatch: opt }))}
-                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${deleteAnswers.foundMatch === opt ? 'border-pink-500 text-pink-600 bg-pink-50' : 'border-gray-100 text-gray-600 bg-gray-50'}`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="text-left mb-5">
-              <p className="text-xs font-bold text-gray-800 mb-2">Reden voor vertrek (optioneel):</p>
-              <textarea
-                rows={3}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800 resize-none outline-none focus:border-pink-400"
-                placeholder="Vertel ons kort je reden..."
-                value={deleteAnswers.reason}
-                onChange={e => setDeleteAnswers(a => ({ ...a, reason: e.target.value }))}
-              />
-            </div>
-
-            <button
-              onClick={handleSurveySubmit}
-              className="w-full py-3.5 rounded-2xl font-black text-white text-sm bg-gradient-to-r from-pink-500 to-rose-600 shadow-md"
-            >
-              Sluiten & Afmelden
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Country Change Warning Modal ── */}
-      {showCountryWarning && (
-        <div
-          className="fixed inset-0 z-[110] flex items-center justify-center p-6"
-          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', overflowY: 'hidden' }}
-          onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
-        >
-          <div
-            className="w-full max-w-xs rounded-[28px] overflow-hidden"
-            style={{
-              background: isDark ? '#141521' : '#FFFFFF',
-              border: isDark ? '1.5px solid rgba(255,75,114,0.3)' : '1px solid rgba(0,0,0,0.08)',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.55)',
-            }}
-            onClick={e => e.stopPropagation()}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.22 }} 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
+            onClick={() => setShowDeleteConfirm(false)}
           >
-            <div className="p-6">
-              {/* Warning icon */}
-              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
-                style={{ background: 'rgba(255,75,114,0.12)' }}>
-                <AlertTriangle className="w-7 h-7 text-pink-500" />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10" 
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Trash2 className="w-4.5 h-4.5 text-red-600 flex-shrink-0" />
+                <h4 className="text-gray-900 dark:text-white font-bold text-xs">Account verwijderen</h4>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
+                Weet je het zeker? Al je matches, hints en overige informatie worden hiermee definitief verwijderd uit de database.
+              </p>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)} 
+                  className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
+                >
+                  Nee
+                </button>
+                <button 
+                  onClick={() => { 
+                    setShowDeleteConfirm(false); 
+                    setDeleteAnswers({ selectedOption: 'Ik heb iemand gevonden ❤️', customText: '' });
+                    setShowDeleteSurvey(true); 
+                  }} 
+                  className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
+                >
+                  Ja
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL: DELETE SURVEY (BEFORE DEFINITIVE DELETION) ── */}
+      <AnimatePresence>
+        {showDeleteSurvey && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.22 }} 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowDeleteSurvey(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className={`w-full max-w-sm p-6 rounded-[28px] shadow-2xl border ${
+                isDark ? 'bg-[#141521] border-white/10 text-white' : 'bg-white border-gray-100 text-gray-900'
+              }`}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-red-500/10 text-red-500">
+                <Trash2 className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <h3 className="text-lg font-black text-center mb-1">Waarom verlaat je Romety?</h3>
+              <p className="text-xs text-center mb-4 leading-relaxed opacity-60">
+                We vinden het jammer dat je gaat. Laat ons weten waarom zodat we Romety kunnen verbeteren:
+              </p>
+              
+              {/* 3 Selectable Options */}
+              <div className="space-y-2 mb-4">
+                {[
+                  'Ik heb iemand gevonden ❤️',
+                  'Ik vind de app niet lekker werken',
+                  'Anders'
+                ].map(opt => {
+                  const isSelected = deleteAnswers.selectedOption === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setDeleteAnswers(a => ({ ...a, selectedOption: opt }))}
+                      className={`w-full p-3 rounded-2xl text-xs font-bold border transition-all text-left flex items-center justify-between active:scale-98 ${
+                        isSelected
+                          ? 'border-pink-500 bg-pink-500/10 text-pink-500 shadow-sm'
+                          : isDark
+                            ? 'border-white/10 bg-white/5 text-white/80 hover:bg-white/10'
+                            : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span>{opt}</span>
+                      <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        isSelected ? 'border-pink-500 bg-pink-500 text-white' : isDark ? 'border-white/20' : 'border-gray-300'
+                      }`}>
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <h3 className={`text-lg font-black text-center mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Land wijzigen?
-              </h3>
-              <p className={`text-sm text-center mb-1 ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
-                Je wisselt naar <strong className={isDark ? 'text-white' : 'text-gray-900'}>{pendingCountry}</strong>.
-              </p>
-              <p className="text-sm text-center text-pink-500 font-semibold mb-6">
-                Je verliest je matches in het huidige land.
-              </p>
+              {/* Optional Textarea when Anders is chosen */}
+              {deleteAnswers.selectedOption === 'Anders' && (
+                <div className="mb-4">
+                  <textarea
+                    rows={2}
+                    className={`w-full rounded-2xl border px-3 py-2.5 text-xs resize-none outline-none transition-all ${
+                      isDark 
+                        ? 'border-white/15 bg-white/5 text-white placeholder-white/40 focus:border-pink-500' 
+                        : 'border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 focus:border-pink-500'
+                    }`}
+                    placeholder="Optioneel: typ hier je reden..."
+                    value={deleteAnswers.customText || ''}
+                    onChange={e => setDeleteAnswers(a => ({ ...a, customText: e.target.value }))}
+                  />
+                </div>
+              )}
 
-              <div className="flex gap-3">
+              {/* Bottom Action Buttons: Annuleren vs Verwijderen */}
+              <div className="flex gap-2.5 pt-1">
                 <button
-                  onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
-                  className={`flex-1 py-3.5 rounded-2xl font-bold text-sm border transition-all ${isDark ? 'border-white/15 text-white/70 bg-white/5' : 'border-gray-200 text-gray-600 bg-gray-100'}`}
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setShowDeleteSurvey(false)}
+                  className={`flex-1 py-3 rounded-2xl text-xs font-bold border transition-all active:scale-95 ${
+                    isDark 
+                      ? 'border-white/15 text-white/80 bg-white/5 hover:bg-white/10' 
+                      : 'border-gray-200 text-gray-700 bg-gray-100 hover:bg-gray-200'
+                  }`}
                 >
                   Annuleren
                 </button>
                 <button
-                  onClick={async () => {
-                    if (!myProfile?.id || !user?.email) return;
-                    setSaving(true);
-                    try {
-                      // Use the same comprehensive update as executeSave to satisfy RLS
-                      const photosList = myProfile?.photos || (myProfile?.photo_url ? [myProfile.photo_url] : []);
-                      const updatePayload = {
-                        display_name: myProfile.display_name || '',
-                        age: myProfile.age || null,
-                        relationship_status: myProfile.relationship_status || 'Relatie',
-                        bio: myProfile.bio || '',
-                        traits: myProfile.traits || [],
-                        interests: myProfile.interests || [],
-                        photo_url: myProfile.photo_url || null,
-                        country: pendingCountry,
-                        user_email: user.email,
-                      };
-                      try {
-                        await base44.entities.UserProfile.update(myProfile.id, { ...updatePayload, photos: photosList });
-                      } catch {
-                        await base44.entities.UserProfile.update(myProfile.id, updatePayload);
-                      }
-                      setMyProfile(p => ({ ...p, country: pendingCountry }));
-                      setForm(f => ({ ...f, country: pendingCountry }));
-                      toast.success(`Land gewijzigd naar ${pendingCountry}`);
-                    } catch (e) {
-                      console.error('Country save error:', e);
-                      toast.error('Kon land niet opslaan: ' + (e?.message || 'onbekende fout'));
-                    }
-                    setSaving(false);
-                    setShowCountryWarning(false);
-                    setPendingCountry(null);
-                  }}
-                  className="flex-1 py-3.5 rounded-2xl font-black text-white text-sm transition-all"
-                  style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)', boxShadow: '0 8px 20px rgba(255,75,114,0.4)' }}
+                  type="button"
+                  disabled={deleting}
+                  onClick={handleDeleteAccount}
+                  className="flex-1 py-3 rounded-2xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 shadow-md active:scale-95 transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  {saving ? '...' : 'Bevestigen'}
+                  {deleting ? (
+                    'Verwijderen...'
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Verwijder
+                    </>
+                  )}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Country Change Warning Modal ── */}
+      <AnimatePresence>
+        {showCountryWarning && (
+          <motion.div
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.22 }} 
+            className="fixed inset-0 z-[110] flex items-center justify-center p-6"
+            style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', overflowY: 'hidden' }}
+            onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className="w-full max-w-xs rounded-[28px] overflow-hidden"
+              style={{
+                background: isDark ? '#141521' : '#FFFFFF',
+                border: isDark ? '1.5px solid rgba(255,75,114,0.3)' : '1px solid rgba(0,0,0,0.08)',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.55)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6">
+                {/* Warning icon */}
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
+                  style={{ background: 'rgba(255,75,114,0.12)' }}>
+                  <AlertTriangle className="w-7 h-7 text-pink-500" />
+                </div>
+
+                <h3 className={`text-lg font-black text-center mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Land wijzigen?
+                </h3>
+                <p className={`text-sm text-center mb-1 ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
+                  Je wisselt naar <strong className={isDark ? 'text-white' : 'text-gray-900'}>{pendingCountry}</strong>.
+                </p>
+                <p className="text-sm text-center text-pink-500 font-semibold mb-6">
+                  Je verliest je matches in het huidige land.
+                </p>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
+                    className={`flex-1 py-3.5 rounded-2xl font-bold text-sm border transition-all ${isDark ? 'border-white/15 text-white/70 bg-white/5' : 'border-gray-200 text-gray-600 bg-gray-100'}`}
+                  >
+                    Annuleren
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!myProfile?.id || !user?.email) return;
+                      setSaving(true);
+                      try {
+                        // Use the same comprehensive update as executeSave to satisfy RLS
+                        const photosList = myProfile?.photos || (myProfile?.photo_url ? [myProfile.photo_url] : []);
+                        const updatePayload = {
+                          display_name: myProfile.display_name || '',
+                          age: myProfile.age || null,
+                          relationship_status: myProfile.relationship_status || 'Relatie',
+                          bio: myProfile.bio || '',
+                          traits: myProfile.traits || [],
+                          interests: myProfile.interests || [],
+                          photo_url: myProfile.photo_url || null,
+                          country: pendingCountry,
+                          user_email: user.email,
+                        };
+                        try {
+                          await base44.entities.UserProfile.update(myProfile.id, { ...updatePayload, photos: photosList });
+                        } catch {
+                          await base44.entities.UserProfile.update(myProfile.id, updatePayload);
+                        }
+                        setMyProfile(p => ({ ...p, country: pendingCountry }));
+                        setForm(f => ({ ...f, country: pendingCountry }));
+                        toast.success(`Land gewijzigd naar ${pendingCountry}`);
+                      } catch (e) {
+                        console.error('Country save error:', e);
+                        toast.error('Kon land niet opslaan: ' + (e?.message || 'onbekende fout'));
+                      }
+                      setSaving(false);
+                      setShowCountryWarning(false);
+                      setPendingCountry(null);
+                    }}
+                    className="flex-1 py-3.5 rounded-2xl font-black text-white text-sm transition-all"
+                    style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)', boxShadow: '0 8px 20px rgba(255,75,114,0.4)' }}
+                  >
+                    {saving ? '...' : 'Bevestigen'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL: FEEDBACK ── */}
+      <AnimatePresence>
+        {showFeedbackModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.22 }} 
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowFeedbackModal(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className={`relative w-full max-w-xs sm:max-w-sm p-4 sm:p-5 rounded-[24px] shadow-2xl border -translate-y-22 sm:-translate-y-26 ${
+                isDark ? 'bg-[#141521] border-white/10 text-white' : 'bg-white border-gray-100 text-gray-900'
+              }`}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
+                    <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
+                  </div>
+                  <h3 className="text-sm font-black">Feedback of suggestie</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFeedbackModal(false)}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                    isDark ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <p className="text-[11px] mb-3 leading-relaxed opacity-60">
+                Wat vind je van Romety of wat kunnen we verbeteren? We horen het graag!
+              </p>
+
+              <div className="mb-3.5">
+                <textarea
+                  rows={3}
+                  autoFocus
+                  className={`w-full rounded-xl border p-3 text-xs resize-none outline-none transition-all ${
+                    isDark 
+                      ? 'border-white/15 bg-white/5 text-white placeholder-white/40 focus:border-pink-500' 
+                      : 'border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 focus:border-pink-500'
+                  }`}
+                  placeholder="Typ hier jouw feedback of idee..."
+                  value={feedbackText}
+                  onChange={e => setFeedbackText(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={sendingFeedback}
+                  onClick={() => setShowFeedbackModal(false)}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+                    isDark 
+                      ? 'border-white/15 text-white/80 bg-white/5 hover:bg-white/10' 
+                      : 'border-gray-200 text-gray-700 bg-gray-100 hover:bg-gray-200'
+                  }`}
+                >
+                  Annuleren
+                </button>
+                <button
+                  type="button"
+                  disabled={sendingFeedback || !feedbackText.trim()}
+                  onClick={handleSendFeedback}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-pink-500 to-rose-600 shadow-md active:scale-95 transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {sendingFeedback ? 'Versturen...' : (
+                    <>
+                      <Send className="w-3 h-3" />
+                      Versturen
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

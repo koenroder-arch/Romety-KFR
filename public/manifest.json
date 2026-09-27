@@ -3,9 +3,14 @@
   "name": "Romety Dating App",
   "icons": [
     {
-      "src": "https://base44.com/logo_v2.svg",
-      "type": "image/svg+xml",
-      "sizes": "192x192 512x512"
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ],
   "start_url": "/",

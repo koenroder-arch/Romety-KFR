@@ -89,6 +89,18 @@ const createVenueIcon = (count, isMyVenue, isHighlighted, isMyDestination, destC
   });
 };
 
+const iconCache = new Map();
+
+const getVenueIcon = (count, isMyVenue, isHighlighted, isMyDestination, destCount = 0) => {
+  const key = `${count}_${isMyVenue ? 1 : 0}_${isHighlighted ? 1 : 0}_${isMyDestination ? 1 : 0}_${destCount}`;
+  let icon = iconCache.get(key);
+  if (!icon) {
+    icon = createVenueIcon(count, isMyVenue, isHighlighted, isMyDestination, destCount);
+    iconCache.set(key, icon);
+  }
+  return icon;
+};
+
 const createPinIcon = () => L.divIcon({
   html: `<div style="display:flex;flex-direction:column;align-items:center;"><div class="search-pin-bounce" style="background:linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%);width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 4px 16px rgba(255,75,114,0.6);"></div></div>`,
   className: '',
@@ -154,7 +166,7 @@ const MapView = forwardRef(function MapView({ venues, searchPin, myCheckIn, onVe
           <Marker
             key={v.id}
             position={[v.lat, v.lng]}
-            icon={createVenueIcon(v.matchCount, myCheckIn?.venue_id === v.id, highlightedVenueId === v.id, myDestination?.venue_id === v.id || myDestination?.venue_name === v.name, v.destCount || 0)}
+            icon={getVenueIcon(v.matchCount, myCheckIn?.venue_id === v.id, highlightedVenueId === v.id, myDestination?.venue_id === v.id || myDestination?.venue_name === v.name, v.destCount || 0)}
             eventHandlers={{ click: (e) => { e.originalEvent.stopPropagation(); onVenueClick && onVenueClick(v); } }}
           />
         ))}

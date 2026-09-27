@@ -135,19 +135,8 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
         </p>
       </div>
 
-      {/* Right side: Badge + Chevron Arrow */}
+      {/* Right side: Chevron Arrow */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        {messageCount > 0 && (
-          <span 
-            className="min-w-[24px] h-[24px] rounded-full text-white text-xs font-black flex items-center justify-center px-1.5 shadow-md leading-none"
-            style={{ 
-              background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)', 
-              boxShadow: '0 2px 8px rgba(255, 75, 114, 0.45)' 
-            }}
-          >
-            {messageCount > 99 ? '99+' : messageCount}
-          </span>
-        )}
         {!isSentPending && <ChevronRight className="w-4 h-4" style={{ color: textSub }} />}
       </div>
     </motion.button>
@@ -286,11 +275,13 @@ export default function Chat() {
     if (user !== undefined) loadData();
   }, [user, loadData]);
 
-  // Polling every 6 seconds to automatically re-sort and receive incoming messages
+  // Polling every 6 seconds to automatically re-sort and receive incoming messages when visible
   useEffect(() => {
     if (!user || activeRoom) return;
     const interval = setInterval(() => {
-      loadData();
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
     }, 6000);
     return () => clearInterval(interval);
   }, [user, activeRoom, loadData]);

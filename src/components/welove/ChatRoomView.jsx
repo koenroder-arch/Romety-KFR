@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
 import { useTheme } from '@/lib/ThemeContext';
@@ -100,6 +100,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
 
   const [viewportHeight, setViewportHeight] = useState(null);
+  const [isReadyToShow, setIsReadyToShow] = useState(false);
 
   const scrollToBottom = useCallback((smooth = false) => {
     if (messagesContainerRef.current) {
@@ -109,7 +110,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
     }
-    bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+    bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
   }, []);
 
   useEffect(() => {
@@ -238,13 +239,16 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     }
   }, [timeLeft, isActive, myExtAccepted, phase]);
 
-  // Smart auto-scroll: only scroll down on initial load or if user is already near bottom
-  useEffect(() => {
-    if (!messages || messages.length === 0) return;
+  // Instant auto-scroll on layout pass: sets scroll position to the bottom before browser paint
+  useLayoutEffect(() => {
+    if (loading || !messages || messages.length === 0) {
+      if (!loading) setIsReadyToShow(true);
+      return;
+    }
 
     const container = messagesContainerRef.current;
     const isNearBottom = container
-      ? (container.scrollHeight - container.scrollTop - container.clientHeight < 150)
+      ? (container.scrollHeight - container.scrollTop - container.clientHeight < 200)
       : true;
 
     const hasNewMessages = messages.length > prevMsgCountRef.current;
@@ -253,8 +257,17 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     const isMyMessage = lastMsg?.sender_email === currentUserEmail;
 
     if (isInitial || isMyMessage || (hasNewMessages && isNearBottom)) {
-      scrollToBottom(false);
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+      bottomRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
       isInitialScrollDoneRef.current = true;
+      requestAnimationFrame(() => {
+        if (container) container.scrollTop = container.scrollHeight;
+        setIsReadyToShow(true);
+      });
+    } else {
+      setIsReadyToShow(true);
     }
 
     prevMsgCountRef.current = messages.length;
@@ -263,7 +276,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       const partnerMsgs = messages.filter(m => !m.is_system && m.sender_email !== currentUserEmail);
       localStorage.setItem(`chat_read_count_${localRoom.id}`, String(partnerMsgs.length));
     }
-  }, [messages, localRoom.id, currentUserEmail, scrollToBottom]);
+  }, [loading, messages, localRoom.id, currentUserEmail]);
 
   const sendMessage = async () => {
     if (!text.trim() || sending || !canChat) return;
@@ -534,9 +547,6 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 {isArchived && ' • Gearchiveerd'}
                 {isDeleted && ' • Verwijderd'}
               </span>
-              <span className="text-[10px] font-semibold opacity-60 truncate" style={{ color: textMain }}>
-                • {messages.filter(m => !m.is_system).length} {messages.filter(m => !m.is_system).length === 1 ? 'appje' : 'appjes'}
-              </span>
             </div>
           </div>
         </div>
@@ -590,6 +600,8 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         style={{ 
           scrollbarWidth: 'none',
           WebkitOverflowScrolling: 'touch',
+          opacity: isReadyToShow ? 1 : 0,
+          transition: 'opacity 0.15s ease-out',
         }}
       >
         {loading ? (

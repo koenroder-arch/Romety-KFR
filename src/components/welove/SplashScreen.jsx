@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLang } from '@/lib/LanguageContext';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -14,6 +14,28 @@ export default function SplashScreen({ onDone }) {
   const [phase, setPhase] = useState('video');
   const [selectedLang, setSelectedLang] = useState(null);
   const videoRef = useRef(null);
+
+  // Synchronize document background & theme-color to pure pitch black (#000000) during splashscreen
+  useEffect(() => {
+    const origHtmlBg = document.documentElement.style.backgroundColor;
+    const origBodyBg = document.body.style.backgroundColor;
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    const origThemeColor = themeMeta ? themeMeta.getAttribute('content') : '#08090E';
+
+    document.documentElement.style.backgroundColor = '#000000';
+    document.body.style.backgroundColor = '#000000';
+    if (themeMeta) {
+      themeMeta.setAttribute('content', '#000000');
+    }
+
+    return () => {
+      document.documentElement.style.backgroundColor = origHtmlBg;
+      document.body.style.backgroundColor = origBodyBg;
+      if (themeMeta) {
+        themeMeta.setAttribute('content', origThemeColor || '#08090E');
+      }
+    };
+  }, []);
 
   const handleVideoEnded = () => {
     const hasLang = localStorage.getItem('welove_lang');
@@ -32,8 +54,15 @@ export default function SplashScreen({ onDone }) {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-black"
-      style={{ zIndex: 2147483647, fontFamily: "'Inter', sans-serif" }}
+      className="fixed -inset-10 flex items-center justify-center bg-black overflow-hidden select-none"
+      style={{
+        zIndex: 2147483647,
+        fontFamily: "'Inter', sans-serif",
+        backgroundColor: '#000000',
+        width: 'calc(100vw + 80px)',
+        height: 'calc(100dvh + 80px)',
+        minHeight: '-webkit-fill-available'
+      }}
     >
       <style>{`
         @keyframes fadeInUp {
@@ -46,7 +75,8 @@ export default function SplashScreen({ onDone }) {
       {/* Video Phase */}
       {phase === 'video' && (
         <div 
-          className="absolute inset-0 w-full h-full flex items-center justify-center bg-black cursor-pointer"
+          className="absolute inset-0 w-full h-full flex items-center justify-center bg-black cursor-pointer select-none"
+          style={{ backgroundColor: '#000000' }}
           onClick={handleVideoEnded}
         >
           <video
@@ -56,7 +86,8 @@ export default function SplashScreen({ onDone }) {
             muted
             playsInline
             onEnded={handleVideoEnded}
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain bg-black"
+            style={{ backgroundColor: '#000000' }}
           />
         </div>
       )}
@@ -64,22 +95,19 @@ export default function SplashScreen({ onDone }) {
       {/* Language selection phase */}
       {phase === 'language' && (
         <div className="lang-fadein w-full max-w-sm px-6 text-center">
-          <div className="mb-8">
-            <h1
-              className="font-black tracking-tight leading-none"
+          <div className="flex flex-col items-center mb-8">
+            <img 
+              src="/romety-logo-transparent.png?v=3" 
+              alt="Romety" 
+              className="h-20 w-auto object-contain select-none mb-2" 
               style={{
-                fontSize: '3rem',
-                background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                letterSpacing: '-0.02em',
+                mixBlendMode: 'screen',
+                filter: 'drop-shadow(0 0 20px rgba(234, 63, 211, 0.6)) drop-shadow(0 0 40px rgba(255, 75, 114, 0.35))'
               }}
-            >
-              ROMETY
-            </h1>
+            />
             <div className="flex items-center justify-center gap-2 mt-1">
               <div className="h-px w-8" style={{ background: 'rgba(255,255,255,0.25)' }} />
-              <span className="text-[11px] font-semibold tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.45)' }}>Connect &amp; Meet</span>
+              <span className="text-[10px] font-semibold tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.45)' }}>Connect &amp; Meet</span>
               <div className="h-px w-8" style={{ background: 'rgba(255,255,255,0.25)' }} />
             </div>
           </div>

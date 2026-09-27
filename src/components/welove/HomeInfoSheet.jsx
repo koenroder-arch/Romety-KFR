@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, AlertCircle, X, Heart, Users, ChevronRight } from 'lucide-react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate, useDragControls } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
 import { isMatch } from '@/lib/matchUtils';
 import { calculateDistanceKm, formatDistance } from '@/lib/geoUtils';
@@ -49,6 +49,7 @@ export default function HomeInfoSheet({
   const HIDDEN_Y = getHiddenY();
   const sheetHeight = SHEET_H();
 
+  const dragControls = useDragControls();
   const [snapState, setSnapState] = useState('peek'); // 'collapsed' | 'peek' | 'full'
   const y = useMotionValue(PEEK_Y);
   const sheetRef = useRef(null);
@@ -186,6 +187,8 @@ export default function HomeInfoSheet({
       <motion.div
         ref={sheetRef}
         drag="y"
+        dragControls={dragControls}
+        dragListener={false}
         dragConstraints={{ top: FULL_Y, bottom: COLLAPSED_Y }}
         dragElastic={0.05}
         onDragEnd={handleDragEnd}
@@ -216,6 +219,7 @@ export default function HomeInfoSheet({
           {/* Drag handle & Header */}
           <div
             className="flex flex-col items-center pt-3 pb-2.5 cursor-grab active:cursor-grabbing select-none flex-shrink-0"
+            onPointerDown={(e) => dragControls.start(e)}
             onClick={handleHeaderClick}
           >
             <div className="w-10 h-1 rounded-full mb-2.5" style={{ background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }} />

@@ -88,14 +88,39 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     const animId = Date.now() + Math.random();
     setDoubleTapAnims(prev => [...prev, { id: animId, profileId: profile.id, x, y }]);
     
-    // Double tap only likes (it does not unlike)
+    // Double tap only likes (it does not unlike) - optimistic instant update
     if (!likedProfiles.has(profile.id)) {
-      handleLike(profile);
+      setLikedProfiles(prev => new Set(prev).add(profile.id));
+
+      (async () => {
+        try {
+          let myProf = myProfileCache;
+          if (!myProf) {
+            const myProfs = await base44.entities.UserProfile.filter({ user_email: currentUserEmail });
+            myProf = myProfs[0] || null;
+            setMyProfileCache(myProf);
+          }
+          const myName = myProf?.display_name || 'Iemand';
+
+          await base44.entities.Like.create({ from_email: currentUserEmail, to_email: profile.user_email });
+
+          const existingLikes = await base44.entities.Like.filter({ from_email: profile.user_email, to_email: currentUserEmail });
+          if (existingLikes.length > 0) {
+            await Promise.all([
+              base44.entities.Notification.create({ to_email: profile.user_email, from_email: currentUserEmail, type: 'match', from_name: myName }),
+              base44.entities.Notification.create({ to_email: currentUserEmail, from_email: profile.user_email, type: 'match', from_name: 'Een Match' }),
+            ]);
+            setMatchAnim({ myProfile: myProf, matchedProfile: profile });
+          }
+        } catch (err) {
+          console.error("Error creating like on double tap:", err);
+        }
+      })();
     }
     
     setTimeout(() => {
       setDoubleTapAnims(prev => prev.filter(a => a.id !== animId));
-    }, 1000);
+    }, 950);
   };
 
   const handleCardClick = (e, profile, isMenuOpen) => {
@@ -105,7 +130,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     }
 
     const now = Date.now();
-    const DOUBLE_PRESS_DELAY = 300;
+    const DOUBLE_PRESS_DELAY = 330;
     const lastClick = lastClickRef.current[profile.id] || 0;
 
     if (now - lastClick < DOUBLE_PRESS_DELAY) {
@@ -116,8 +141,8 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
       }
 
       const rect = e.currentTarget.getBoundingClientRect();
-      const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-      const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : (rect.left + rect.width / 2));
+      const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : (rect.top + rect.height / 2));
       const x = clientX - rect.left;
       const y = clientY - rect.top;
 
@@ -245,7 +270,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
         const isBioExpanded = expandedBioId === profile.id;
 
         return (
-          <div key={profile.id} className="w-full h-full flex-shrink-0 snap-start snap-always relative">
+          <div key={profile.id} className="w-full h-full flex-shrink-0 snap-start snap-always relative select-none">
             
             {/* Photo Background Carousel with Swipe & Indicator Dots */}
             <ProfilePhotoCarousel
@@ -254,24 +279,40 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               onDoubleTap={(x, y, p) => handleDoubleTapAtCoord(x, y, p)}
               onClick={() => handleSingleClick(profile)}
               dotsClassName="top-4 left-4 z-30"
-            >
-              {/* Double Tap Hearts Animation */}
-              <AnimatePresence>
-                {activeAnims.map(anim => (
-                  <motion.div
-                    key={anim.id}
-                    initial={{ scale: 0, opacity: 1, x: '-50%', y: '-50%' }}
-                    animate={{ scale: [0, 1.2, 1], opacity: [1, 1, 0] }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.8, times: [0, 0.4, 1] }}
-                    className="absolute pointer-events-none z-20"
-                    style={{ left: anim.x, top: anim.y }}
-                  >
-                    <Heart className="w-24 h-24" fill="#FF6B4A" color="#FF6B4A" />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </ProfilePhotoCarousel>
+            />
+
+            {/* ── Top-Level Double Tap Hearts Animation (Pops over entire card with glow) ── */}
+            <AnimatePresence>
+              {activeAnims.map(anim => (
+                <motion.div
+                  key={anim.id}
+                  initial={{ scale: 0, opacity: 0, x: '-50%', y: '-50%' }}
+                  animate={{ 
+                    scale: [0, 1.35, 1.15], 
+                    opacity: [0, 1, 1, 0],
+                    y: ['-50%', '-65%', '-80%']
+                  }}
+                  exit={{ opacity: 0 }}
+                  transition={{ 
+                    duration: 0.85, 
+                    times: [0, 0.25, 0.7, 1],
+                    ease: 'easeOut'
+                  }}
+                  className="absolute pointer-events-none z-50 flex items-center justify-center"
+                  style={{ left: anim.x, top: anim.y }}
+                >
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute w-28 h-28 rounded-full bg-pink-500/35 blur-xl animate-pulse" />
+                    <Heart 
+                      className="w-28 h-28 drop-shadow-[0_8px_30px_rgba(255,75,114,0.85)]" 
+                      fill="#FF4B72" 
+                      color="#FF4B72" 
+                      strokeWidth={0} 
+                    />
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
             {/* ── Three-dots button (top right) ── */}
             <div className="absolute top-4 right-3 z-30 pointer-events-auto">
@@ -291,7 +332,8 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.85, y: -8 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                    className="absolute top-12 right-0 min-w-[192px] rounded-2xl overflow-hidden shadow-2xl border border-white/15"
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-12 right-0 min-w-[192px] rounded-2xl overflow-hidden shadow-2xl border border-white/15 pointer-events-auto"
                     style={{ background: 'rgba(18,18,28,0.95)', backdropFilter: 'blur(20px)' }}
                   >
                     {/* Bio option */}
@@ -325,9 +367,9 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
             {/* Foreground Content */}
             <div className="relative z-10 flex flex-col h-full p-6 pb-[100px] pointer-events-none">
 
-              <div className="mt-auto pointer-events-auto flex flex-col">
+              <div className="mt-auto flex flex-col pointer-events-none">
                 {/* Name/Age/Height */}
-                <h2 className="text-[32px] font-black text-white drop-shadow-md leading-none mb-4 tracking-wide">
+                <h2 className="text-[32px] font-black text-white drop-shadow-md leading-none mb-4 tracking-wide pointer-events-none select-none">
                   {profile.age} jaar {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                 </h2>
 
@@ -339,13 +381,13 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                       animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
                       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
+                      className="overflow-hidden pointer-events-none"
                     >
                       <div
-                        className="rounded-2xl px-4 py-3 border border-white/20"
+                        className="rounded-2xl px-4 py-3 border border-white/20 pointer-events-none select-none"
                         style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)' }}
                       >
-                        <p className="text-sm text-white/90 font-medium leading-relaxed">
+                        <p className="text-sm text-white/90 font-medium leading-relaxed pointer-events-none">
                           {profile.bio}
                         </p>
                       </div>
@@ -357,13 +399,13 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                       animate={{ opacity: 1, height: 'auto', marginBottom: 16 }}
                       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
+                      className="overflow-hidden pointer-events-none"
                     >
                       <div
-                        className="rounded-2xl px-4 py-3 border border-white/15"
+                        className="rounded-2xl px-4 py-3 border border-white/15 pointer-events-none select-none"
                         style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)' }}
                       >
-                        <p className="text-sm text-white/50 font-medium italic">
+                        <p className="text-sm text-white/50 font-medium italic pointer-events-none">
                           Geen bio beschikbaar
                         </p>
                       </div>
@@ -372,24 +414,25 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                 </AnimatePresence>
 
                 {/* Tags (Avatar first, then interests/traits) */}
-                <div className="flex flex-wrap gap-2 mb-6 items-center">
+                <div className="flex flex-wrap gap-2 mb-6 items-center pointer-events-none">
                   {profile.avatar && (
-                    <span className="px-4 py-1.5 rounded-full text-[14px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5">
+                    <span className="px-4 py-1.5 rounded-full text-[14px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5 pointer-events-none select-none">
                       <span className="text-base">{profile.avatar.split(' ')[0]}</span>
                       <span className="text-pink-100">{profile.avatar.split(' ').slice(1).join(' ')}</span>
                     </span>
                   )}
                   {[...(profile.interests || []).slice(0, 2), ...(profile.traits || []).slice(0, 1)].map((tag) => (
-                    <span key={tag} className="px-4 py-1.5 rounded-full text-[14px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
+                    <span key={tag} className="px-4 py-1.5 rounded-full text-[14px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20 pointer-events-none select-none">
                       {tag}
                     </span>
                   ))}
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-4">
+                <div className="flex gap-4 pointer-events-auto">
                   <button 
                     onClick={(e) => {
+                      e.stopPropagation();
                       e.currentTarget.blur();
                       handleLike(profile);
                     }} 
@@ -404,6 +447,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                   </button>
                   <button 
                     onClick={(e) => {
+                      e.stopPropagation();
                       e.currentTarget.blur();
                       if (!hasSentToday && onSendHint) onSendHint(profile);
                     }} 

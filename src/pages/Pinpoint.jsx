@@ -55,6 +55,51 @@ export default function Pinpoint() {
   const searchDebounceRef = useRef(null);
   const searchInputRef = useRef(null);
 
+  // Keep window scroll locked to 0 on Pinpoint so mobile keyboards cannot offset bottom fixed bars
+  useEffect(() => {
+    const origHtmlOverflow = document.documentElement.style.overflow;
+    const origHtmlHeight = document.documentElement.style.height;
+    const origBodyOverflow = document.body.style.overflow;
+    const origBodyHeight = document.body.style.height;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.height = '100%';
+    document.body.style.overflow = 'hidden';
+    document.body.style.height = '100%';
+
+    const resetScroll = () => {
+      if (typeof window !== 'undefined' && (window.scrollY !== 0 || document.documentElement.scrollTop !== 0 || document.body.scrollTop !== 0)) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+    };
+
+    window.addEventListener('scroll', resetScroll, { passive: true });
+    window.addEventListener('resize', resetScroll, { passive: true });
+    window.addEventListener('orientationchange', resetScroll, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resetScroll);
+      window.visualViewport.addEventListener('scroll', resetScroll);
+    }
+
+    resetScroll();
+
+    return () => {
+      document.documentElement.style.overflow = origHtmlOverflow;
+      document.documentElement.style.height = origHtmlHeight;
+      document.body.style.overflow = origBodyOverflow;
+      document.body.style.height = origBodyHeight;
+      window.removeEventListener('scroll', resetScroll);
+      window.removeEventListener('resize', resetScroll);
+      window.removeEventListener('orientationchange', resetScroll);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', resetScroll);
+        window.visualViewport.removeEventListener('scroll', resetScroll);
+      }
+    };
+  }, []);
+
   // Active reference position: search location has priority, then GPS position (only when useNearbyFilter is active)
   const referencePosition = useMemo(() => {
     if (searchPin && searchPin.lat && searchPin.lng) {
@@ -628,6 +673,23 @@ export default function Pinpoint() {
   };
 
   const handleSelectCity = (city) => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
+    setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+    }, 100);
+    setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+    }, 300);
+
     const expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
     localStorage.setItem('pinpoint_nearby_expires_at', expiresAt);
     const rawName = (city.label || city.name || '').split(',')[0].trim();
@@ -645,6 +707,17 @@ export default function Pinpoint() {
   };
 
   const handleClearFilter = async () => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
+    setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+    }, 100);
     localStorage.removeItem('pinpoint_nearby_expires_at');
     localStorage.removeItem('pinpoint_filter_city');
     setUseNearbyFilter(false);
@@ -737,6 +810,27 @@ export default function Pinpoint() {
     if (!myProfile) return [];
     return highMatches.filter((m) => allDestinations.some((d) => d.user_email === m.profile.user_email && matchVenue(d, venue)));
   };
+
+  const bottomSheetMetrics = useMemo(() => {
+    if (!bottomSheet) {
+      return {
+        isGoing: false,
+        isCheckedIn: false,
+        goingCount: 0,
+        matchGoingCount: 0,
+        matchGoingProfiles: [],
+        matchPotential: 0,
+      };
+    }
+    return {
+      isGoing: isGoingToVenue(bottomSheet),
+      isCheckedIn: isLiveCheckedIn(bottomSheet),
+      goingCount: goingCountForVenue(bottomSheet),
+      matchGoingCount: matchGoingCountForVenue(bottomSheet),
+      matchGoingProfiles: matchGoingProfilesForVenue(bottomSheet),
+      matchPotential: matchPotentialForVenue(bottomSheet),
+    };
+  }, [bottomSheet, myDestination, myCheckIn, allDestinations, highMatches, myProfile, allProfiles]);
 
   const showSearchPanel = searchFocused;
   const pageBg = isDark ? '#08090E' : '#F8F9FB';
@@ -834,24 +928,63 @@ export default function Pinpoint() {
           <div className="flex items-center gap-2.5">
             {/* Search Input */}
             <div
-              className="flex-1 flex items-center gap-3 px-4 rounded-[20px]"
+              className="flex-1 flex items-center gap-2 px-3 sm:px-3.5 rounded-[20px] transition-all duration-200 cursor-text overflow-hidden"
+              onClick={() => searchInputRef.current?.focus()}
               style={{ height: 52, background: searchBarBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1.5px solid ${searchBarBorder(searchFocused)}`, boxShadow: searchFocused ? '0 4px 18px rgba(255,75,114,0.18)' : isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
             >
-              {searchLoading
-                ? <div className="w-5 h-5 flex-shrink-0 rounded-full border-2 border-pink-300 border-t-pink-600 animate-spin" />
-                : <Search className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
-              }
+              <Search className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
+
+              {/* Active filter button/chip inside search bar */}
+              {useNearbyFilter && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFilterModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 select-none cursor-pointer transition-transform active:scale-95 shadow-sm"
+                  style={{
+                    background: GRAD,
+                    color: '#FFFFFF',
+                    boxShadow: '0 2px 8px rgba(255,75,114,0.35)',
+                  }}
+                  title="Klik om filter aan te passen"
+                >
+                  {selectedCity ? (
+                    <MapPin className="w-3 h-3 text-white flex-shrink-0" />
+                  ) : (
+                    <Crosshair className="w-3 h-3 text-white flex-shrink-0" />
+                  )}
+                  <span className="max-w-[90px] sm:max-w-[120px] truncate leading-none font-bold">
+                    {selectedCity || 'Huidige locatie'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClearFilter();
+                    }}
+                    className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-black/20 transition-colors ml-0.5 cursor-pointer flex-shrink-0"
+                    title="Filter verwijderen"
+                  >
+                    <X className="w-3 h-3 text-white/90 hover:text-white" />
+                  </button>
+                </div>
+              )}
+
               <input
                 ref={searchInputRef}
-                className={`flex-1 bg-transparent focus:outline-none ${searchTextColor} ${searchPlaceholderColor}`}
+                className={`flex-1 min-w-[50px] bg-transparent focus:outline-none ${searchTextColor} ${searchPlaceholderColor}`}
                 style={{ fontSize: '16px' }}
-                placeholder={t.searchPlaceholder}
+                placeholder={useNearbyFilter ? 'Zoek...' : t.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
+                  if (e.key === 'Backspace' && searchQuery === '' && useNearbyFilter) {
+                    e.preventDefault();
+                    handleClearFilter();
+                  } else if (e.key === 'Escape') {
                     clearTimeout(searchDebounceRef.current);
                     setSearchLoading(false);
                     setSearchSuggestions([]);
@@ -863,7 +996,8 @@ export default function Pinpoint() {
               />
               {searchQuery.length > 0 && (
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     clearTimeout(searchDebounceRef.current);
                     setSearchLoading(false);
                     setSearchQuery('');
@@ -871,7 +1005,7 @@ export default function Pinpoint() {
                     setSearchPin(null);
                     setHighlightedVenueId(null);
                   }}
-                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
                   style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
                 >
                   <X className="w-3.5 h-3.5" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }} />
@@ -914,8 +1048,27 @@ export default function Pinpoint() {
               {searchSuggestions.length > 0 && searchSuggestions.map((item, i) => (
                 <button
                   key={`${item.type}-${item.id}-${i}`}
-                  onMouseDown={() => handleSelectSuggestion(item)}
-                  className="search-row w-full px-4 text-left flex items-center gap-3 transition-colors border-b"
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelectSuggestion(item);
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    handleSelectSuggestion(item);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelectSuggestion(item);
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelectSuggestion(item);
+                  }}
+                  className="search-row w-full px-4 text-left flex items-center gap-3 transition-colors border-b cursor-pointer active:bg-pink-500/20"
                   style={{ borderColor: rowBorderColor }}
                   onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,75,114,0.10)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
@@ -950,11 +1103,31 @@ export default function Pinpoint() {
                   }, {})).slice(0, 6).map((s, i) => (
                     <button
                       key={s.id || i}
-                      onMouseDown={() => {
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         const club = s.type === 'club' ? sortedClubs.find((c) => c.name === s.query) : null;
                         handleSelectSuggestion({ type: s.type, id: s.id, label: s.query, sublabel: s.sublabel || club?.city || '', lat: s.lat, lng: s.lng, venue: club || null });
                       }}
-                      className="search-row w-full px-4 text-left flex items-center gap-3 border-b"
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        const club = s.type === 'club' ? sortedClubs.find((c) => c.name === s.query) : null;
+                        handleSelectSuggestion({ type: s.type, id: s.id, label: s.query, sublabel: s.sublabel || club?.city || '', lat: s.lat, lng: s.lng, venue: club || null });
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const club = s.type === 'club' ? sortedClubs.find((c) => c.name === s.query) : null;
+                        handleSelectSuggestion({ type: s.type, id: s.id, label: s.query, sublabel: s.sublabel || club?.city || '', lat: s.lat, lng: s.lng, venue: club || null });
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const club = s.type === 'club' ? sortedClubs.find((c) => c.name === s.query) : null;
+                        handleSelectSuggestion({ type: s.type, id: s.id, label: s.query, sublabel: s.sublabel || club?.city || '', lat: s.lat, lng: s.lng, venue: club || null });
+                      }}
+                      className="search-row w-full px-4 text-left flex items-center gap-3 border-b cursor-pointer active:bg-pink-500/20"
                       style={{ borderColor: rowBorderColor }}
                       onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,75,114,0.10)'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
@@ -1000,12 +1173,12 @@ export default function Pinpoint() {
           onClose={() => { setBottomSheet(null); setSelectedVenue(null); setSheetSnap('hidden'); setSnapState('hidden'); }}
           onGoHere={async (v) => { await handleGoHere(v); }}
           onCancelGoing={handleCancelGoing}
-          isGoing={isGoingToVenue(bottomSheet)}
-          isCheckedIn={isLiveCheckedIn(bottomSheet)}
-          goingCount={goingCountForVenue(bottomSheet)}
-          matchGoingCount={matchGoingCountForVenue(bottomSheet)}
-          matchGoingProfiles={matchGoingProfilesForVenue(bottomSheet)}
-          matchPotential={matchPotentialForVenue(bottomSheet)}
+          isGoing={bottomSheetMetrics.isGoing}
+          isCheckedIn={bottomSheetMetrics.isCheckedIn}
+          goingCount={bottomSheetMetrics.goingCount}
+          matchGoingCount={bottomSheetMetrics.matchGoingCount}
+          matchGoingProfiles={bottomSheetMetrics.matchGoingProfiles}
+          matchPotential={bottomSheetMetrics.matchPotential}
           onShowPremium={() => {}}
           isPremium={true}
           currentUserEmail={user?.email}
