@@ -89,11 +89,17 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
 
       // Notify the other user
       try {
+        const avatar = myProfile?.avatar ? myProfile.avatar.trim() : '';
+        const age = myProfile?.age ? `${myProfile.age} jaar` : '';
+        const senderLabel = (avatar && age) ? `${avatar} • ${age}` : (avatar || age || 'Je match');
+
         await base44.entities.Notification.create({
-          user_email: profile.user_email,
-          type: 'chat_invite',
-          message: `${myProfile?.display_name || 'Iemand'} wil met je chatten! Ga naar Chats om te accepteren. 💜`,
-          read: false,
+          to_email: profile.user_email,
+          from_email: currentUser.email,
+          from_name: senderLabel,
+          type: 'chat',
+          venue_name: JSON.stringify({ roomId: newRoom?.id, text: 'Wil met je chatten! 💬' }),
+          is_read: false,
           created_date: new Date().toISOString(),
         });
       } catch (errNotif) {
@@ -194,7 +200,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   <ProfilePhotoCarousel
                     profile={profile}
                     isDark={isDark}
-                    dotsClassName="top-[74px] left-4 z-30"
+                    dotsClassName="top-[102px] left-4 z-30"
                   />
 
                   {/* ── Three-dots options button (top right) ── */}
@@ -479,10 +485,10 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                     <button
                       onClick={handleSubmitReport}
                       disabled={reportLoading}
-                      className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all"
-                      style={{ background: GRAD }}
+                      className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all bg-red-600 hover:bg-red-700"
+                      style={{ background: '#EF4444' }}
                     >
-                      {reportLoading ? 'Versturen...' : 'Verstuur'}
+                      {reportLoading ? 'Rapporteren...' : 'Rapporteren'}
                     </button>
                   </div>
                 </div>

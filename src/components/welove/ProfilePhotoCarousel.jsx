@@ -181,6 +181,7 @@ export default function ProfilePhotoCarousel({
           src={currentPhotoUrl}
           alt=""
           className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+          style={{ objectPosition: 'center 20%' }}
           draggable={false}
           decoding="async"
         />

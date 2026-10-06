@@ -24,10 +24,14 @@ export default function StoriesViewer({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [mediaLoaded, setMediaLoaded] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
+
   const timerRef = useRef(null);
   const lastTimestampRef = useRef(null);
   const progressRef = useRef(0);
+  const videoRef = useRef(null);
+  const mediaLoadedRef = useRef(false);
 
   // Overlay states
   const [showMenu, setShowMenu] = useState(false);
@@ -36,7 +40,7 @@ export default function StoriesViewer({
   const [creatorProfile, setCreatorProfile] = useState(null);
   const [isLoadingAction, setIsLoadingAction] = useState(false);
 
-  const activeStory = group?.items[currentIndex];
+  const activeStory = group?.items?.[currentIndex];
 
   // Fetch story creator's profile (for bio and display name details)
   useEffect(() => {
@@ -49,15 +53,35 @@ export default function StoriesViewer({
         })
         .catch(err => console.warn('Error fetching story creator profile:', err));
     }
-  }, [group]);
+  }, [group?.user_email]);
 
+  // Reset index when changing to a different user's story group
   useEffect(() => {
     setCurrentIndex(0);
     setProgress(0);
-  }, [group]);
+    progressRef.current = 0;
+    lastTimestampRef.current = null;
+  }, [group?.user_email]);
+
+  // Reset progress and media loaded state whenever active story changes
+  useEffect(() => {
+    setProgress(0);
+    progressRef.current = 0;
+    lastTimestampRef.current = null;
+    setMediaLoaded(false);
+    mediaLoadedRef.current = false;
+
+    // Safety timeout: if image/video is cached or doesn't trigger event, ensure timer starts after 1.2s
+    const fallbackTimer = setTimeout(() => {
+      setMediaLoaded(true);
+      mediaLoadedRef.current = true;
+    }, 1200);
+
+    return () => clearTimeout(fallbackTimer);
+  }, [currentIndex, activeStory?.id]);
 
   useEffect(() => {
-    if (activeStory) {
+    if (activeStory?.id) {
       try {
         const seenStr = localStorage.getItem('seen_story_ids');
         const seenIds = seenStr ? JSON.parse(seenStr) : [];
@@ -69,42 +93,15 @@ export default function StoriesViewer({
         console.error(e);
       }
     }
-  }, [activeStory]);
-
-  // Handle progress timer — RAF-based for buttery smooth animation
-  useEffect(() => {
-    if (!activeStory || group?.loading) return;
-    progressRef.current = 0;
-    setProgress(0);
-    lastTimestampRef.current = null;
-    if (timerRef.current) cancelAnimationFrame(timerRef.current);
-    if (isPaused || showMenu || showBio || reportState) return;
-
-    const DURATION = 5000; // 5 seconds per story
-    const tick = (timestamp) => {
-      if (isPaused || showMenu || showBio || reportState) return;
-      if (!lastTimestampRef.current) lastTimestampRef.current = timestamp;
-      const elapsed = timestamp - lastTimestampRef.current;
-      lastTimestampRef.current = timestamp;
-      progressRef.current = Math.min(progressRef.current + (elapsed / DURATION) * 100, 100);
-      setProgress(progressRef.current);
-      if (progressRef.current >= 100) {
-        handleNext();
-      } else {
-        timerRef.current = requestAnimationFrame(tick);
-      }
-    };
-    timerRef.current = requestAnimationFrame(tick);
-
-    return () => {
-      if (timerRef.current) cancelAnimationFrame(timerRef.current);
-    };
-  }, [currentIndex, isPaused, showMenu, showBio, reportState, group]);
+  }, [activeStory?.id]);
 
   const handleNext = () => {
+    if (!group?.items) return;
     if (currentIndex < group.items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      setCurrentIndex(prev => prev + 1);
       setProgress(0);
+      progressRef.current = 0;
+      lastTimestampRef.current = null;
     } else {
       if (!allGroups) {
         onClose(null);
@@ -120,9 +117,12 @@ export default function StoriesViewer({
   };
 
   const handlePrev = () => {
+    if (!group?.items) return;
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+      setCurrentIndex(prev => prev - 1);
       setProgress(0);
+      progressRef.current = 0;
+      lastTimestampRef.current = null;
     } else {
       if (!allGroups) {
         onClose(null);
@@ -136,6 +136,86 @@ export default function StoriesViewer({
       }
     }
   };
+
+  // Ref to always invoke latest handleNext without stale closures
+  const handleNextRef = useRef(handleNext);
+  useEffect(() => {
+    handleNextRef.current = handleNext;
+  });
+
+  // Video pause/play sync
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isPaused || showMenu || showBio || reportState) {
+        videoRef.current.pause();
+      } else if (mediaLoaded) {
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [isPaused, showMenu, showBio, reportState, mediaLoaded, currentIndex]);
+
+  // Handle progress timer — RAF-based for 60fps smooth Romety progress bar
+  useEffect(() => {
+    if (!activeStory || group?.loading) return;
+
+    // Stop if paused or overlay opened
+    if (isPaused || showMenu || showBio || reportState) {
+      if (timerRef.current) cancelAnimationFrame(timerRef.current);
+      lastTimestampRef.current = null;
+      return;
+    }
+
+    const DURATION = 5000; // 5 seconds per story
+
+    const tick = (timestamp) => {
+      if (isPaused || showMenu || showBio || reportState) return;
+
+      // Wait until media has loaded before progressing the timer
+      if (!mediaLoadedRef.current) {
+        lastTimestampRef.current = null;
+        timerRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      // Video story: sync progress directly with video currentTime
+      if (activeStory.media_type === 'video') {
+        const v = videoRef.current;
+        if (v && v.duration > 0) {
+          const p = Math.min((v.currentTime / v.duration) * 100, 100);
+          progressRef.current = p;
+          setProgress(p);
+          if (p >= 100 || v.ended) {
+            handleNextRef.current();
+            return;
+          }
+        }
+        timerRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      // Image story: smooth linear progression
+      if (!lastTimestampRef.current) {
+        lastTimestampRef.current = timestamp;
+      }
+      const elapsed = timestamp - lastTimestampRef.current;
+      lastTimestampRef.current = timestamp;
+
+      progressRef.current = Math.min(progressRef.current + (elapsed / DURATION) * 100, 100);
+      setProgress(progressRef.current);
+
+      if (progressRef.current >= 100) {
+        handleNextRef.current();
+      } else {
+        timerRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    timerRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (timerRef.current) cancelAnimationFrame(timerRef.current);
+    };
+  }, [currentIndex, activeStory?.id, isPaused, showMenu, showBio, reportState, mediaLoaded]);
 
   const handleTouchStart = (e) => {
     setIsPaused(true);
@@ -192,13 +272,13 @@ export default function StoriesViewer({
 
     setIsLoadingAction(true);
     try {
-      // 1. Delete from database
-      await base44.entities.Story.delete(activeStory.id);
-      
-      // 2. Delete file from storage
+      // 1. Verwijder eerst het daadwerkelijke bestand uit de Supabase Storage bucket
       if (activeStory.media_url) {
-        await base44.integrations.Core.DeleteFile({ file_url: activeStory.media_url }).catch(() => {});
+        await base44.integrations.Core.DeleteFile({ file_url: activeStory.media_url });
       }
+      
+      // 2. Verwijder daarna het bijbehorende record uit de database
+      await base44.entities.Story.delete(activeStory.id);
       
       toast.success('Verhaal verwijderd! 🗑️');
       
@@ -269,16 +349,34 @@ export default function StoriesViewer({
           paddingTop: 'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))'
         }}
       >
+        {/* Romety Brand Progress Bars */}
         <div className="flex gap-1.5 mb-3.5">
           {group.items.map((item, idx) => {
-            let barProgress = 0;
-            if (idx < currentIndex) barProgress = 100;
-            else if (idx === currentIndex) barProgress = progress;
+            const isCompleted = idx < currentIndex;
+            const isActive = idx === currentIndex;
+            const barProgress = isCompleted ? 100 : isActive ? progress : 0;
+
             return (
-              <div key={item.id} className="flex-1 h-1.5 bg-white/35 rounded-full overflow-hidden shadow-sm">
+              <div 
+                key={item.id || idx} 
+                className="flex-1 h-1.5 rounded-full overflow-hidden backdrop-blur-sm relative"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.22)',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
+                }}
+              >
                 <div 
-                  className="h-full bg-white transition-all duration-75 rounded-full shadow-md"
-                  style={{ width: `${barProgress}%` }}
+                  className="h-full rounded-full"
+                  style={{ 
+                    width: `${barProgress}%`,
+                    background: 'linear-gradient(90deg, #FF4B72 0%, #EA3FD3 100%)',
+                    boxShadow: isActive 
+                      ? '0 0 10px rgba(255, 75, 114, 0.95), 0 0 4px rgba(234, 63, 211, 0.75)' 
+                      : isCompleted 
+                        ? '0 0 4px rgba(255, 75, 114, 0.35)' 
+                        : 'none',
+                    transition: 'none'
+                  }}
                 />
               </div>
             );
@@ -325,19 +423,28 @@ export default function StoriesViewer({
         </div>
 
         {/* Loading Indicator beneath the media */}
-        <div className="absolute inset-0 flex items-center justify-center z-0">
-           <div className="w-8 h-8 rounded-full border-4 border-white/20 border-t-white animate-spin" />
-        </div>
+        {!mediaLoaded && (
+          <div className="absolute inset-0 flex items-center justify-center z-0">
+             <div className="w-9 h-9 rounded-full border-3 border-[#FF4B72]/20 border-t-[#FF4B72] animate-spin" />
+          </div>
+        )}
 
         {activeStory.media_type === 'video' ? (
           <video 
             key={activeStory.media_url}
+            ref={videoRef}
             src={activeStory.media_url} 
             className="w-full max-h-[85vh] object-contain pointer-events-none z-10 relative" 
             autoPlay 
             playsInline 
             muted 
-            loop 
+            onLoadedData={() => {
+              setMediaLoaded(true);
+              mediaLoadedRef.current = true;
+            }}
+            onEnded={() => {
+              handleNextRef.current();
+            }}
           />
         ) : (
           <img 
@@ -345,6 +452,10 @@ export default function StoriesViewer({
             src={activeStory.media_url} 
             alt="" 
             className="w-full h-full max-h-[100vh] object-cover pointer-events-none z-10 relative" 
+            onLoad={() => {
+              setMediaLoaded(true);
+              mediaLoadedRef.current = true;
+            }}
           />
         )}
       </div>
@@ -617,10 +728,10 @@ export default function StoriesViewer({
                   <button
                     onClick={handleSubmitReport}
                     disabled={isLoadingAction}
-                    className="mt-4 w-full py-3.5 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2.5 active:scale-[0.97] transition-transform disabled:opacity-60 shadow-lg"
-                    style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)', boxShadow: '0 6px 20px rgba(255,75,114,0.35)' }}
+                    className="mt-4 w-full py-3.5 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2.5 active:scale-[0.97] transition-transform disabled:opacity-60 shadow-lg bg-red-600 hover:bg-red-700"
+                    style={{ background: '#EF4444', boxShadow: '0 6px 20px rgba(239,68,68,0.35)' }}
                   >
-                    {isLoadingAction ? '⏳ Versturen...' : 'Melding versturen'}
+                    {isLoadingAction ? '⏳ Rapporteren...' : 'Rapporteren'}
                   </button>
                 </div>
               )}

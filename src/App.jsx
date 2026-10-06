@@ -17,7 +17,7 @@ const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
 const LayoutWrapper = ({ children, currentPageName }) => {
-  if (currentPageName === 'Login') return <>{children}</>;
+  if (currentPageName === 'Login' || currentPageName === 'Language') return <>{children}</>;
   return Layout ?
     <Layout currentPageName={currentPageName}>{children}</Layout>
     : <>{children}</>;
@@ -65,8 +65,7 @@ const OnboardingGate = ({ children }) => {
 const AuthenticatedApp = () => {
   const { isLoadingAuth, user } = useAuth();
   const isLoginPage = window.location.pathname.toLowerCase().startsWith('/login');
-
-
+  const isLanguagePage = window.location.pathname.toLowerCase().startsWith('/language');
 
   // Show loading while auth is being checked
   if (isLoadingAuth) {
@@ -77,8 +76,8 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Not logged in → redirect to login
-  if (!user && !isLoginPage) {
+  // Not logged in → redirect to login (allow login and language selection)
+  if (!user && !isLoginPage && !isLanguagePage) {
     console.log('[App] User is null and not on login page, redirecting to login...');
     base44.auth.redirectToLogin(window.location.href);
     return null;
@@ -89,6 +88,7 @@ const AuthenticatedApp = () => {
       {Object.entries(Pages).map(([path, Page]) => {
         const isLogin = path === 'Login';
         const isOnboarding = path === 'Onboarding';
+        const isLanguage = path === 'Language';
         
         let element = (
           <LayoutWrapper currentPageName={path}>
@@ -96,8 +96,8 @@ const AuthenticatedApp = () => {
           </LayoutWrapper>
         );
 
-        // If it is not Login or Onboarding, wrap in OnboardingGate
-        if (!isLogin && !isOnboarding) {
+        // If it is not Login, Onboarding or Language, wrap in OnboardingGate
+        if (!isLogin && !isOnboarding && !isLanguage) {
           element = <OnboardingGate>{element}</OnboardingGate>;
         }
 

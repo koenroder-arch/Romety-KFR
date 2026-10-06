@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { MapPin, Heart, User, Home, Plus } from 'lucide-react';
+import { MapPin, Heart, User, Home } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { useNotifications } from '@/components/welove/useNotifications';
 import { useLang } from '@/lib/LanguageContext';
@@ -13,13 +13,22 @@ import { base44 } from '@/api/base44Client';
 const NAV_CONFIG = [
   { key: 'navHome', icon: Home, page: 'Home' },
   { key: 'navPinpoint', icon: MapPin, page: 'Pinpoint' },
-  { key: 'navHints', icon: Plus, page: 'Hints' },
   { key: 'navMatches', icon: Heart, page: 'Matches' },
   { key: 'navAccount', icon: User, page: 'Account' }
 ];
 
 export default function Layout({ children, currentPageName }) {
-  const showNav = !['Onboarding'].includes(currentPageName);
+  const [hintsPhotoCaptured, setHintsPhotoCaptured] = React.useState(false);
+
+  React.useEffect(() => {
+    const handlePhotoState = (e) => {
+      setHintsPhotoCaptured(Boolean(e.detail?.captured));
+    };
+    window.addEventListener('romety_hints_photo_state', handlePhotoState);
+    return () => window.removeEventListener('romety_hints_photo_state', handlePhotoState);
+  }, []);
+
+  const showNav = !['Onboarding', 'Language', 'Login'].includes(currentPageName) && !(currentPageName === 'Hints' && hintsPhotoCaptured);
   const { unreadCount, markAllRead } = useNotifications();
   const { lang } = useLang();
   const { theme } = useTheme();
@@ -27,6 +36,20 @@ export default function Layout({ children, currentPageName }) {
   const t = T[lang] || T.nl;
   const [unreadChatCount, setUnreadChatCount] = React.useState(0);
   const NAV_ITEMS = React.useMemo(() => NAV_CONFIG.map((item) => ({ ...item, name: t[item.key] || item.key })), [t]);
+
+  // Synchronize mobile top bar & overscroll canvas color so no black bar appears
+  React.useEffect(() => {
+    const isTopGradientPage = ['Home', 'Account'].includes(currentPageName);
+    const topColor = isDark 
+      ? (isTopGradientPage ? '#4D122D' : '#08090E')
+      : (isTopGradientPage ? '#FFF0F4' : '#F8F9FB');
+
+    document.documentElement.style.backgroundColor = topColor;
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', topColor);
+    }
+  }, [currentPageName, isDark]);
 
   // Poll for unread chat messages efficiently (only when tab is visible)
   React.useEffect(() => {

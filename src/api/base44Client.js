@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase, supabaseAdmin } from './supabaseClient';
 import { authStorage } from '@/lib/authStorage';
 
 const parseOrder = (orderStr, defaultCol = 'created_date') => {
@@ -252,21 +252,62 @@ export const base44 = {
 
         return { file_url: publicUrl };
       },
-      DeleteFile: async ({ file_url }) => {
-        if (!file_url) return;
+      DeleteFile: async ({ file_url, bucket }) => {
+        if (!file_url || typeof file_url !== 'string') return false;
         try {
-          const buckets = ['chat-uploads', 'uploads'];
-          for (const b of buckets) {
-            if (file_url.includes(`/${b}/`)) {
-              const fileName = file_url.split(`/${b}/`).pop();
-              if (fileName) {
-                await supabase.storage.from(b).remove([fileName]);
+          // If blob: or data: URL, no remote storage removal needed
+          if (file_url.startsWith('blob:') || file_url.startsWith('data:')) {
+            return true;
+          }
+
+          // Strip query parameters and hash fragments (e.g. ?v=1, ?token=...)
+          const cleanUrl = file_url.split('?')[0].split('#')[0];
+
+          let targetBucket = bucket;
+          let targetPath = null;
+
+          // Check if this is a standard Supabase storage URL:
+          // /storage/v1/object/(public|authenticated|sign)/<bucket>/<filePath>
+          const storageMatch = cleanUrl.match(/\/storage\/v1\/object\/(?:public|authenticated|sign)\/([^/]+)\/(.+)$/);
+          if (storageMatch) {
+            targetBucket = bucket || storageMatch[1];
+            targetPath = decodeURIComponent(storageMatch[2]);
+          } else {
+            // Check for known buckets in URL path
+            const knownBuckets = ['uploads', 'chat-uploads', 'avatars', 'stories', 'profile-photos'];
+            for (const b of knownBuckets) {
+              if (cleanUrl.includes(`/${b}/`)) {
+                targetBucket = bucket || b;
+                targetPath = decodeURIComponent(cleanUrl.split(`/${b}/`).pop());
+                break;
               }
-              break;
             }
           }
+
+          // If not in Supabase storage (e.g. external Unsplash or local static asset), nothing to delete
+          if (!targetBucket || !targetPath) {
+            return true;
+          }
+
+          const clientToUse = supabaseAdmin || supabase;
+          const { data, error } = await clientToUse.storage.from(targetBucket).remove([targetPath]);
+          if (error) {
+            console.error(`[DeleteFile] Supabase Storage error deleting "${targetPath}" from "${targetBucket}":`, error);
+            if (targetBucket !== 'uploads') {
+              await clientToUse.storage.from('uploads').remove([targetPath]).catch(() => {});
+            }
+            return false;
+          }
+
+          if (Array.isArray(data) && data.length === 0) {
+            console.warn(`[DeleteFile] Notice: 0 items deleted. If RLS is enabled, verify DELETE policy on storage.objects for bucket "${targetBucket}".`);
+          } else {
+            console.log(`[DeleteFile] Successfully deleted "${targetPath}" from Supabase Storage bucket "${targetBucket}".`);
+          }
+          return true;
         } catch (err) {
-          console.error('Error deleting file from storage:', err);
+          console.error('[DeleteFile] Exception deleting file from Supabase Storage:', err);
+          return false;
         }
       }
     }

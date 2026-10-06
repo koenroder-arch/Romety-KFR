@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
@@ -9,8 +9,10 @@ import { createPageUrl } from '@/utils';
 import { 
   LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart, Gamepad2,
   Bell, HelpCircle, MessageCircle, MessageSquare, ArrowRightLeft, AlertTriangle, Globe, ArrowLeft,
-  User, Calendar, Ruler, FileText, Sparkles, Target, Compass, Users, Smile, Send
+  User, Calendar, Ruler, FileText, Sparkles, Target, Compass, Users, Smile, Send, Loader2, MapPin
 } from 'lucide-react';
+import { usePullToRefresh } from '@/components/welove/usePullToRefresh';
+import { InstagramSpinner } from '@/components/welove/PullToRefreshSpinner';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import { compressImage } from '@/utils/imageUtils';
 import { useTheme } from '@/lib/ThemeContext';
@@ -79,6 +81,26 @@ const getLookingForLabel = (lf) => {
   return lf;
 };
 
+const formatStatCount = (val) => {
+  const num = Math.round(Number(val)) || 0;
+  if (num >= 1000000) {
+    const formatted = (num / 1000000).toFixed(1).replace(/\.0$/, '');
+    return `${formatted}M`;
+  }
+  if (num >= 1000) {
+    const formatted = (num / 1000).toFixed(1).replace(/\.0$/, '');
+    return `${formatted}k`;
+  }
+  return String(num);
+};
+
+const getStatFontSize = (formattedStr) => {
+  const len = String(formattedStr).length;
+  if (len >= 5) return 'text-sm sm:text-base';
+  if (len >= 4) return 'text-base sm:text-lg';
+  return 'text-lg';
+};
+
 export default function Account() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -109,13 +131,14 @@ export default function Account() {
   const [pendingCountry, setPendingCountry] = useState(null);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
 
-  // Swap Workflow States
-  const [pendingNewTrait, setPendingNewTrait] = useState(null);
-  const [pendingNewInterest, setPendingNewInterest] = useState(null);
+  // Backup snapshots for sub-sheets validation (restored if < 3 upon exit)
+  const sheetBackupTraitsRef = useRef([]);
+  const sheetBackupInterestsRef = useRef([]);
+  const [minItemsWarningModal, setMinItemsWarningModal] = useState(null); // 'traits' | 'interests' | null
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   
   // Real Stats matching exact logic
-  const [stats, setStats] = useState({ chats: 0, stories: 0, matches: 0 });
+  const [stats, setStats] = useState({ chats: 0, locations: 0, matches: 0 });
 
   // Toggles & Modals
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -182,6 +205,13 @@ export default function Account() {
 
   const [pendingNavUrl, setPendingNavUrl] = useState(null);
 
+  const isAccountBusy = Boolean(editing || activeSheet || showPreview || showDeleteConfirm || showDeleteSurvey || deleting);
+
+  const { pullDistance, isRefreshing, isPulling, containerProps } = usePullToRefresh({
+    onRefresh: () => loadData(),
+    disabled: isAccountBusy,
+  });
+
   // Intercept bottom nav bar clicks while editing with unsaved changes
   useEffect(() => {
     if (editing && hasChanges) {
@@ -205,15 +235,11 @@ export default function Account() {
     } else {
       setEditing(false);
       setActiveSheet(null);
-      setPendingNewTrait(null);
-      setPendingNewInterest(null);
     }
   };
 
   const handleConfirmDiscard = () => {
     setForm({ ...initialForm });
-    setPendingNewTrait(null);
-    setPendingNewInterest(null);
     setShowDiscardConfirm(false);
     setActiveSheet(null);
     setEditing(false);
@@ -238,13 +264,24 @@ export default function Account() {
     if (!u) { setLoading(false); return; }
 
     try {
-      const [profiles, roomsA, roomsB, likesISent, likesIReceived, userStories] = await Promise.all([
+      const [
+        profiles = [],
+        roomsA = [],
+        roomsB = [],
+        likesISent = [],
+        likesIReceived = [],
+        allProfiles = [],
+        allCheckIns = [],
+        allDestinations = []
+      ] = await Promise.all([
         base44.entities.UserProfile.filter({ user_email: u.email }),
         base44.entities.ChatRoom.filter({ user_a_email: u.email }).catch(() => []),
         base44.entities.ChatRoom.filter({ user_b_email: u.email }).catch(() => []),
         base44.entities.Like.filter({ from_email: u.email }),
         base44.entities.Like.filter({ to_email: u.email }),
-        base44.entities.Story.filter({ user_email: u.email }),
+        base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
+        base44.entities.VenueCheckIn.list().catch(() => []),
+        base44.entities.UserDestination.list().catch(() => []),
       ]);
 
       const p = profiles[0] || null;
@@ -282,9 +319,26 @@ export default function Account() {
       // Calculate exact likes received count
       const receivedLikesCount = (likesIReceived || []).length;
 
+      // Calculate exact total users with active locations matching Pinpoint / Home
+      const nowIso = now.toISOString();
+      const userCountry = p?.country || 'Nederland';
+      const sameCountryEmails = new Set(
+        (allProfiles || [])
+          .filter(prof => (prof.country || 'Nederland') === userCountry)
+          .map(prof => prof.user_email)
+      );
+
+      const activeCheckInEmails = (allCheckIns || [])
+        .filter(c => c && (!c.expires_at || c.expires_at > nowIso) && (sameCountryEmails.size === 0 || sameCountryEmails.has(c.user_email)))
+        .map(c => c.user_email);
+      const activeDestEmails = (allDestinations || [])
+        .filter(d => d && d.status === 'active' && (!d.expires_at || d.expires_at > nowIso) && (sameCountryEmails.size === 0 || sameCountryEmails.has(d.user_email)))
+        .map(d => d.user_email);
+      const uniqueActiveLocationUsers = new Set([...activeCheckInEmails, ...activeDestEmails]);
+
       setStats({
         chats: activeChatsCount,
-        stories: (userStories || []).length,
+        locations: uniqueActiveLocationUsers.size,
         matches: receivedLikesCount
       });
     } catch (e) {
@@ -302,17 +356,25 @@ export default function Account() {
       
       const currentPhotos = getProfilePhotos(myProfile);
       let updatedPhotos = [...currentPhotos];
+      let replacedPhotoUrl = null;
 
       if (slotIndex !== undefined && slotIndex < updatedPhotos.length) {
         // Replace existing slot
+        replacedPhotoUrl = updatedPhotos[slotIndex];
         updatedPhotos[slotIndex] = file_url;
       } else {
         // Append new photo (max 3)
         if (updatedPhotos.length < 3) {
           updatedPhotos.push(file_url);
         } else {
+          replacedPhotoUrl = updatedPhotos[2];
           updatedPhotos[2] = file_url;
         }
+      }
+
+      // Verwijder het oude vervangen bestand uit Supabase Storage om onnodige opslag te voorkomen
+      if (replacedPhotoUrl && replacedPhotoUrl !== file_url) {
+        await base44.integrations.Core.DeleteFile({ file_url: replacedPhotoUrl });
       }
 
       updatedPhotos = updatedPhotos.slice(0, 3);
@@ -351,6 +413,14 @@ export default function Account() {
         return;
       }
 
+      const photoToDelete = currentPhotos[indexToDelete];
+
+      // 1. Verwijder EERST het daadwerkelijke bestand uit de Supabase Storage bucket
+      if (photoToDelete) {
+        await base44.integrations.Core.DeleteFile({ file_url: photoToDelete });
+      }
+
+      // 2. Verwijder DAARNA het bijbehorende record/verwijzing uit de database
       const updatedPhotos = currentPhotos.filter((_, idx) => idx !== indexToDelete);
       const primaryPhoto = updatedPhotos[0] || null;
 
@@ -380,10 +450,14 @@ export default function Account() {
     }
   };
 
-  // Initiates checkmark click -> triggers modal
+  // Initiates checkmark click -> validates min 3 traits & interests before confirmation
   const handleInitiateSave = () => {
-    if (pendingNewTrait || pendingNewInterest) {
-      toast.error('Tik eerst op een van jouw rode keuzes om het verwisselen af te ronden!');
+    if ((form.traits || []).length < 3) {
+      toast.error('Kies minimaal 3 eigenschappen (3 tot 5)!');
+      return;
+    }
+    if ((form.interests || []).length < 3) {
+      toast.error('Kies minimaal 3 interesses (3 tot 5)!');
       return;
     }
     if (form.age !== undefined && form.age !== null && form.age !== '' && Number(form.age) < 18) {
@@ -460,34 +534,91 @@ export default function Account() {
     setSaving(false);
   };
 
-  // Trait selection & swap logic
-  const handleSelectNewTrait = (newTraitLabel) => {
-    setPendingNewTrait(newTraitLabel);
+  // Trait toggle selection (min 3, max 5)
+  const handleToggleTrait = (traitLabel) => {
+    const current = form.traits || [];
+    if (current.includes(traitLabel)) {
+      setForm(f => ({
+        ...f,
+        traits: (f.traits || []).filter(t => t !== traitLabel)
+      }));
+    } else {
+      if (current.length >= 5) {
+        toast.error('Je kunt maximaal 5 eigenschappen kiezen! Deselecteer er eerst een.');
+        return;
+      }
+      setForm(f => ({
+        ...f,
+        traits: [...(f.traits || []), traitLabel]
+      }));
+    }
   };
 
-  const handleSwapOldTrait = (oldTraitLabel) => {
-    if (!pendingNewTrait) return;
-    setForm(f => ({
-      ...f,
-      traits: (f.traits || []).map(t => t === oldTraitLabel ? pendingNewTrait : t)
-    }));
-    toast.success(`"${oldTraitLabel}" verwisseld voor "${pendingNewTrait}"! ✨`);
-    setPendingNewTrait(null);
+  // Interest toggle selection (min 3, max 5)
+  const handleToggleInterest = (interestLabel) => {
+    const current = form.interests || [];
+    if (current.includes(interestLabel)) {
+      setForm(f => ({
+        ...f,
+        interests: (f.interests || []).filter(i => i !== interestLabel)
+      }));
+    } else {
+      if (current.length >= 5) {
+        toast.error('Je kunt maximaal 5 interesses kiezen! Deselecteer er eerst een.');
+        return;
+      }
+      setForm(f => ({
+        ...f,
+        interests: [...(f.interests || []), interestLabel]
+      }));
+    }
   };
 
-  // Interest selection & swap logic
-  const handleSelectNewInterest = (newInterestLabel) => {
-    setPendingNewInterest(newInterestLabel);
+  // Helper to open sub-sheet and capture backup snapshot for rollback
+  const openSubSheet = (sheetName) => {
+    if (sheetName === 'traits') {
+      sheetBackupTraitsRef.current = [...(form.traits || [])];
+    } else if (sheetName === 'interests') {
+      sheetBackupInterestsRef.current = [...(form.interests || [])];
+    }
+    setActiveSheet(sheetName);
   };
 
-  const handleSwapOldInterest = (oldInterestLabel) => {
-    if (!pendingNewInterest) return;
-    setForm(f => ({
-      ...f,
-      interests: (f.interests || []).map(i => i === oldInterestLabel ? pendingNewInterest : i)
-    }));
-    toast.success(`"${oldInterestLabel}" verwisseld voor "${pendingNewInterest}"! ✨`);
-    setPendingNewInterest(null);
+  // Helper to close sub-sheet with validation; prompt popup modal if < 3
+  const handleCloseSubSheet = () => {
+    if (activeSheet === 'traits') {
+      const current = form.traits || [];
+      if (current.length < 3) {
+        setMinItemsWarningModal('traits');
+        return;
+      }
+    } else if (activeSheet === 'interests') {
+      const current = form.interests || [];
+      if (current.length < 3) {
+        setMinItemsWarningModal('interests');
+        return;
+      }
+    } else if (activeSheet === 'age_height' && form.age && Number(form.age) < 18) {
+      setForm(f => ({ ...f, age: 18 }));
+      toast.info('Leeftijd is ingesteld op 18 jaar.');
+    }
+    setActiveSheet(null);
+  };
+
+  const handleConfirmMinItemsLeave = () => {
+    if (minItemsWarningModal === 'traits') {
+      setForm(f => ({ ...f, traits: sheetBackupTraitsRef.current || initialForm.traits || [] }));
+      toast.error('Minimaal 3 eigenschappen vereist. Oude selectie is behouden.');
+    } else if (minItemsWarningModal === 'interests') {
+      setForm(f => ({ ...f, interests: sheetBackupInterestsRef.current || initialForm.interests || [] }));
+      toast.error('Minimaal 3 interesses vereist. Oude selectie is behouden.');
+    }
+    setMinItemsWarningModal(null);
+    setActiveSheet(null);
+  };
+
+  const handleCancelMinItemsLeave = () => {
+    setMinItemsWarningModal(null);
   };
 
   const handlePerformLogout = async () => {
@@ -555,6 +686,17 @@ export default function Account() {
           console.warn('[handleDeleteAccount] Error deleting story media:', e);
         }
 
+        try {
+          const { data: userChatMsgs } = await supabase.from('ChatMessage').select('media_url').eq('sender_email', email);
+          if (userChatMsgs && userChatMsgs.length > 0) {
+            for (const m of userChatMsgs) {
+              if (m.media_url) await base44.integrations.Core.DeleteFile({ file_url: m.media_url }).catch(() => {});
+            }
+          }
+        } catch (e) {
+          console.warn('[handleDeleteAccount] Error deleting chat photos:', e);
+        }
+
         // 2. Delete all records across all Supabase tables in parallel safely
         const deleteTasks = [
           supabase.from('UserProfile').delete().eq('user_email', email),
@@ -581,8 +723,10 @@ export default function Account() {
       // 3. Clear all local auth storage (localStorage, sessionStorage, IndexedDB, cookies)
       authStorage.clearUser();
       try {
-        sessionStorage.removeItem('romety_splash_shown');
-        sessionStorage.clear();
+        localStorage.removeItem('welove_lang');
+        localStorage.removeItem('romety_user_email');
+        localStorage.removeItem('seen_chat_room_ids');
+        sessionStorage.setItem('romety_splash_shown', 'true');
       } catch (err) {}
 
       // 4. Sign out from Supabase Auth
@@ -595,22 +739,22 @@ export default function Account() {
       toast.dismiss(toastId);
       toast.success('Je account is succesvol verwijderd.');
 
-      // 5. Redirect directly to Onboarding page (full new user trajectory)
+      // 5. Redirect to Language selection page (leads to Onboarding after language is chosen)
       setTimeout(() => {
-        window.location.replace('/Onboarding');
+        window.location.replace('/Language');
       }, 400);
 
     } catch (e) {
       console.error('Error deleting user account:', e);
       authStorage.clearUser();
       try {
-        sessionStorage.removeItem('romety_splash_shown');
-        sessionStorage.clear();
+        localStorage.removeItem('welove_lang');
+        sessionStorage.setItem('romety_splash_shown', 'true');
         await supabase.auth.signOut();
       } catch (err) {}
       toast.dismiss(toastId);
       toast.success('Je account is verwijderd.');
-      window.location.replace('/Onboarding');
+      window.location.replace('/Language');
     } finally {
       setDeleting(false);
     }
@@ -707,6 +851,10 @@ export default function Account() {
       a: "Onder 'Ontvangen likes' zie je wie jouw profiel heeft geliket. Je kunt deze likes bekijken, onthullen en terugliken. Zodra je iemand terugliket, hebben jullie meteen een match en kun je direct in contact komen!"
     },
     {
+      q: "Wat betekenen Chats, Locaties en Likes?",
+      a: "• Chats: Jouw actieve chats.\n• Locaties: Het aantal gebruikers dat momenteel op locatie is.\n• Likes: Het aantal likes dat jij hebt ontvangen."
+    },
+    {
       q: "Hoe werken de Supermatches?",
       a: "Wanneer jij en iemand anders elkaar als Supermatch markeren of naar dezelfde uitgaanslocatie gaan, ontgrendelen jullie direct een Supermatch om sneller en makkelijker contact te leggen!"
     },
@@ -737,45 +885,55 @@ export default function Account() {
 
   return (
     <div 
-      className="min-h-screen max-w-md mx-auto relative select-none" 
+      className="min-h-screen max-w-md mx-auto relative" 
       style={{ 
         background: bg, 
         fontFamily: "'Inter', sans-serif", 
         paddingBottom: 'calc(84px + env(safe-area-inset-bottom, 16px))' 
       }}
+      {...containerProps}
     >
+      {/* Top Over-Scroll Extension to eliminate black gap when pulling down */}
+      <div 
+        className="absolute -top-[500px] left-0 right-0 h-[500px] pointer-events-none" 
+        style={{ background: isDark ? '#4D122D' : '#FFF0F4' }}
+      />
       
-      {/* Top Header Background */}
-      <div className="px-5 pb-20 relative overflow-hidden" style={{ background: headerBg, paddingTop: 'max(56px, calc(env(safe-area-inset-top, 0px) + 14px))' }}>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className={`text-2xl sm:text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Mijn Account</h1>
-            <p className={`text-xs mt-1 font-medium ${isDark ? 'text-white/60' : 'text-gray-600'}`}>Beheer je profiel en voorkeuren</p>
+      {/* Fixed Sticky Top Header Pinned to Top */}
+      <div 
+        className="sticky top-0 left-0 right-0 z-40 px-5 pb-4 select-none min-h-[104px] flex flex-col justify-end" 
+        style={{ 
+          background: isDark 
+            ? 'linear-gradient(180deg, #4D122D 0%, #350D1F 75%, #200813 100%)' 
+            : 'linear-gradient(180deg, #FFF0F4 0%, #FEE2EA 75%, #FAF9FB 100%)', 
+          paddingTop: 'max(48px, calc(env(safe-area-inset-top, 0px) + 12px))',
+          borderBottom: isDark ? '1px solid rgba(255, 75, 114, 0.15)' : '1px solid rgba(0,0,0,0.05)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+        }}
+      >
+        <div className="relative flex items-center justify-between w-full">
+          <div className="w-8 z-10" />
+
+          {/* Centered Title */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <h1 className={`text-2xl font-black tracking-tight leading-tight pointer-events-auto ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Mijn Account
+            </h1>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-            <button
-              onClick={() => setShowPreview(true)}
-              className={`px-3 py-2 rounded-2xl font-black text-xs flex items-center gap-1.5 backdrop-blur-md border shadow-sm transition-all active:scale-95 ${
-                isDark 
-                  ? 'bg-white/10 border-white/15 text-pink-300 hover:bg-white/20' 
-                  : 'bg-white/90 border-pink-200 text-pink-600 hover:bg-white'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" /> Voorvertoning
-            </button>
-
+          {/* Edit action on the right */}
+          <div className="flex items-center gap-2 z-10">
             <button 
               onClick={() => {
                 setEditing(true);
                 setInitialForm({ ...form });
                 setActiveSheet(null);
-                setPendingNewTrait(null);
-                setPendingNewInterest(null);
               }} 
               className={`p-2 rounded-2xl backdrop-blur-md border transition-all active:scale-95 ${
                 isDark ? 'bg-white/10 border-white/15 text-white hover:bg-white/20' : 'bg-white/90 border-gray-200 text-gray-800'
               }`}
+              aria-label="Profiel bewerken"
             >
               <Edit2 className="w-4 h-4" />
             </button>
@@ -783,8 +941,33 @@ export default function Account() {
         </div>
       </div>
 
+      {/* Pull-to-Refresh Spinner Gap Area below pinned header */}
+      <div 
+        className="w-full flex items-center justify-center pointer-events-none overflow-hidden"
+        style={{
+          height: isRefreshing ? 48 : pullDistance,
+          opacity: isRefreshing ? 1 : Math.min(1, Math.max(0, (pullDistance - 6) / 20)),
+          transition: isPulling ? 'none' : 'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease-out',
+          willChange: 'height, opacity',
+        }}
+      >
+        <div
+          style={{
+            transform: `scale(${isRefreshing ? 1 : Math.min(1, 0.45 + (pullDistance / 48) * 0.55)})`,
+            transition: isPulling ? 'none' : 'transform 0.25s ease-out',
+          }}
+        >
+          <InstagramSpinner 
+            size={30} 
+            isRefreshing={isRefreshing} 
+            pullDistance={pullDistance} 
+            color="#FF4B72" 
+          />
+        </div>
+      </div>
+
       {/* Main Container */}
-      <div className="px-[3px] -mt-12 relative z-10 max-w-md mx-auto space-y-4">
+      <div className="px-[3px] pt-3 relative z-10 max-w-md mx-auto space-y-4">
 
         {/* ── Profile Card ── */}
         <div className="rounded-[28px] p-5" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
@@ -819,10 +1002,22 @@ export default function Account() {
 
             {/* Display Name & Quick Info */}
             <div className="flex-1 min-w-0">
-              <h2 className={`font-black text-lg truncate ${textMain}`}>
-                {myProfile?.display_name || user?.full_name}
-                {myProfile?.age ? `, ${myProfile.age}` : ''}
-              </h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className={`font-black text-lg truncate ${textMain}`}>
+                  {myProfile?.display_name || user?.full_name}
+                  {myProfile?.age ? `, ${myProfile.age}` : ''}
+                </h2>
+                <button
+                  onClick={() => setShowPreview(true)}
+                  className={`px-3 py-1.5 rounded-2xl font-black text-xs flex items-center gap-1.5 backdrop-blur-md border shadow-sm transition-all active:scale-95 flex-shrink-0 ${
+                    isDark 
+                      ? 'bg-white/10 border-white/15 text-pink-300 hover:bg-white/20' 
+                      : 'bg-white/90 border-pink-200 text-pink-600 hover:bg-white'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" /> Voorvertoning
+                </button>
+              </div>
               <p className="text-xs font-medium truncate mt-0.5" style={{ color: textSub }}>
                 {myProfile?.contact_email || user?.email}
               </p>
@@ -974,28 +1169,52 @@ export default function Account() {
 
         {/* ── Mijn Statistieken Dashboard ── */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl p-3.5 text-center flex flex-col items-center justify-center" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
+          <div 
+            className="rounded-2xl p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
+            style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
+            onClick={() => navigate(createPageUrl('Chat'))}
+          >
             <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-pink-500/15 text-pink-500">
               <MessageCircle className="w-4 h-4" />
             </div>
-            <span className={`text-lg font-black ${textMain}`}>{stats.chats}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: textSub }}>Chats</span>
-          </div>
-
-          <div className="rounded-2xl p-3.5 text-center flex flex-col items-center justify-center" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-amber-500/15 text-amber-500">
-              <Camera className="w-4 h-4" />
+            <div className="h-7 flex items-center justify-center w-full min-w-0">
+              <span className={`${getStatFontSize(formatStatCount(stats.chats))} font-black leading-none tabular-nums truncate max-w-full text-center ${textMain}`}>
+                {formatStatCount(stats.chats)}
+              </span>
             </div>
-            <span className={`text-lg font-black ${textMain}`}>{stats.stories}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: textSub }}>Stories</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide truncate max-w-full mt-0.5" style={{ color: textSub }}>Chats</span>
           </div>
 
-          <div className="rounded-2xl p-3.5 text-center flex flex-col items-center justify-center" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
+          <div 
+            className="rounded-2xl p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
+            style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
+            onClick={() => navigate(createPageUrl('Pinpoint'))}
+          >
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-amber-500/15 text-amber-500">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div className="h-7 flex items-center justify-center w-full min-w-0">
+              <span className={`${getStatFontSize(formatStatCount(stats.locations))} font-black leading-none tabular-nums truncate max-w-full text-center ${textMain}`}>
+                {formatStatCount(stats.locations)}
+              </span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wide truncate max-w-full mt-0.5" style={{ color: textSub }}>Locaties</span>
+          </div>
+
+          <div 
+            className="rounded-2xl p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
+            style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
+            onClick={() => navigate(createPageUrl('Matches'))}
+          >
             <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-purple-500/15 text-purple-500">
               <Heart className="w-4 h-4" />
             </div>
-            <span className={`text-lg font-black ${textMain}`}>{stats.matches}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: textSub }}>Likes</span>
+            <div className="h-7 flex items-center justify-center w-full min-w-0">
+              <span className={`${getStatFontSize(formatStatCount(stats.matches))} font-black leading-none tabular-nums truncate max-w-full text-center ${textMain}`}>
+                {formatStatCount(stats.matches)}
+              </span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wide truncate max-w-full mt-0.5" style={{ color: textSub }}>Likes</span>
           </div>
         </div>
 
@@ -1379,7 +1598,7 @@ export default function Account() {
                   {/* Row: Eigenschappen */}
                   <button
                     type="button"
-                    onClick={() => setActiveSheet('traits')}
+                    onClick={() => openSubSheet('traits')}
                     className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
                     style={{ borderBottom: divider }}
                   >
@@ -1391,7 +1610,7 @@ export default function Account() {
                     </div>
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {(form.traits || []).length > 0 ? (form.traits || []).join(', ') : 'Kies 3'}
+                        {(form.traits || []).length > 0 ? `${(form.traits || []).length}/5 gekozen` : 'Kies 3 – 5'}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1400,7 +1619,7 @@ export default function Account() {
                   {/* Row: Interesses */}
                   <button
                     type="button"
-                    onClick={() => setActiveSheet('interests')}
+                    onClick={() => openSubSheet('interests')}
                     className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
                     style={{ borderBottom: divider }}
                   >
@@ -1412,7 +1631,7 @@ export default function Account() {
                     </div>
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {(form.interests || []).length > 0 ? (form.interests || []).join(', ') : 'Kies 3'}
+                        {(form.interests || []).length > 0 ? `${(form.interests || []).length}/5 gekozen` : 'Kies 3 – 5'}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1497,11 +1716,7 @@ export default function Account() {
             onTouchMove={(e) => {
               if (e.target === e.currentTarget) e.preventDefault();
             }}
-            onClick={() => {
-              setActiveSheet(null);
-              setPendingNewTrait(null);
-              setPendingNewInterest(null);
-            }}
+            onClick={handleCloseSubSheet}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.92, y: 16 }}
@@ -1539,15 +1754,7 @@ export default function Account() {
                   {activeSheet === 'age_pref' && 'Leeftijdsvoorkeur matches'}
                 </h3>
                 <button
-                  onClick={() => {
-                    if (activeSheet === 'age_height' && form.age && Number(form.age) < 18) {
-                      setForm(f => ({ ...f, age: 18 }));
-                      toast.info('Leeftijd is ingesteld op 18 jaar.');
-                    }
-                    setActiveSheet(null);
-                    setPendingNewTrait(null);
-                    setPendingNewInterest(null);
-                  }}
+                  onClick={handleCloseSubSheet}
                   className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer shadow-md"
                   style={{
                     background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
@@ -1725,125 +1932,225 @@ export default function Account() {
                   </div>
                 )}
 
-                {activeSheet === 'traits' && (
-                  <div className="space-y-4">
-                    {/* Active choices */}
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
-                        {pendingNewTrait ? (
-                          <span className="text-red-500 font-black animate-pulse">
-                            ⚠️ Tik op een van jouw RODE eigenschappen om te verwisselen met "{pendingNewTrait}"!
+                {activeSheet === 'traits' && (() => {
+                  const traitsCount = (form.traits || []).length;
+                  const isUnderMinTraits = traitsCount < 3;
+                  return (
+                    <div className="space-y-4">
+                      {/* 5 Slots Section */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: textSub }}>
+                            Jouw eigenschappen (3 – 5)
+                          </p>
+                          <span className={`text-[11px] font-black ${
+                            isUnderMinTraits ? 'text-red-500 animate-pulse' : 'text-pink-500'
+                          }`}>
+                            {traitsCount}/5 gekozen {isUnderMinTraits ? '(min. 3 vereist!)' : ''}
                           </span>
-                        ) : (
-                          "Jouw huidige keuzes (3):"
+                        </div>
+
+                        {/* 5 slots grid with red pulsing borders when < 3 */}
+                        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                          {[0, 1, 2, 3, 4].map(idx => {
+                            const trait = (form.traits || [])[idx];
+                            return trait ? (
+                              <div
+                                key={idx}
+                                onClick={() => handleToggleTrait(trait)}
+                                className={`group relative p-1.5 sm:p-2 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all active:scale-95 border ${
+                                  isUnderMinTraits
+                                    ? 'animate-pulse ring-2 ring-red-500/50 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
+                                    : ''
+                                }`}
+                                style={{
+                                  background: isUnderMinTraits
+                                    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(244, 63, 94, 0.12) 100%)'
+                                    : 'linear-gradient(135deg, rgba(255, 75, 114, 0.22) 0%, rgba(234, 63, 211, 0.12) 100%)',
+                                  borderColor: isUnderMinTraits ? '#EF4444' : 'rgba(255, 75, 114, 0.45)',
+                                  minHeight: '68px',
+                                }}
+                                title="Klik om te verwijderen"
+                              >
+                                <span className="text-lg sm:text-xl leading-none mb-1">{getEmojiForTrait(trait)}</span>
+                                <span className={`text-[10px] font-bold truncate max-w-full leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{trait}</span>
+                                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm opacity-90 group-hover:opacity-100">
+                                  ✕
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                key={idx}
+                                className={`p-1.5 sm:p-2 rounded-2xl flex flex-col items-center justify-center text-center border border-dashed transition-all ${
+                                  isUnderMinTraits
+                                    ? 'animate-pulse ring-2 ring-red-500/40 shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                                    : ''
+                                }`}
+                                style={{
+                                  borderColor: isUnderMinTraits ? '#EF4444' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+                                  background: isUnderMinTraits
+                                    ? 'rgba(239, 68, 68, 0.08)'
+                                    : isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+                                  minHeight: '68px',
+                                }}
+                              >
+                                <Plus className={`w-4 h-4 mb-0.5 ${isUnderMinTraits ? 'text-red-500 animate-pulse' : isDark ? 'text-white/40' : 'text-gray-400'}`} />
+                                <span className={`text-[9px] font-semibold ${isUnderMinTraits ? 'text-red-500 font-bold' : isDark ? 'text-white/40' : 'text-gray-400'}`}>Slot {idx + 1}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {isUnderMinTraits && (
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 animate-pulse mt-2 px-1">
+                            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>Selecteer minimaal 3 eigenschappen (nog {3 - traitsCount} nodig)</span>
+                          </div>
                         )}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {(form.traits || []).map(t => (
-                          <button
-                            key={t}
-                            onClick={() => pendingNewTrait && handleSwapOldTrait(t)}
-                            className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
-                              pendingNewTrait 
-                                ? 'bg-red-500/25 border-red-500 text-red-400 animate-pulse cursor-pointer shadow-md' 
-                                : 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-sm'
-                            }`}
-                          >
-                            <span>{getEmojiForTrait(t)}</span>
-                            <span>{t}</span>
-                            {pendingNewTrait && <ArrowRightLeft className="w-3.5 h-3.5 text-red-400" />}
-                          </button>
-                        ))}
+                      </div>
+
+                      {/* Available traits list with select/deselect checkmark */}
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
+                          Tik om te selecteren of deselecteren:
+                        </p>
+                        <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
+                          {TRAITS_LIST.map(t => {
+                            const isSelected = (form.traits || []).includes(t.label);
+                            return (
+                              <button
+                                key={t.label}
+                                type="button"
+                                onClick={() => handleToggleTrait(t.label)}
+                                className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 active:scale-95 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-md ring-2 ring-pink-500/30'
+                                    : isDark
+                                      ? 'bg-white/5 border-white/10 text-gray-300 hover:border-white/25 hover:bg-white/10'
+                                      : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-200'
+                                }`}
+                              >
+                                <span>{t.emoji}</span>
+                                <span>{t.label}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 stroke-[3] text-white" />}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
+                  );
+                })()}
 
-                    {/* Available traits list */}
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
-                        Kies een nieuwe eigenschap om te verwisselen:
-                      </p>
-                      <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
-                        {TRAITS_LIST.filter(t => !(form.traits || []).includes(t.label)).map(t => {
-                          const isPending = pendingNewTrait === t.label;
-                          return (
-                            <button
-                              key={t.label}
-                              onClick={() => handleSelectNewTrait(isPending ? null : t.label)}
-                              className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all border flex items-center gap-1.5 ${
-                                isPending 
-                                  ? 'bg-amber-400/25 border-amber-400 text-amber-300 font-bold shadow-md ring-2 ring-amber-400/50'
-                                  : isDark ? 'bg-white/5 border-white/10 text-gray-300 hover:border-white/25' : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-gray-300'
-                              }`}
-                            >
-                              <span>{t.emoji}</span>
-                              <span>{t.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeSheet === 'interests' && (
-                  <div className="space-y-4">
-                    {/* Active choices */}
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
-                        {pendingNewInterest ? (
-                          <span className="text-red-500 font-black animate-pulse">
-                            ⚠️ Tik op een van jouw RODE interesses om te verwisselen met "{pendingNewInterest}"!
+                {activeSheet === 'interests' && (() => {
+                  const interestsCount = (form.interests || []).length;
+                  const isUnderMinInterests = interestsCount < 3;
+                  return (
+                    <div className="space-y-4">
+                      {/* 5 Slots Section */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: textSub }}>
+                            Jouw interesses (3 – 5)
+                          </p>
+                          <span className={`text-[11px] font-black ${
+                            isUnderMinInterests ? 'text-red-500 animate-pulse' : 'text-pink-500'
+                          }`}>
+                            {interestsCount}/5 gekozen {isUnderMinInterests ? '(min. 3 vereist!)' : ''}
                           </span>
-                        ) : (
-                          "Jouw huidige keuzes (3):"
-                        )}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {(form.interests || []).map(i => (
-                          <button
-                            key={i}
-                            onClick={() => pendingNewInterest && handleSwapOldInterest(i)}
-                            className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
-                              pendingNewInterest 
-                                ? 'bg-red-500/25 border-red-500 text-red-400 animate-pulse cursor-pointer shadow-md' 
-                                : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-transparent shadow-sm'
-                            }`}
-                          >
-                            <span>{getEmojiForInterest(i)}</span>
-                            <span>{i}</span>
-                            {pendingNewInterest && <ArrowRightLeft className="w-3.5 h-3.5 text-red-400" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
 
-                    {/* Available interests list */}
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
-                        Kies een nieuwe interesse om te verwisselen:
-                      </p>
-                      <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
-                        {INTERESTS_LIST.filter(i => !(form.interests || []).includes(i.label)).map(i => {
-                          const isPending = pendingNewInterest === i.label;
-                          return (
-                            <button
-                              key={i.label}
-                              onClick={() => handleSelectNewInterest(isPending ? null : i.label)}
-                              className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all border flex items-center gap-1.5 ${
-                                isPending 
-                                  ? 'bg-amber-400/25 border-amber-400 text-amber-300 font-bold shadow-md ring-2 ring-amber-400/50'
-                                  : isDark ? 'bg-white/5 border-white/10 text-gray-300 hover:border-white/25' : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-gray-300'
-                              }`}
-                            >
-                              <span>{i.emoji}</span>
-                              <span>{i.label}</span>
-                            </button>
-                          );
-                        })}
+                        {/* 5 slots grid with red pulsing borders when < 3 */}
+                        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                          {[0, 1, 2, 3, 4].map(idx => {
+                            const interest = (form.interests || [])[idx];
+                            return interest ? (
+                              <div
+                                key={idx}
+                                onClick={() => handleToggleInterest(interest)}
+                                className={`group relative p-1.5 sm:p-2 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all active:scale-95 border ${
+                                  isUnderMinInterests
+                                    ? 'animate-pulse ring-2 ring-red-500/50 shadow-[0_0_14px_rgba(239,68,68,0.4)]'
+                                    : ''
+                                }`}
+                                style={{
+                                  background: isUnderMinInterests
+                                    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(244, 63, 94, 0.12) 100%)'
+                                    : 'linear-gradient(135deg, rgba(234, 63, 211, 0.22) 0%, rgba(147, 51, 234, 0.12) 100%)',
+                                  borderColor: isUnderMinInterests ? '#EF4444' : 'rgba(234, 63, 211, 0.45)',
+                                  minHeight: '68px',
+                                }}
+                                title="Klik om te verwijderen"
+                              >
+                                <span className="text-lg sm:text-xl leading-none mb-1">{getEmojiForInterest(interest)}</span>
+                                <span className={`text-[10px] font-bold truncate max-w-full leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{interest}</span>
+                                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm opacity-90 group-hover:opacity-100">
+                                  ✕
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                key={idx}
+                                className={`p-1.5 sm:p-2 rounded-2xl flex flex-col items-center justify-center text-center border border-dashed transition-all ${
+                                  isUnderMinInterests
+                                    ? 'animate-pulse ring-2 ring-red-500/40 shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                                    : ''
+                                }`}
+                                style={{
+                                  borderColor: isUnderMinInterests ? '#EF4444' : isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+                                  background: isUnderMinInterests
+                                    ? 'rgba(239, 68, 68, 0.08)'
+                                    : isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+                                  minHeight: '68px',
+                                }}
+                              >
+                                <Plus className={`w-4 h-4 mb-0.5 ${isUnderMinInterests ? 'text-red-500 animate-pulse' : isDark ? 'text-white/40' : 'text-gray-400'}`} />
+                                <span className={`text-[9px] font-semibold ${isUnderMinInterests ? 'text-red-500 font-bold' : isDark ? 'text-white/40' : 'text-gray-400'}`}>Slot {idx + 1}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {isUnderMinInterests && (
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-red-500 animate-pulse mt-2 px-1">
+                            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>Selecteer minimaal 3 interesses (nog {3 - interestsCount} nodig)</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Available interests list with select/deselect checkmark */}
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
+                          Tik om te selecteren of deselecteren:
+                        </p>
+                        <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
+                          {INTERESTS_LIST.map(i => {
+                            const isSelected = (form.interests || []).includes(i.label);
+                            return (
+                              <button
+                                key={i.label}
+                                type="button"
+                                onClick={() => handleToggleInterest(i.label)}
+                                className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 active:scale-95 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-transparent shadow-md ring-2 ring-purple-500/30'
+                                    : isDark
+                                      ? 'bg-white/5 border-white/10 text-gray-300 hover:border-white/25 hover:bg-white/10'
+                                      : 'bg-gray-100 border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-200'
+                                }`}
+                              >
+                                <span>{i.emoji}</span>
+                                <span>{i.label}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 stroke-[3] text-white" />}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {activeSheet === 'height_pref' && (
                   <div className="space-y-4">
@@ -1944,6 +2251,64 @@ export default function Account() {
                     </p>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL: MINIMUM 3 ITEMS WARNING (TRAITS & INTERESTS) ── */}
+      <AnimatePresence>
+        {minItemsWarningModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 0.2 }} 
+            className="fixed inset-0 z-[350] flex items-center justify-center bg-black/70 backdrop-blur-sm px-6 select-none" 
+            onClick={handleCancelMinItemsLeave}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
+              className={`rounded-[28px] w-full max-w-xs p-5 text-center shadow-2xl border ${
+                isDark ? 'bg-[#141521] border-red-500/30 text-white' : 'bg-white border-red-200 text-gray-900'
+              }`}
+              style={{
+                boxShadow: '0 25px 60px rgba(0,0,0,0.4), 0 0 25px rgba(239,68,68,0.2)'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-red-500/15 text-red-500">
+                <AlertTriangle className="w-6 h-6 stroke-[2.4] animate-pulse" />
+              </div>
+              <h4 className="text-sm font-black mb-1.5">
+                Minimaal 3 {minItemsWarningModal === 'traits' ? 'eigenschappen' : 'interesses'} vereist
+              </h4>
+              <p className={`text-[11px] font-medium leading-relaxed mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                Je hebt momenteel minder dan 3 {minItemsWarningModal === 'traits' ? 'eigenschappen' : 'interesses'} geselecteerd. Als je nu weggaat, wordt je oude selectie behouden.
+              </p>
+              <div className="flex gap-2.5">
+                <button 
+                  type="button"
+                  onClick={handleCancelMinItemsLeave} 
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
+                    isDark 
+                      ? 'border-white/15 text-white bg-white/5 hover:bg-white/10' 
+                      : 'border-gray-200 text-gray-700 bg-gray-100 hover:bg-gray-200'
+                  }`}
+                >
+                  Annuleren
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleConfirmMinItemsLeave} 
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-md active:scale-95 transition-all hover:opacity-95"
+                >
+                  Ja, ga terug
+                </button>
               </div>
             </motion.div>
           </motion.div>

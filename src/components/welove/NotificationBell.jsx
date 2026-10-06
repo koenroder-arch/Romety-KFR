@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { Bell, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,8 +8,10 @@ import { useNotifications } from './useNotifications';
 import { useAuth } from '@/lib/AuthContext';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
+import { createPageUrl } from '@/utils';
 
 export default function NotificationBell({ isDark = true }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -46,6 +49,34 @@ export default function NotificationBell({ isDark = true }) {
     if (!n.is_read && n.id) {
       await base44.entities.Notification.update(n.id, { is_read: true }).catch(() => {});
       setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true } : item));
+    }
+    setOpen(false);
+
+    let parsedRoomId = null;
+    if (n.venue_name) {
+      try {
+        const parsed = JSON.parse(n.venue_name);
+        if (parsed.roomId) parsedRoomId = parsed.roomId;
+      } catch (e) {
+        if (n.venue_name.length > 20 && !n.venue_name.includes(' ')) {
+          parsedRoomId = n.venue_name;
+        }
+      }
+    }
+
+    const isChat = n.type === 'chat' || n.type === 'chat_message' || n.type === 'chat_invite' || n.type === 'chat_accepted';
+    if (isChat) {
+      if (parsedRoomId) {
+        navigate(`${createPageUrl('Chat')}?roomId=${encodeURIComponent(parsedRoomId)}`);
+      } else {
+        navigate(createPageUrl('Chat'));
+      }
+    } else if (n.type === 'match') {
+      navigate(createPageUrl('Matches'));
+    } else if (n.type?.startsWith('game')) {
+      navigate(createPageUrl('Games'));
+    } else if (n.type === 'hint') {
+      navigate(createPageUrl('Home'));
     }
   };
 
@@ -235,19 +266,35 @@ export default function NotificationBell({ isDark = true }) {
                             <div className="flex flex-col gap-2.5 mt-2 px-4 pb-28">
                               {likeNotifs.map((n) => {
                                 const isHint = n.type === 'hint';
+                                let parsedMessageText = null;
+                                let isVenueJson = false;
+                                if (n.venue_name) {
+                                  try {
+                                    const parsed = JSON.parse(n.venue_name);
+                                    if (parsed.roomId) {
+                                      parsedMessageText = parsed.text;
+                                      isVenueJson = true;
+                                    }
+                                  } catch (e) {}
+                                }
+
+                                const isChat = n.type === 'chat' || n.type === 'chat_message' || n.type === 'chat_invite';
 
                                 let titleText = 'Melding';
                                 let descText = n.message || 'Je hebt een update.';
 
-                                if (n.type === 'chat_rejected') {
+                                if (isChat) {
+                                  titleText = n.from_name ? `${n.from_name} 💬` : 'Nieuw bericht 💬';
+                                  descText = parsedMessageText || n.message || 'Heeft je een bericht gestuurd.';
+                                } else if (n.type === 'chat_rejected') {
                                   titleText = 'Chat beëindigd ❌';
-                                  descText = n.message || 'Een chat is beëindigd door afwijzing.';
+                                  descText = n.message || n.venue_name || 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.';
                                 } else if (n.type === 'chat_inactive') {
                                   titleText = 'Chat beëindigd ⌛';
                                   descText = n.message || 'Een chat is verwijderd vanwege 7 dagen inactiviteit.';
                                 } else if (n.type === 'chat_accepted') {
                                   titleText = 'Chat geaccepteerd! 💬';
-                                  descText = n.message || 'Je chat-uitnodiging is geaccepteerd! 🎉';
+                                  descText = parsedMessageText || n.message || 'Je chat-uitnodiging is geaccepteerd! 🎉';
                                 } else if (n.type === 'game_invite') {
                                   titleText = 'Speluitnodiging';
                                   descText = 'Je match heeft je uitgenodigd voor een game!';
@@ -286,7 +333,7 @@ export default function NotificationBell({ isDark = true }) {
                                       <p className="text-sm mt-0.5 text-white/60">
                                         {descText}
                                       </p>
-                                      {n.venue_name && (
+                                      {!isVenueJson && !isChat && n.venue_name && (
                                         <p className="text-sm mt-0.5 text-white/40">📍 {n.venue_name}</p>
                                       )}
                                       <p className="text-[11px] text-white/40 mt-1">

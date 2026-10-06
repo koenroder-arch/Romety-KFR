@@ -24,6 +24,7 @@ export default function RevealedLikesSheet({
   isDark = true,
   onClose,
   onRefresh,
+  onSendHint,
 }) {
   const [matchAnim, setMatchAnim] = useState(null);
   const [openMenuProfileId, setOpenMenuProfileId] = useState(null);
@@ -408,10 +409,10 @@ export default function RevealedLikesSheet({
                     <button
                       onClick={handleSubmitReport}
                       disabled={reportLoading}
-                      className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all"
-                      style={{ background: GRAD }}
+                      className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all bg-red-600 hover:bg-red-700"
+                      style={{ background: '#EF4444' }}
                     >
-                      {reportLoading ? 'Versturen...' : 'Verstuur'}
+                      {reportLoading ? 'Rapporteren...' : 'Rapporteren'}
                     </button>
                   </div>
                 </div>
@@ -438,7 +439,15 @@ export default function RevealedLikesSheet({
           <MatchAnimation
             myProfile={matchAnim.myProfile}
             matchedProfile={matchAnim.matchedProfile}
+            onDone={() => setMatchAnim(null)}
             onClose={() => setMatchAnim(null)}
+            onSendHint={(profile) => {
+              setMatchAnim(null);
+              if (onSendHint) {
+                onClose?.();
+                onSendHint(profile);
+              }
+            }}
           />
         )}
       </motion.div>

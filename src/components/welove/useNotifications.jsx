@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useTheme } from '@/lib/ThemeContext';
@@ -6,6 +7,7 @@ import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 
 export function useNotifications() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme !== 'light';
@@ -42,16 +44,47 @@ export function useNotifications() {
         let toastIcon = '👤';
         let toastBorderColor = 'rgba(255, 255, 255, 0.08)';
         let toastBadgeIcon = '💜';
-        let routePage = 'Matches';
+        let targetUrl = createPageUrl(routePage);
+
+        let parsedRoomId = null;
+        let parsedMessageText = null;
+        if (event.data.venue_name) {
+          try {
+            const parsed = JSON.parse(event.data.venue_name);
+            if (parsed.roomId) {
+              parsedRoomId = parsed.roomId;
+              parsedMessageText = parsed.text;
+            }
+          } catch (e) {
+            if (event.data.venue_name.length > 20 && !event.data.venue_name.includes(' ')) {
+              parsedRoomId = event.data.venue_name;
+            }
+          }
+        }
 
         const isMatch = event.data.type === 'match';
+        const isChat = event.data.type === 'chat' || event.data.type === 'chat_message' || event.data.type === 'chat_invite';
 
-        if (isMatch) {
+        if (isChat) {
+          // If the user is already inside this specific room, suppress the banner overlay
+          if (parsedRoomId && window.location.href.includes(parsedRoomId) && window.location.pathname.toLowerCase().includes('/chat')) {
+            return;
+          }
+          titleText = event.data.from_name ? `${event.data.from_name} 💬` : 'Nieuw bericht 💬';
+          bodyText = parsedMessageText || event.data.message || 'Heeft je een bericht gestuurd!';
+          toastIcon = '💬';
+          toastBorderColor = '#EE42BC';
+          toastBadgeIcon = '💬';
+          targetUrl = parsedRoomId
+            ? `${createPageUrl('Chat')}?roomId=${encodeURIComponent(parsedRoomId)}`
+            : createPageUrl('Chat');
+        } else if (isMatch) {
           titleText = `Nieuwe match! 🎉`;
           bodyText = `Jij en je match hebben elkaar geliked! 💖`;
           toastIcon = '💖';
           toastBorderColor = '#FF4B72';
           toastBadgeIcon = '💖';
+          targetUrl = createPageUrl('Matches');
         } else if (event.data.type === 'game_invite') {
           titleText = `🎮 Speluitnodiging`;
           bodyText = `Je match heeft je uitgenodigd voor een game!`;
@@ -59,6 +92,7 @@ export function useNotifications() {
           toastBorderColor = '#8B5CF6';
           toastBadgeIcon = '🎮';
           routePage = 'Games';
+          targetUrl = createPageUrl('Games');
         } else if (event.data.type === 'game_accepted') {
           titleText = `🎮 Uitnodiging geaccepteerd`;
           bodyText = `Je match heeft je uitnodiging geaccepteerd! 🚀`;
@@ -66,6 +100,7 @@ export function useNotifications() {
           toastBorderColor = '#10B981';
           toastBadgeIcon = '🎮';
           routePage = 'Games';
+          targetUrl = createPageUrl('Games');
         } else if (event.data.type === 'game') {
           titleText = `🎮 Spel-update`;
           bodyText = `Het is jouw beurt in het spel met je match! 🎲`;
@@ -73,6 +108,7 @@ export function useNotifications() {
           toastBorderColor = '#8B5CF6';
           toastBadgeIcon = '🎮';
           routePage = 'Games';
+          targetUrl = createPageUrl('Games');
         } else if (event.data.type === 'hint') {
           titleText = `💬 Hint ontvangen`;
           bodyText = `Je hebt een hint gekregen van een match! 💜`;
@@ -80,6 +116,7 @@ export function useNotifications() {
           toastBorderColor = '#EA3FD3';
           toastBadgeIcon = '💬';
           routePage = 'Home';
+          targetUrl = createPageUrl('Home');
         }
 
         toast.custom((t) => (
@@ -87,19 +124,25 @@ export function useNotifications() {
             className="flex items-center gap-3 p-3 rounded-[20px] shadow-xl w-full max-w-sm border cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             style={{
               background: isDark ? 'rgba(15, 15, 27, 0.95)' : '#FFFFFF',
-              borderColor: isDark ? (isMatch || event.data.type?.startsWith('game') || event.data.type === 'hint' ? toastBorderColor : 'rgba(255, 255, 255, 0.08)') : 'rgba(0, 0, 0, 0.08)',
+              borderColor: isDark ? (isMatch || isChat || event.data.type?.startsWith('game') || event.data.type === 'hint' ? toastBorderColor : 'rgba(255, 255, 255, 0.08)') : 'rgba(0, 0, 0, 0.08)',
               boxShadow: isDark ? '0 12px 32px rgba(0, 0, 0, 0.5)' : '0 12px 32px rgba(0, 0, 0, 0.12)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
             }}
             onClick={() => {
               toast.dismiss(t);
-              window.location.href = createPageUrl(routePage);
+              if (targetUrl) {
+                try {
+                  navigate(targetUrl);
+                } catch {
+                  window.location.href = targetUrl;
+                }
+              }
             }}
           >
             {/* Left side: Profile Photo / Fallback Avatar */}
             <div className="relative flex-shrink-0">
-              {photoUrl ? (
+              {photoUrl && !isChat ? (
                 <img 
                   src={photoUrl} 
                   alt="" 
@@ -108,14 +151,14 @@ export function useNotifications() {
                 />
               ) : (
                 <div 
-                  className="w-11 h-11 rounded-full flex items-center justify-center text-white font-black text-lg"
+                  className="w-11 h-11 rounded-full flex items-center justify-center text-white font-black text-lg select-none"
                   style={{
                     background: isMatch
                       ? 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)'
                       : 'linear-gradient(135deg, #3B82F6 0%, #8E54E9 100%)'
                   }}
                 >
-                  {toastIcon}
+                  {isChat && event.data.from_name ? event.data.from_name.split(' ')[0] : toastIcon}
                 </div>
               )}
               {/* WhatsApp Green Notification dot / App Badge */}

@@ -2,11 +2,10 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
 import { useTheme } from '@/lib/ThemeContext';
-import { ChevronLeft, Send, Camera, X,
-  Clock
-} from 'lucide-react';
+import { ChevronLeft, Send, Camera, X, Clock, MoreVertical, AlertTriangle, Trash2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
+import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -17,6 +16,14 @@ const PHASE_DURATIONS = {
   3: 24 * 60 * 60 * 1000,   // 24 hours
   4: null,                    // No timer, contact exchange
 };
+
+const REPORT_REASONS = [
+  { id: 'fake', label: 'Nep account / spam', emoji: '🤖' },
+  { id: 'inappropriate', label: 'Ongepaste foto\'s of content', emoji: '🔞' },
+  { id: 'harassment', label: 'Vervelend of intimiderend gedrag', emoji: '🚫' },
+  { id: 'underage', label: 'Minderjarig', emoji: '⚠️' },
+  { id: 'other', label: 'Anders...', emoji: '💬' },
+];
 
 const INACTIVITY_LIMIT = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -59,6 +66,11 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const [showPhotoRequiredAlert, setShowPhotoRequiredAlert] = useState(false);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
+  const [reportState, setReportState] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
   const [contactInput, setContactInput] = useState('');
   const [contactType, setContactType] = useState(null);
   const [extensionLoading, setExtensionLoading] = useState(false);
@@ -70,6 +82,19 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const fileInputRef = useRef(null);
   const pollRef = useRef(null);
   const timerRef = useRef(null);
+  const optionsMenuRef = useRef(null);
+
+  // Close options menu when clicking anywhere outside
+  useEffect(() => {
+    if (!showOptionsMenu) return;
+    const handlePointerDown = (e) => {
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(e.target)) {
+        setShowOptionsMenu(false);
+      }
+    };
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [showOptionsMenu]);
 
   const isUserA = currentUserEmail === localRoom.user_a_email;
   const myRole = isUserA ? 'a' : 'b';
@@ -85,13 +110,14 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const isActive = status === 'active';
   const isArchived = status === 'archived';
   const isDeleted = status === 'deleted' || !!localRoom.deleted_at;
-  const isExtensionPending = isActive && timeLeft !== null && timeLeft <= 0 && !myExtAccepted && phase < 4;
-  const isWaitingForOther = isActive && myExtAccepted && phase < 4;
+  const isTimeExpired = timeLeft !== null && timeLeft <= 0;
+  const isExtensionPending = isActive && isTimeExpired && !myExtAccepted && phase < 4;
+  const isWaitingForOther = isActive && isTimeExpired && myExtAccepted && phase < 4;
   const isPhotoRequired = phase === 2 && !myPhotoSent && isActive;
 
   // Phase 2: chat locked until both sent a camera photo
   const phase2Locked = phase === 2 && (!myPhotoSent || !otherPhotoSent);
-  const canChat = isActive && !isDeleted && !isArchived && phase !== 4;
+  const canChat = isActive && !isDeleted && !isArchived && !isTimeExpired && !phase2Locked && phase !== 4;
 
   const bg = isDark ? '#08090E' : '#F8F9FB';
   const msgBubbleMe = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -160,10 +186,26 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     };
   }, []);
 
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+  const onRoomUpdateRef = useRef(onRoomUpdate);
+  onRoomUpdateRef.current = onRoomUpdate;
+  const localRoomRef = useRef(localRoom);
+  localRoomRef.current = localRoom;
+  const timerExpiredTriggeredRef = useRef(false);
+
+  // Sync localRoom if parent room changes to a different room
+  useEffect(() => {
+    if (room && room.id !== localRoom?.id) {
+      setLocalRoom(room);
+    }
+  }, [room?.id]);
+
   const loadMessages = useCallback(async () => {
-    if (!localRoom?.id) return;
+    const rId = room?.id;
+    if (!rId) return;
     try {
-      const msgs = await base44.entities.ChatMessage.filter({ room_id: localRoom.id }, 'created_at', 200);
+      const msgs = await base44.entities.ChatMessage.filter({ room_id: rId }, 'created_at', 200);
       setMessages(prev => {
         // Prevent state update if message list has not changed (prevents re-render and scroll jumps)
         if (prev.length === (msgs || []).length && prev.length > 0) {
@@ -176,46 +218,76 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         return msgs || [];
       });
     } catch (e) {}
-  }, [localRoom?.id]);
+  }, [room?.id]);
 
   const loadRoom = useCallback(async () => {
-    if (!localRoom?.id) return;
+    const rId = room?.id;
+    if (!rId) return;
     try {
-      const rooms = await base44.entities.ChatRoom.filter({ id: localRoom.id });
-      if (rooms && rooms[0]) {
-        setLocalRoom(rooms[0]);
-        onRoomUpdate?.(rooms[0]);
+      const rooms = await base44.entities.ChatRoom.filter({ id: rId });
+      const fetchedRoom = rooms && rooms[0];
+      if (fetchedRoom && fetchedRoom.status !== 'deleted') {
+        const cur = localRoomRef.current;
+        const hasChanged = !cur ||
+          cur.status !== fetchedRoom.status ||
+          cur.phase !== fetchedRoom.phase ||
+          cur.phase_expires_at !== fetchedRoom.phase_expires_at ||
+          cur.extension_accepted_a !== fetchedRoom.extension_accepted_a ||
+          cur.extension_accepted_b !== fetchedRoom.extension_accepted_b ||
+          cur.photo_sent_a !== fetchedRoom.photo_sent_a ||
+          cur.photo_sent_b !== fetchedRoom.photo_sent_b ||
+          cur.contact_sent_a !== fetchedRoom.contact_sent_a ||
+          cur.contact_sent_b !== fetchedRoom.contact_sent_b ||
+          cur.deleted_at !== fetchedRoom.deleted_at;
+
+        if (hasChanged) {
+          setLocalRoom(fetchedRoom);
+          onRoomUpdateRef.current?.(fetchedRoom);
+        }
+      } else {
+        // Room was deleted or rejected
+        toast.info('Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.');
+        onBackRef.current?.();
       }
     } catch (e) {}
-  }, [localRoom?.id]);
+  }, [room?.id]);
 
   useEffect(() => {
+    if (!room?.id) return;
+    let isMounted = true;
     setLoading(true);
-    Promise.all([loadMessages(), loadRoom()]).finally(() => setLoading(false));
+    Promise.all([loadMessages(), loadRoom()]).finally(() => {
+      if (isMounted) setLoading(false);
+    });
 
-    // Poll every 5 seconds
+    // Poll every 5 seconds silently without triggering loading screen
     pollRef.current = setInterval(() => {
       loadMessages();
       loadRoom();
     }, 5000);
-    return () => clearInterval(pollRef.current);
-  }, [loadMessages, loadRoom]);
+    return () => {
+      isMounted = false;
+      clearInterval(pollRef.current);
+    };
+  }, [room?.id, loadMessages, loadRoom]);
 
   // Countdown timer
   useEffect(() => {
-    if (!localRoom.phase_expires_at || !isActive || phase === 4) return;
+    if (!localRoom?.phase_expires_at || !isActive || phase === 4) return;
+    timerExpiredTriggeredRef.current = false;
     const update = () => {
       const ms = new Date(localRoom.phase_expires_at) - new Date();
       setTimeLeft(ms);
-      if (ms <= 0) {
-        // Phase expired - reload to get updated status
+      if (ms <= 0 && !timerExpiredTriggeredRef.current) {
+        timerExpiredTriggeredRef.current = true;
+        // Phase expired - reload once to get updated status
         loadRoom();
       }
     };
     update();
     timerRef.current = setInterval(update, 1000);
     return () => clearInterval(timerRef.current);
-  }, [localRoom.phase_expires_at, isActive, phase]);
+  }, [localRoom?.phase_expires_at, isActive, phase, loadRoom]);
 
   // Reset auto-open flag if timer resets/becomes positive or phase updates
   useEffect(() => {
@@ -278,6 +350,42 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     }
   }, [loading, messages, localRoom.id, currentUserEmail]);
 
+  const notifyPartner = async (messagePreview) => {
+    try {
+      const otherEmail = isUserA ? localRoom.user_b_email : localRoom.user_a_email;
+      if (!otherEmail) return;
+
+      let senderLabel = 'Je match';
+      try {
+        const profs = await base44.entities.UserProfile.filter({ user_email: currentUserEmail });
+        const myProf = profs && profs[0];
+        if (myProf) {
+          const avatar = myProf.avatar ? myProf.avatar.trim() : '';
+          const age = myProf.age ? `${myProf.age} jaar` : '';
+          if (avatar && age) {
+            senderLabel = `${avatar} • ${age}`;
+          } else if (avatar) {
+            senderLabel = avatar;
+          } else if (age) {
+            senderLabel = age;
+          }
+        }
+      } catch (e) {}
+
+      await base44.entities.Notification.create({
+        to_email: otherEmail,
+        from_email: currentUserEmail,
+        type: 'chat',
+        from_name: senderLabel,
+        venue_name: JSON.stringify({ roomId: localRoom.id, text: messagePreview }),
+        is_read: false,
+        created_date: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('[ChatRoomView] Notification dispatch failed:', e);
+    }
+  };
+
   const sendMessage = async () => {
     if (!text.trim() || sending || !canChat) return;
     setSending(true);
@@ -291,6 +399,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         type: 'text',
         is_system: false,
       });
+      notifyPartner(content);
       await loadMessages();
       scrollToBottom(true);
     } catch (e) {
@@ -316,6 +425,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         type: 'photo',
         is_system: false,
       });
+      notifyPartner('📷 Heeft een foto gestuurd');
       await loadMessages();
       scrollToBottom(true);
 
@@ -339,6 +449,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     e.target.value = '';
   };
 
+
   const handleExtension = async (accept) => {
     setExtensionLoading(true);
     try {
@@ -348,19 +459,9 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       await base44.entities.ChatRoom.update(localRoom.id, updates);
 
       if (!accept) {
-        // Declined → close chat and delete immediately
-        await base44.entities.ChatRoom.update(localRoom.id, {
-          status: 'deleted',
-          chat_closed_at: new Date().toISOString(),
-          deleted_at: new Date().toISOString(),
-        });
-        await base44.entities.ChatMessage.create({
-          room_id: localRoom.id,
-          sender_email: currentUserEmail,
-          content: `Chat beëindigd. Er is gekozen om niet verder te gaan.`,
-          type: 'system',
-          is_system: true,
-        });
+        // Declined → close chat and delete all photos from Supabase Storage immediately
+        localStorage.setItem(`deleted_chat_hidden_${localRoom.id}`, 'true');
+        await deleteChatRoomAndMedia(localRoom.id, { deletedBy: currentUserEmail });
 
         // Send notification to the other user
         const otherEmail = isUserA ? localRoom.user_b_email : localRoom.user_a_email;
@@ -370,12 +471,13 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             from_email: currentUserEmail,
             type: 'chat_rejected',
             message: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
+            venue_name: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
             is_read: false,
             created_date: new Date().toISOString(),
           }).catch(() => {});
         }
 
-        toast.info('Chat is beëindigd');
+        toast.info('Chat en foto\'s zijn beëindigd');
         onBack?.();
       } else {
         // Check if other also accepted → advance phase
@@ -433,6 +535,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         type: 'system',
         is_system: true,
       });
+      notifyPartner(`📱 Contactgegevens gedeeld: ${contactType}`);
       // Check if both sent → archive
       const refreshed = await base44.entities.ChatRoom.filter({ id: localRoom.id });
       const r = refreshed?.[0];
@@ -463,6 +566,78 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       toast.error('Kon niet versturen, probeer opnieuw');
     }
     setSending(false);
+  };
+
+  // Handle confirm delete chat
+  const handleConfirmDeleteChat = async () => {
+    if (isDeletingChat) return;
+    setIsDeletingChat(true);
+    try {
+      // Send notification to the other user (same as when chat is not extended)
+      const otherEmail = isUserA ? localRoom.user_b_email : localRoom.user_a_email;
+      if (otherEmail) {
+        await base44.entities.Notification.create({
+          to_email: otherEmail,
+          from_email: currentUserEmail,
+          type: 'chat_rejected',
+          message: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
+          venue_name: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
+          is_read: false,
+          created_date: new Date().toISOString(),
+        }).catch(() => {});
+      }
+
+      localStorage.setItem(`deleted_chat_hidden_${localRoom.id}`, 'true');
+      await deleteChatRoomAndMedia(localRoom.id, { deletedBy: currentUserEmail });
+      toast.success('Chat en foto\'s definitief verwijderd! 🗑️');
+      setShowDeleteConfirm(false);
+      onBack?.();
+    } catch (err) {
+      console.error('Delete chat error:', err);
+      toast.error('Kon chat niet verwijderen');
+    } finally {
+      setIsDeletingChat(false);
+    }
+  };
+
+  // Handle submit report
+  const handleSubmitReport = async () => {
+    if (!reportState || !reportState.reason) return;
+    setReportLoading(true);
+    try {
+      const targetEmail = otherProfile?.user_email || otherEmail;
+      await base44.entities.Report.create({
+        reporter_email: currentUserEmail,
+        reported_email: targetEmail,
+        reported_name: otherProfile?.display_name || otherProfile?.full_name || targetEmail,
+        reason: reportState.reason,
+        details: reportState.details || '',
+        created_date: new Date().toISOString(),
+      }).catch(e => console.warn('Report create error:', e));
+
+      // Send notification to the other user (same as when chat is not extended)
+      if (targetEmail) {
+        await base44.entities.Notification.create({
+          to_email: targetEmail,
+          from_email: currentUserEmail,
+          type: 'chat_rejected',
+          message: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
+          venue_name: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
+          is_read: false,
+          created_date: new Date().toISOString(),
+        }).catch(() => {});
+      }
+
+      // Also delete the chat and its media as requested
+      localStorage.setItem(`deleted_chat_hidden_${localRoom.id}`, 'true');
+      await deleteChatRoomAndMedia(localRoom.id, { deletedBy: currentUserEmail });
+      setReportState(prev => ({ ...prev, step: 'done' }));
+    } catch (err) {
+      console.error('Report error:', err);
+      toast.error('Kon melding niet versturen');
+    } finally {
+      setReportLoading(false);
+    }
   };
 
   // Group messages by date
@@ -504,7 +679,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       
       {/* Header */}
       <div
-        className="flex-shrink-0 flex items-center gap-3 px-4 pb-3 backdrop-blur-xl"
+        className="relative z-[100] flex-shrink-0 flex items-center gap-3 px-4 pb-3 backdrop-blur-xl"
         onTouchMove={(e) => e.stopPropagation()}
         style={{
           paddingTop: 'max(14px, env(safe-area-inset-top, 14px))',
@@ -550,16 +725,85 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             </div>
           </div>
         </div>
-        {/* Timer pill */}
-        {timeLeft !== null && timeLeft > 0 && isActive && phase < 4 && (
-          <div
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
-            style={{ background: timeLeft < 3600000 ? 'rgba(255,75,114,0.2)' : 'rgba(255,255,255,0.08)', color: timeLeft < 3600000 ? '#FF4B72' : textMain }}
-          >
-            <Clock className="w-3 h-3" />
-            {formatTime(timeLeft)}
+        {/* Header Right Actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Timer pill */}
+          {timeLeft !== null && timeLeft > 0 && isActive && phase < 4 && (
+            <div
+              className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold"
+              style={{ background: timeLeft < 3600000 ? 'rgba(255,75,114,0.2)' : 'rgba(255,255,255,0.08)', color: timeLeft < 3600000 ? '#FF4B72' : textMain }}
+            >
+              <Clock className="w-3 h-3" />
+              {formatTime(timeLeft)}
+            </div>
+          )}
+
+          {/* Three dots options menu */}
+          <div ref={optionsMenuRef} className="relative flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOptionsMenu(prev => !prev);
+              }}
+              className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform border flex-shrink-0"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)',
+                borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
+              }}
+              title="Opties"
+              aria-label="Opties"
+            >
+              <MoreVertical className={`w-4 h-4 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+              {showOptionsMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, y: -4 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-11 right-0 min-w-[200px] rounded-2xl overflow-hidden shadow-2xl border z-50 pointer-events-auto"
+                  style={{
+                    background: isDark ? '#161724' : '#FFFFFF',
+                    borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
+                    transformOrigin: 'top right',
+                    willChange: 'transform, opacity',
+                  }}
+                >
+                  {/* Option: Rapporteer gebruiker */}
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      setReportState({ step: 'choose', reason: null, emoji: '', details: '' });
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold hover:bg-white/10 active:bg-white/15 transition-colors text-left"
+                    style={{ color: '#FF6B6B' }}
+                  >
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-500" />
+                    Rapporteer gebruiker
+                  </button>
+
+                  <div className="h-px mx-3" style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }} />
+
+                  {/* Option: Verwijder chat */}
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold hover:bg-white/10 active:bg-white/15 transition-colors text-left text-red-500"
+                  >
+                    <Trash2 className="w-4 h-4 flex-shrink-0 text-red-500" />
+                    Verwijder chat
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Waiting for other user extension banner across all phases */}
@@ -1257,6 +1501,196 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Delete Chat Confirmation Modal ── */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[350] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              className="w-full max-w-xs rounded-3xl p-5 text-center shadow-2xl border"
+              style={{
+                background: isDark ? '#181926' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              }}
+            >
+              <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-red-500/15 text-red-500">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="font-black text-base mb-1" style={{ color: textMain }}>
+                Weet je het zeker?
+              </h3>
+              <p className="text-xs mb-5 font-medium leading-relaxed" style={{ color: textSub }}>
+                Weet je zeker dat je deze chat en alle verstuurde foto's wilt verwijderen?
+              </p>
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeletingChat}
+                  className="flex-1 py-3 rounded-2xl font-bold text-xs active:scale-95 transition-all"
+                  style={{
+                    background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                    color: textMain,
+                  }}
+                >
+                  Nee
+                </button>
+                <button
+                  onClick={handleConfirmDeleteChat}
+                  disabled={isDeletingChat}
+                  className="flex-1 py-3 rounded-2xl font-black text-xs text-white shadow-lg active:scale-95 transition-all bg-red-600 hover:bg-red-700"
+                  style={{ background: '#EF4444' }}
+                >
+                  {isDeletingChat ? 'Verwijderen...' : 'Ja'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Report Modal ── */}
+      <AnimatePresence>
+        {reportState && (
+          <div className="fixed inset-0 z-[350] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+            <div
+              className="w-full max-w-sm rounded-[24px] p-5 shadow-2xl border"
+              style={{
+                background: isDark ? '#141521' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
+              }}
+            >
+              {reportState.step === 'choose' && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>
+                      Rapporteer gebruiker
+                    </h3>
+                    <button
+                      onClick={() => setReportState(null)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400 active:scale-90 transition-transform"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs mb-3 font-medium" style={{ color: textSub }}>
+                    Kies de reden waarom je deze gebruiker wilt rapporteren:
+                  </p>
+                  <div className="space-y-2">
+                    {REPORT_REASONS.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => setReportState(prev => ({ ...prev, step: 'detail', reason: r.label, emoji: r.emoji }))}
+                        className="w-full p-3 rounded-xl text-left text-xs font-bold flex items-center justify-between border active:scale-[0.98] transition-all"
+                        style={{
+                          background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                          color: isDark ? '#fff' : '#111',
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{r.emoji}</span>
+                          <span>{r.label}</span>
+                        </span>
+                        <span>›</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {reportState.step === 'detail' && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>
+                      Rapporteer gebruiker
+                    </h3>
+                    <button
+                      onClick={() => setReportState(null)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400 active:scale-90 transition-transform"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Gekozen reden weergave */}
+                  <div
+                    className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 mb-3.5 border"
+                    style={{
+                      background: isDark ? 'rgba(255, 75, 114, 0.12)' : 'rgba(255, 75, 114, 0.08)',
+                      borderColor: isDark ? 'rgba(255, 75, 114, 0.3)' : 'rgba(255, 75, 114, 0.2)',
+                    }}
+                  >
+                    <span className="text-base">{reportState.emoji || '⚠️'}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>Gekozen reden</span>
+                      <span className="text-xs font-bold truncate" style={{ color: isDark ? '#fff' : '#111' }}>{reportState.reason}</span>
+                    </div>
+                  </div>
+
+                  <h4 className="font-bold text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>
+                    Toelichting (optioneel)
+                  </h4>
+                  <textarea
+                    value={reportState.details}
+                    onChange={(e) => setReportState(prev => ({ ...prev, details: e.target.value }))}
+                    placeholder="Beschrijf waarom je deze gebruiker rapporteert..."
+                    className="w-full h-24 p-3 rounded-xl text-xs border resize-none mb-4 outline-none focus:border-pink-500"
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                      borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                      color: isDark ? '#fff' : '#111',
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setReportState(prev => ({ ...prev, step: 'choose' }))}
+                      className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-500/20 text-gray-300 active:scale-95 transition-all"
+                    >
+                      Terug
+                    </button>
+                    <button
+                      onClick={handleSubmitReport}
+                      disabled={reportLoading}
+                      className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all bg-red-600 hover:bg-red-700"
+                      style={{ background: '#EF4444' }}
+                    >
+                      {reportLoading ? 'Rapporteren...' : 'Rapporteren'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {reportState.step === 'done' && (
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-green-500/20 text-green-400">
+                    <Check className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>
+                    Bedankt voor je melding
+                  </h3>
+                  <p className="text-xs mb-4 font-medium" style={{ color: textSub }}>
+                    We zullen deze melding zo snel mogelijk beoordelen. De chat is verwijderd.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setReportState(null);
+                      onBack?.();
+                    }}
+                    className="w-full py-2.5 rounded-xl font-black text-xs text-white active:scale-95 transition-all"
+                    style={{ background: GRAD }}
+                  >
+                    Sluiten
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

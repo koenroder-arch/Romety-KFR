@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import confetti from 'canvas-confetti';
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart, MessageCircle, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
-export default function MatchAnimation({ myProfile, matchedProfile, onDone, onSendHint }) {
+export default function MatchAnimation({ myProfile, matchedProfile, onDone, onClose, onSendHint }) {
+  const handleDone = () => {
+    if (onDone) onDone();
+    else if (onClose) onClose();
+  };
+
   const [visible, setVisible] = useState(false);
   const [hasSentToday, setHasSentToday] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -128,7 +133,7 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onSe
 
   const content = (
     <div
-      onClick={onDone}
+      onClick={handleDone}
       className="fixed inset-0 flex flex-col items-center justify-center z-[9999] cursor-pointer"
       style={{
         background: 'radial-gradient(circle at center, #2C1635 0%, #0A0A10 80%)',
@@ -136,6 +141,21 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onSe
         transition: 'opacity 0.6s cubic-bezier(0.4,0,0.2,1)',
       }}
     >
+      {/* Top right close button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDone();
+        }}
+        className="absolute z-30 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center text-white/80 hover:text-white border border-white/20 backdrop-blur-md shadow-lg"
+        style={{
+          top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 12px)',
+          right: 'max(16px, env(safe-area-inset-right, 16px))',
+        }}
+        aria-label="Sluiten"
+      >
+        <X className="w-5 h-5 text-white" />
+      </button>
       <style>{`
         @keyframes popIn {
           0% { transform: scale(0.8); opacity: 0; }
@@ -280,7 +300,7 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onSe
             } else if (onSendHint) {
               onSendHint(matchedProfile);
             } else {
-              onDone();
+              handleDone();
             }
           }}
           className="w-full max-w-[300px] py-4 rounded-full flex items-center justify-center gap-3 active:scale-95 transition-transform relative overflow-hidden"
@@ -294,12 +314,16 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onSe
           <MessageCircle className="w-6 h-6 text-white" fill="white" strokeWidth={1} />
         </button>
 
-        {/* Skip text */}
-        <div 
-          className="mt-6 text-white/60 text-[15px] font-semibold tracking-wide py-2 px-4"
+        {/* Skip button / text */}
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDone();
+          }}
+          className="mt-6 text-white/70 hover:text-white text-[15px] font-semibold tracking-wide py-2 px-6 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-sm active:scale-95 transition-all"
         >
           Tik om door te gaan
-        </div>
+        </button>
 
       </div>
 

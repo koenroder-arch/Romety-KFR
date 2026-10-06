@@ -36,7 +36,11 @@ html, body {
   flex-direction: column;
 }
 
-html.dark, html.dark body {
+html.dark {
+  background-color: #4D122D;
+}
+
+html.dark body {
   background-color: #08090E;
 }
 

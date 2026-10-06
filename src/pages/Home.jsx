@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
-import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame } from 'lucide-react';
+import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame, Loader2, Camera } from 'lucide-react';
+import { usePullToRefresh } from '@/components/welove/usePullToRefresh';
+import { InstagramSpinner } from '@/components/welove/PullToRefreshSpinner';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
@@ -27,6 +29,26 @@ const REPORT_REASONS = [
 ];
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
+
+const formatStatCount = (val) => {
+  const num = Math.round(Number(val)) || 0;
+  if (num >= 1000000) {
+    const formatted = (num / 1000000).toFixed(1).replace(/\.0$/, '');
+    return `${formatted}M`;
+  }
+  if (num >= 1000) {
+    const formatted = (num / 1000).toFixed(1).replace(/\.0$/, '');
+    return `${formatted}k`;
+  }
+  return String(num);
+};
+
+const getStatFontSize = (formattedStr) => {
+  const len = String(formattedStr).length;
+  if (len >= 5) return 'text-xl sm:text-2xl';
+  if (len >= 4) return 'text-2xl sm:text-3xl';
+  return 'text-3xl';
+};
 
 export default function Home() {
   const navigate = useNavigate();
@@ -88,6 +110,13 @@ export default function Home() {
   const [selectedStoryGroup, setSelectedStoryGroup] = useState(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
   const [seenStoryIds, setSeenStoryIds] = useState([]);
+
+  const isSheetOpen = Boolean(showSheet || showSuperMatchSheet || selectedStoryGroup || showRevealModal);
+
+  const { pullDistance, isRefreshing, isPulling, containerProps } = usePullToRefresh({
+    onRefresh: () => loadData(true),
+    disabled: isSheetOpen,
+  });
 
   // Wave animation state
   const [lastHintClick, setLastHintClick] = useState(() => parseInt(localStorage.getItem('last_hint_click') || '0', 10));
@@ -378,21 +407,21 @@ export default function Home() {
         setStories(activeStories);
       }
 
-      // Calculate active location count (only users in the same country)
-      const userCountry = myProf?.country || 'Nederland';
-      const sameCountryEmails = new Set(
-        safeProfiles
-          .filter(p => (p.country || 'Nederland') === userCountry)
-          .map(p => p.user_email)
-      );
-      const activeCheckInEmails = allCheckIns
-        .filter(c => (!c.expires_at || c.expires_at > now) && sameCountryEmails.has(c.user_email))
-        .map(c => c.user_email);
-      const activeDestEmails = allDestinations
-        .filter(d => d.status === 'active' && (!d.expires_at || d.expires_at > now) && sameCountryEmails.has(d.user_email))
-        .map(d => d.user_email);
-      const uniqueActiveEmails = new Set([...activeCheckInEmails, ...activeDestEmails]);
-      setActiveLocationCount(uniqueActiveEmails.size);
+      // Calculate matches with active venue
+      const activeVenueEmails = new Set();
+      allCheckIns.forEach((c) => {
+        if (c && c.user_email && (!c.expires_at || c.expires_at > now) && (c.venue_id || c.venue_name)) {
+          activeVenueEmails.add(c.user_email);
+        }
+      });
+      allDestinations.forEach((d) => {
+        if (d && d.user_email && d.status === 'active' && (!d.expires_at || d.expires_at > now) && (d.venue_id || d.venue_name)) {
+          activeVenueEmails.add(d.user_email);
+        }
+      });
+
+      const matchesOnLocation = matchData.filter(m => activeVenueEmails.has(m.profile?.user_email));
+      setActiveLocationCount(matchesOnLocation.length);
 
       setAllDestinations(allDestinations);
     } catch (err) {
@@ -524,6 +553,10 @@ export default function Home() {
   const animSuperCount = Math.round(animProgress * animTargetsRef.current.super);
   const animLocationCount = Math.round(animProgress * animTargetsRef.current.location);
 
+  const formattedMatchCount = formatStatCount(animMatchCount);
+  const formattedSuperCount = formatStatCount(animSuperCount);
+  const formattedLocationCount = formatStatCount(animLocationCount);
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center" style={{ background: bg }}><div className="w-10 h-10 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" /></div>;
   }
@@ -535,28 +568,38 @@ export default function Home() {
         background: bg, 
         fontFamily: "'Inter', sans-serif", 
         paddingBottom: 'calc(84px + env(safe-area-inset-bottom, 16px))',
-        overflow: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'hidden' : 'auto',
-        height: showSheet || showSuperMatchSheet || selectedStoryGroup ? '100vh' : 'auto',
+        overflow: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'hidden' : undefined,
+        height: showSheet || showSuperMatchSheet || selectedStoryGroup ? '100vh' : undefined,
         position: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'relative' : 'static'
       }}
+      {...containerProps}
     >
-      {/* Header Container with Romety Fade */}
+      {/* Top Over-Scroll Extension to eliminate black gap when pulling down */}
       <div 
-        className="pb-2.5 px-5 relative mb-0" 
+        className="absolute -top-[500px] left-0 right-0 h-[500px] pointer-events-none" 
+        style={{ background: isDark ? '#4D122D' : '#FFE8F0' }}
+      />
+
+      {/* Fixed Sticky Top Header Pinned to Top */}
+      <div 
+        className="sticky top-0 left-0 right-0 z-40 px-5 pb-4 select-none min-h-[104px] flex items-center justify-between" 
         style={{ 
           paddingTop: 'max(48px, calc(env(safe-area-inset-top, 0px) + 12px))',
           background: isDark 
-            ? 'linear-gradient(180deg, #4D122D 0%, #2E0B1B 65%, rgba(13,14,21,0) 100%)' 
-            : 'linear-gradient(180deg, rgba(255,75,114,0.18) 0%, rgba(234,63,211,0.06) 70%, transparent 100%)' 
+            ? 'linear-gradient(180deg, #4D122D 0%, #380D21 75%, #240815 100%)' 
+            : 'linear-gradient(180deg, #FFF0F4 0%, #FEE2EA 75%, #FAF9FB 100%)',
+          borderBottom: isDark ? '1px solid rgba(255, 75, 114, 0.15)' : '1px solid rgba(0,0,0,0.05)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
         }}
       >
-        {/* Logo */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center">
+        <div className="relative flex items-center justify-between w-full">
+          {/* Logo on the left */}
+          <div className="flex items-center z-10">
             <img 
               src="/romety-logo-transparent.png?v=3" 
               alt="Romety" 
-              className="h-8 w-auto object-contain select-none transition-transform active:scale-95" 
+              className="h-7 w-auto object-contain select-none transition-transform active:scale-95" 
               style={{
                 imageRendering: 'auto',
                 mixBlendMode: isDark ? 'screen' : 'normal',
@@ -564,15 +607,44 @@ export default function Home() {
               }}
             />
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Centered Title */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <h1 className={`text-2xl font-black tracking-tight leading-tight pointer-events-auto ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Home
+            </h1>
+          </div>
+
+          {/* Actions on the right */}
+          <div className="flex items-center gap-2 z-10">
             <VenueBanner checkIn={myCheckIn} onRemoved={() => loadData(true)} />
             <NotificationBell isDark={isDark} />
           </div>
         </div>
+      </div>
 
-        {/* Title */}
-        <div className="flex justify-center text-center pt-1">
-          <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>Home</h1>
+      {/* Pull-to-Refresh Spinner Gap Area below pinned header */}
+      <div 
+        className="w-full flex items-center justify-center pointer-events-none overflow-hidden"
+        style={{
+          height: isRefreshing ? 48 : pullDistance,
+          opacity: isRefreshing ? 1 : Math.min(1, Math.max(0, (pullDistance - 6) / 20)),
+          transition: isPulling ? 'none' : 'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease-out',
+          willChange: 'height, opacity',
+        }}
+      >
+        <div
+          style={{
+            transform: `scale(${isRefreshing ? 1 : Math.min(1, 0.45 + (pullDistance / 48) * 0.55)})`,
+            transition: isPulling ? 'none' : 'transform 0.25s ease-out',
+          }}
+        >
+          <InstagramSpinner 
+            size={30} 
+            isRefreshing={isRefreshing} 
+            pullDistance={pullDistance} 
+            color="#FF4B72" 
+          />
         </div>
       </div>
 
@@ -606,10 +678,13 @@ export default function Home() {
                     <span className="text-2xl">{myProfile?.avatar ? myProfile.avatar.split(' ')[0] : '👤'}</span>
                   )}
                 </div>
-                <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#FF4B72] border-2 border-white dark:border-gray-900 flex items-center justify-center">
+                <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#FF4B72] border-2 border-white dark:border-gray-900 flex items-center justify-center shadow-md">
                   <Plus className="w-4 h-4 text-white" />
                 </div>
               </div>
+              <span className={`text-[11px] mt-1.5 font-semibold truncate max-w-[84px] ${textMain}`}>
+                Verhaal
+              </span>
             </div>
           )}
 
@@ -627,7 +702,7 @@ export default function Home() {
                 }}
               >
                 <div 
-                  className="story-bubble rounded-full p-[3px] transition-transform active:scale-95"
+                  className="story-bubble relative rounded-full p-[3px] transition-transform active:scale-95"
                   style={{
                     background: isGroupSeen 
                       ? (isDark ? '#374151' : '#E5E7EB')
@@ -643,12 +718,22 @@ export default function Home() {
                       )}
                     </div>
                   </div>
+                  {isMe && (
+                    <div
+                      className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#FF4B72] border-2 border-white dark:border-gray-900 flex items-center justify-center shadow-md cursor-pointer active:scale-90"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(createPageUrl('Hints'));
+                      }}
+                      title="Nieuw verhaal toevoegen"
+                    >
+                      <Plus className="w-3 h-3 text-white" />
+                    </div>
+                  )}
                 </div>
-                {!isMe && (
-                  <span className={`text-[11px] mt-1.5 font-semibold truncate max-w-[84px] ${textMain}`}>
-                    Verhaal
-                  </span>
-                )}
+                <span className={`text-[11px] mt-1.5 font-semibold truncate max-w-[84px] ${textMain}`}>
+                  {isMe ? 'Jouw verhaal' : 'Verhaal'}
+                </span>
               </div>
             );
           })}
@@ -659,7 +744,7 @@ export default function Home() {
       <div className="px-5 mt-4">
         {/* Stats / Matches live indicators — unified card */}
         <div
-          className="mt-6 rounded-[24px] py-4 px-2 shadow-sm"
+          className="mt-6 rounded-[24px] py-3.5 px-1 sm:px-2 shadow-sm"
           style={{
             background: isDark ? 'rgba(255,255,255,0.04)' : '#FFFFFF',
             border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
@@ -671,11 +756,17 @@ export default function Home() {
           <div className={`grid grid-cols-3 divide-x ${isDark ? 'divide-white/10' : 'divide-gray-100'} items-center`}>
             {/* Matches */}
             <div
-              className="flex flex-col items-center justify-center relative transition-transform active:scale-95 cursor-pointer py-1.5"
+              className="flex flex-col items-center justify-center relative transition-transform active:scale-95 cursor-pointer py-1.5 px-0.5 sm:px-1 min-w-0"
               onClick={() => navigate(createPageUrl('Matches'))}
             >
-              <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}>{animMatchCount}</span>
-              <span className={`text-[11px] font-bold tracking-wider mt-1.5 ${isDark ? 'text-white/80' : 'text-gray-500'}`}>MATCHES</span>
+              <div className="h-9 flex items-center justify-center w-full min-w-0">
+                <span className={`${getStatFontSize(formattedMatchCount)} font-black leading-none tabular-nums truncate max-w-full text-center ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  {formattedMatchCount}
+                </span>
+              </div>
+              <span className={`text-[9px] min-[375px]:text-[10px] sm:text-[11px] font-bold tracking-tight uppercase text-center whitespace-nowrap h-6 flex items-center justify-center ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                MATCHES
+              </span>
               {hasNewMatches && (
                 <div
                   className="absolute -top-1 right-2 px-2 py-0.5 text-[8px] font-black text-white rounded-full tracking-wider animate-pulse shadow-md"
@@ -688,20 +779,32 @@ export default function Home() {
 
             {/* Super match */}
             <div
-              className="flex flex-col items-center justify-center relative transition-transform active:scale-95 cursor-pointer py-1.5"
+              className="flex flex-col items-center justify-center relative transition-transform active:scale-95 cursor-pointer py-1.5 px-0.5 sm:px-1 min-w-0"
               onClick={() => setShowSuperMatchSheet(true)}
             >
-              <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}>{animSuperCount}</span>
-              <span className={`text-[11px] font-bold tracking-wider mt-1.5 ${isDark ? 'text-white/80' : 'text-gray-500'}`}>SUPER</span>
+              <div className="h-9 flex items-center justify-center w-full min-w-0">
+                <span className={`${getStatFontSize(formattedSuperCount)} font-black leading-none tabular-nums truncate max-w-full text-center ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  {formattedSuperCount}
+                </span>
+              </div>
+              <span className={`text-[9px] min-[375px]:text-[10px] sm:text-[11px] font-bold tracking-tight uppercase text-center whitespace-nowrap h-6 flex items-center justify-center ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                SUPER
+              </span>
             </div>
 
-            {/* Live Accounts */}
+            {/* Matches op locatie */}
             <div
-              className="flex flex-col items-center justify-center relative transition-transform active:scale-95 cursor-pointer py-1.5"
+              className="flex flex-col items-center justify-center relative transition-transform active:scale-95 cursor-pointer py-1.5 px-0.5 sm:px-1 min-w-0"
               onClick={() => navigate(createPageUrl('Pinpoint'))}
             >
-              <span className={`text-3xl font-black leading-none tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}>{animLocationCount}</span>
-              <span className={`text-[11px] font-bold tracking-wider mt-1.5 uppercase text-center leading-tight ${isDark ? 'text-white/80' : 'text-gray-500'}`}>OP LOCATIE</span>
+              <div className="h-9 flex items-center justify-center w-full min-w-0">
+                <span className={`${getStatFontSize(formattedLocationCount)} font-black leading-none tabular-nums truncate max-w-full text-center ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  {formattedLocationCount}
+                </span>
+              </div>
+              <span className={`text-[9px] min-[375px]:text-[10px] sm:text-[11px] font-bold tracking-tight uppercase text-center whitespace-nowrap h-6 flex items-center justify-center ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
+                MATCHES OP LOCATIE
+              </span>
             </div>
           </div>
         </div>
@@ -709,11 +812,11 @@ export default function Home() {
 
       {/* Action Buttons List: Reveal Likes, Super Matches, Hints, Games, Discounts with 3px side margin */}
       <div className="px-[3px] mt-3.5 mb-2 relative">
-        <div className={`space-y-2 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
+        <div className={`grid grid-cols-2 gap-3 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
             {/* 1. Onthul wie je heeft geliked (#FF4B72 - Felroze / Kersenrood) */}
             <button
               onClick={onRevealClick}
-              className={`w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm ${
+              className={`flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left ${
                 unmatchedLikes.length > 0 ? '' : 'opacity-95'
               }`}
               style={{
@@ -721,75 +824,81 @@ export default function Home() {
                   ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.22) 0%, rgba(255, 75, 114, 0.08) 100%)'
                   : 'linear-gradient(135deg, rgba(255, 75, 114, 0.10) 0%, rgba(255, 75, 114, 0.02) 100%), #FFFFFF',
                 border: isDark ? '1.5px solid rgba(255, 75, 114, 0.48)' : '1.5px solid rgba(255, 75, 114, 0.30)',
-                boxShadow: isDark ? '0 8px 24px rgba(255, 75, 114, 0.14)' : '0 4px 18px rgba(255, 75, 114, 0.08)',
+                boxShadow: isDark ? '0 8px 28px rgba(255, 75, 114, 0.16)' : '0 4px 20px rgba(255, 75, 114, 0.09)',
               }}
             >
-              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center justify-between w-full">
                 <div 
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ background: isDark ? 'rgba(255, 75, 114, 0.25)' : 'rgba(255, 75, 114, 0.12)' }}
+                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  style={{ 
+                    width: '52px', 
+                    height: '52px',
+                    background: isDark ? 'rgba(255, 75, 114, 0.25)' : 'rgba(255, 75, 114, 0.12)' 
+                  }}
                 >
-                  <Eye className={`w-6 h-6 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
+                  <Eye className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
                 </div>
-                <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
-                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Ontvangen likes</p>
-                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
-                    Bekijk wie jou leuk vindt
-                  </p>
+                <div className="flex items-center gap-1.5">
+                  {unmatchedLikes.length > 0 && (
+                    <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#FF4B72] text-white text-xs font-black flex items-center justify-center shadow-md">
+                      {unmatchedLikes.length}
+                    </div>
+                  )}
+                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
-                <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#FF4B72] text-white text-xs font-black flex items-center justify-center shadow-md">
-                  {unmatchedLikes.length}
-                </div>
-                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
+              <div className="mt-4 min-w-0">
+                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
+                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Ontvangen likes</p>
               </div>
             </button>
 
             {/* 2. Super matches (#F9488A - Fade stap 1) */}
             <button
               onClick={() => setShowSuperMatchSheet(true)}
-              className="w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(249, 72, 138, 0.22) 0%, rgba(249, 72, 138, 0.08) 100%)'
                   : 'linear-gradient(135deg, rgba(249, 72, 138, 0.10) 0%, rgba(249, 72, 138, 0.02) 100%), #FFFFFF',
                 border: isDark ? '1.5px solid rgba(249, 72, 138, 0.48)' : '1.5px solid rgba(249, 72, 138, 0.30)',
-                boxShadow: isDark ? '0 8px 24px rgba(249, 72, 138, 0.14)' : '0 4px 18px rgba(249, 72, 138, 0.08)',
+                boxShadow: isDark ? '0 8px 28px rgba(249, 72, 138, 0.16)' : '0 4px 20px rgba(249, 72, 138, 0.09)',
               }}
             >
-              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center justify-between w-full">
                 <div 
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ background: isDark ? 'rgba(249, 72, 138, 0.25)' : 'rgba(249, 72, 138, 0.12)' }}
+                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  style={{ 
+                    width: '52px', 
+                    height: '52px',
+                    background: isDark ? 'rgba(249, 72, 138, 0.25)' : 'rgba(249, 72, 138, 0.12)' 
+                  }}
                 >
-                  <Flame className={`w-6 h-6 ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
+                  <Flame className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
                 </div>
-                <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#F9488A]'}`}>SUPER</p>
-                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Super matches</p>
-                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
-                    Ontdek je beste connecties
-                  </p>
+                <div className="flex items-center gap-1.5">
+                  {superMatchCount > 0 && (
+                    <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#F9488A] text-white text-xs font-black flex items-center justify-center shadow-md">
+                      {superMatchCount}
+                    </div>
+                  )}
+                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
-                <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#F9488A] text-white text-xs font-black flex items-center justify-center shadow-md">
-                  {superMatchCount}
-                </div>
-                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
+              <div className="mt-4 min-w-0">
+                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#F9488A]'}`}>SUPER</p>
+                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Super matches</p>
               </div>
             </button>
 
-            {/* 3. Hints button (Vibrant when available, muted/less colorful when hasSentToday is active) */}
+            {/* 3. Hints button */}
             <button
               onClick={onHintClick}
-              className="w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: hasSentToday
                   ? (isDark
@@ -803,111 +912,108 @@ export default function Home() {
                   : (isDark ? '1.5px solid rgba(244, 69, 163, 0.48)' : '1.5px solid rgba(244, 69, 163, 0.30)'),
                 boxShadow: hasSentToday
                   ? 'none'
-                  : (isDark ? '0 8px 24px rgba(244, 69, 163, 0.14)' : '0 4px 18px rgba(244, 69, 163, 0.08)'),
+                  : (isDark ? '0 8px 28px rgba(244, 69, 163, 0.14)' : '0 4px 20px rgba(244, 69, 163, 0.08)'),
               }}
             >
-              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center justify-between w-full">
                 <div 
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm transition-all"
+                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm transition-all"
                   style={{ 
+                    width: '52px', 
+                    height: '52px',
                     background: hasSentToday
                       ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)')
                       : (isDark ? 'rgba(244, 69, 163, 0.25)' : 'rgba(244, 69, 163, 0.12)') 
                   }}
                 >
-                  <Lightbulb className={`w-6 h-6 ${
+                  <Lightbulb className={`w-7 h-7 ${
                     hasSentToday 
                       ? (isDark ? 'text-white/60' : 'text-gray-500') 
                       : (isDark ? 'text-white' : 'text-[#F445A3]')
                   }`} />
                 </div>
-                <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${
+                <div className="flex items-center gap-1.5">
+                  <div className={`min-w-[28px] h-7 px-2 rounded-full text-xs font-black flex items-center justify-center shadow-md ${
                     hasSentToday 
-                      ? (isDark ? 'text-white/45' : 'text-gray-400') 
-                      : (isDark ? 'text-white/60' : 'text-[#F445A3]')
+                      ? (isDark ? 'bg-white/15 text-white/80' : 'bg-gray-200 text-gray-700') 
+                      : 'bg-[#F445A3] text-white'
                   }`}>
-                    HINTS
-                  </p>
-                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                    Hints sturen
-                  </p>
-                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/70' : 'text-gray-500'}`}>
-                    {hasSentToday 
-                      ? (timeLeft ? `Verloopt over ${timeLeft} • Bekijk hints` : 'Laat anoniem je interesse weten') 
-                      : 'Laat anoniem je interesse weten'}
-                  </p>
+                    {hints.length + superMatchHints.length}
+                  </div>
+                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
-                <div className={`min-w-[28px] h-7 px-2 rounded-full text-xs font-black flex items-center justify-center shadow-md ${
+              <div className="mt-4 min-w-0">
+                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${
                   hasSentToday 
-                    ? (isDark ? 'bg-white/15 text-white/80' : 'bg-gray-200 text-gray-700') 
-                    : 'bg-[#F445A3] text-white'
+                    ? (isDark ? 'text-white/45' : 'text-gray-400') 
+                    : (isDark ? 'text-white/60' : 'text-[#F445A3]')
                 }`}>
-                  {hints.length + superMatchHints.length}
-                </div>
-                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
+                  HINTS
+                </p>
+                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  Hints sturen
+                </p>
               </div>
             </button>
 
             {/* 4. Chat (#EE42BC - Fade stap 3) */}
             <button
               onClick={() => navigate(createPageUrl('Chat'))}
-              className="w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(238, 66, 188, 0.22) 0%, rgba(238, 66, 188, 0.08) 100%)'
                   : 'linear-gradient(135deg, rgba(238, 66, 188, 0.10) 0%, rgba(238, 66, 188, 0.02) 100%), #FFFFFF',
                 border: isDark ? '1.5px solid rgba(238, 66, 188, 0.48)' : '1.5px solid rgba(238, 66, 188, 0.30)',
-                boxShadow: isDark ? '0 8px 24px rgba(238, 66, 188, 0.14)' : '0 4px 18px rgba(238, 66, 188, 0.08)',
+                boxShadow: isDark ? '0 8px 28px rgba(238, 66, 188, 0.16)' : '0 4px 20px rgba(238, 66, 188, 0.09)',
               }}
             >
-              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center justify-between w-full">
                 <div 
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ background: isDark ? 'rgba(238, 66, 188, 0.25)' : 'rgba(238, 66, 188, 0.12)' }}
+                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  style={{ 
+                    width: '52px', 
+                    height: '52px',
+                    background: isDark ? 'rgba(238, 66, 188, 0.25)' : 'rgba(238, 66, 188, 0.12)' 
+                  }}
                 >
-                  <MessageCircle className={`w-6 h-6 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
+                  <MessageCircle className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
                 </div>
-                <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>CHAT</p>
-                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Chat</p>
-                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
-                    Chat met je supermatches
-                  </p>
+                <div className="flex items-center gap-1.5">
+                  {chatUnreadCount > 0 && (
+                    <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#EE42BC] text-white text-xs font-black flex items-center justify-center shadow-md">
+                      {chatUnreadCount}
+                    </div>
+                  )}
+                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
-                {chatUnreadCount > 0 && (
-                  <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#EE42BC] text-white text-xs font-black flex items-center justify-center shadow-md">
-                    {chatUnreadCount}
-                  </div>
-                )}
-                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
+              <div className="mt-4 min-w-0">
+                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>CHAT</p>
+                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Chat</p>
               </div>
             </button>
 
-
-            {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars met rustig van links naar rechts pulserend lichtgoud randje) */}
+            {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars met rustig pulserend lichtgoud randje) */}
             <button
               onClick={() => setShowDiscountsModal(true)}
-              className="w-full flex items-center justify-between rounded-[22px] p-4 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-sm"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(234, 63, 211, 0.22) 0%, rgba(234, 63, 211, 0.08) 100%)'
                   : 'linear-gradient(135deg, rgba(234, 63, 211, 0.10) 0%, rgba(234, 63, 211, 0.02) 100%), #FFFFFF',
                 border: isDark ? '1.5px solid rgba(234, 63, 211, 0.35)' : '1.5px solid rgba(234, 63, 211, 0.22)',
-                boxShadow: isDark ? '0 8px 24px rgba(234, 63, 211, 0.14)' : '0 4px 18px rgba(234, 63, 211, 0.08)',
+                boxShadow: isDark ? '0 8px 28px rgba(234, 63, 211, 0.16)' : '0 4px 20px rgba(234, 63, 211, 0.09)',
               }}
             >
               {/* Rustig van links naar rechts pulserend lichtgoud randje in een vloeiende loop */}
               <div 
-                className="absolute inset-0 rounded-[22px] pointer-events-none p-[1.5px] animate-gold-sweep"
+                className="absolute inset-0 rounded-[24px] pointer-events-none p-[1.5px] animate-gold-sweep"
                 style={{
                   background: isDark
                     ? 'linear-gradient(90deg, transparent 0%, rgba(255, 245, 205, 0.2) 20%, rgba(255, 235, 160, 0.95) 50%, rgba(255, 245, 205, 0.2) 80%, transparent 100%)'
@@ -918,25 +1024,64 @@ export default function Home() {
                   maskComposite: 'exclude',
                 }}
               />
-              <div className="flex items-center gap-3.5 z-10 flex-1 min-w-0 pr-2">
+              <div className="flex items-center justify-between w-full relative z-10">
                 <div 
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ background: isDark ? 'rgba(234, 63, 211, 0.25)' : 'rgba(234, 63, 211, 0.12)' }}
+                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  style={{ 
+                    width: '52px', 
+                    height: '52px',
+                    background: isDark ? 'rgba(234, 63, 211, 0.25)' : 'rgba(234, 63, 211, 0.12)' 
+                  }}
                 >
-                  <Crown className={`w-6 h-6 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
+                  <Crown className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
                 </div>
-                <div className="text-left flex-1 min-w-0">
-                  <p className={`text-[10px] font-black tracking-wider uppercase mb-0.5 ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
-                  <p className={`text-base font-black leading-snug truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Bekijk VIP kortingen</p>
-                  <p className={`text-[12px] mt-0.5 truncate ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
-                    Exclusieve deals voor jou
-                  </p>
-                </div>
-              </div>
-              <div className="relative z-10 flex-shrink-0 flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
                   <ChevronRight className="w-4 h-4" />
                 </div>
+              </div>
+              <div className="mt-4 min-w-0 relative z-10">
+                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
+                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>VIP kortingen</p>
+              </div>
+            </button>
+
+            {/* 6. Story's (#FF4B72 - Brand signature gradient & icon) */}
+            <button
+              onClick={() => navigate(createPageUrl('Hints'))}
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
+              style={{
+                background: isDark
+                  ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.22) 0%, rgba(234, 63, 211, 0.12) 100%)'
+                  : 'linear-gradient(135deg, rgba(255, 75, 114, 0.10) 0%, rgba(234, 63, 211, 0.04) 100%), #FFFFFF',
+                border: isDark ? '1.5px solid rgba(255, 75, 114, 0.48)' : '1.5px solid rgba(255, 75, 114, 0.30)',
+                boxShadow: isDark ? '0 8px 28px rgba(255, 75, 114, 0.16)' : '0 4px 20px rgba(255, 75, 114, 0.09)',
+              }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div 
+                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                  style={{ 
+                    width: '52px', 
+                    height: '52px',
+                    background: isDark ? 'rgba(255, 75, 114, 0.25)' : 'rgba(255, 75, 114, 0.12)' 
+                  }}
+                >
+                  <Camera className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {stories.length > 0 && (
+                    <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#FF4B72] text-white text-xs font-black flex items-center justify-center shadow-md">
+                      {stories.length}
+                    </div>
+                  )}
+                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 min-w-0">
+                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>STORIES</p>
+                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Story's</p>
               </div>
             </button>
           </div>
@@ -1044,6 +1189,10 @@ export default function Home() {
           isDark={isDark}
           onClose={() => setShowRevealModal(false)}
           onRefresh={() => loadData(true)}
+          onSendHint={(profile) => {
+            setShowRevealModal(false);
+            setHintingProfile(profile);
+          }}
         />
       )}
 

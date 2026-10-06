@@ -222,6 +222,11 @@ export default function Onboarding() {
 
     const compressedFile = await compressImage(file);
 
+    // Verwijder eventuele eerder geüploade foto uit storage zodat er geen ongebruikte bestanden achterblijven
+    if (form.photo_url) {
+      await base44.integrations.Core.DeleteFile({ file_url: form.photo_url });
+    }
+
     const { file_url } = await base44.integrations.Core.UploadFile({ file: compressedFile });
     setForm(f => ({ ...f, photo_url: file_url }));
     setUploading(false);

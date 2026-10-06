@@ -33,7 +33,15 @@ async function run() {
     'maud4@test.com',
     'nina5@test.com',
     'noa6@test.com',
-    'anna7@test.com'
+    'anna7@test.com',
+    'evi8@test.com',
+    'evi9@test.com',
+    'isa10@test.com',
+    'anna11@test.com',
+    'julia12@test.com',
+    'sophie13@test.com',
+    'femke14@test.com',
+    'liv15@test.com'
   ];
 
   const newLikes = [];

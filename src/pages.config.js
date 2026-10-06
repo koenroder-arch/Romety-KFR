@@ -55,6 +55,7 @@ import Onboarding from './pages/Onboarding';
 import Pinpoint from './pages/Pinpoint';
 import Login from './pages/Login';
 import Chat from './pages/Chat';
+import Language from './pages/Language';
 import __Layout from './Layout.jsx';
 
 
@@ -67,6 +68,7 @@ export const PAGES = {
     "Pinpoint": Pinpoint,
     "Login": Login,
     "Chat": Chat,
+    "Language": Language,
 }
 
 export const pagesConfig = {

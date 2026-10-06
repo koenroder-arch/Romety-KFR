@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { useTheme } from '@/lib/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Clock, ChevronRight, ChevronLeft, Archive, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Clock, ChevronRight, ChevronLeft, Archive, AlertTriangle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ChatRoomView from '@/components/welove/ChatRoomView';
 import { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { createPageUrl } from '@/utils';
+import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -19,6 +20,7 @@ const PHASE_DURATIONS = {
   3: 24 * 60 * 60 * 1000,
   4: null,
 };
+
 
 const PHASE_LABELS = {
   1: { label: 'Fase 1 · 48u chat', color: '#FF4B72' },
@@ -37,6 +39,66 @@ function formatTimeLeft(expiresAt) {
   return `${m}m`;
 }
 
+function DeletedRoomCard({ room, otherProfile, isDark }) {
+  const photos = getProfilePhotos(otherProfile);
+  const avatar = photos[0] || null;
+  const displayTitle = otherProfile?.age ? `${otherProfile.age} jaar` : 'Match';
+
+  let remainingText = '';
+  if (room.deleted_at) {
+    const diffMs = new Date(room.deleted_at).getTime() - Date.now();
+    const hours = Math.max(1, Math.ceil(diffMs / 3600000));
+    remainingText = ` · Nog ${hours}u`;
+  }
+
+  return (
+    <div
+      onClick={() => toast.info('Deze chat is beëindigd en kan niet meer geopend worden.')}
+      className="w-full flex items-center gap-3.5 p-3 rounded-2xl border text-left cursor-not-allowed select-none transition-opacity opacity-75"
+      style={{
+        background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+        borderColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+      }}
+    >
+      {/* Grayscale Avatar */}
+      <div 
+        className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 border relative"
+        style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}
+      >
+        {avatar ? (
+          <img 
+            src={avatar} 
+            alt="" 
+            className="w-full h-full object-cover filter grayscale contrast-75 brightness-90" 
+          />
+        ) : (
+          <div 
+            className="w-full h-full flex items-center justify-center text-xl bg-gray-600/30 filter grayscale text-gray-400"
+          >
+            {otherProfile?.avatar?.split(' ')[0] || '👤'}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-black/25 pointer-events-none" />
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <p className="font-bold text-sm truncate text-gray-400">
+            {displayTitle}
+          </p>
+          <span className="text-[10px] font-semibold text-gray-500">
+            Beëindigd
+          </span>
+        </div>
+        <p className="text-xs truncate font-medium text-gray-500">
+          ❌ Chat beëindigd{remainingText}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount = 0, onClick }) {
   const textMain = isDark ? '#FFFFFF' : '#111827';
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
@@ -47,10 +109,13 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
   const isUserA = currentUserEmail === room.user_a_email;
   const isPending = room.status === 'pending';
   const isSentPending = isPending && isUserA;
+  const isTimeExpired = room.status === 'active' && room.phase_expires_at && (new Date(room.phase_expires_at).getTime() <= Date.now());
   const myExtAccepted = isUserA ? room.extension_accepted_a : room.extension_accepted_b;
-  const isWaitingExt = room.status === 'active' && myExtAccepted && phase < 4;
+  const isWaitingExt = room.status === 'active' && isTimeExpired && myExtAccepted && phase < 4;
   const myPhotoSent = isUserA ? room.photo_sent_a : room.photo_sent_b;
+  const otherPhotoSent = isUserA ? room.photo_sent_b : room.photo_sent_a;
   const isPhase2NeedPhoto = phase === 2 && !myPhotoSent && room.status === 'active';
+  const isPhase2WaitingPhoto = phase === 2 && myPhotoSent && !otherPhotoSent && room.status === 'active';
 
   const phaseInfo = isPhase2NeedPhoto
     ? { label: 'Stuur een foto', color: '#EA3FD3' }
@@ -135,16 +200,16 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
         </p>
       </div>
 
-      {/* Right side: Chevron Arrow */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {!isSentPending && <ChevronRight className="w-4 h-4" style={{ color: textSub }} />}
-      </div>
+      {/* Chevron Arrow */}
+      {!isSentPending && <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: textSub }} />}
     </motion.button>
   );
 }
 
 export default function Chat() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roomIdFromUrl = searchParams.get('roomId') || searchParams.get('room');
   const user = useUser();
   const { theme } = useTheme();
   const isDark = theme !== 'light';
@@ -225,17 +290,14 @@ export default function Chat() {
       for (const r of visible) {
         const lastTime = latestActivity[r.id] || new Date(r.created_at || 0).getTime();
         if (now.getTime() - lastTime > SEVEN_DAYS_MS) {
-          // Mark room as deleted
-          base44.entities.ChatRoom.update(r.id, {
-            status: 'deleted',
-            deleted_at: now.toISOString(),
-          }).catch(() => {});
+          // Delete all photos from storage and mark room as deleted
+          deleteChatRoomAndMedia(r.id);
 
           // Notify both users
           base44.entities.Notification.create({
             to_email: r.user_a_email,
             type: 'chat_inactive',
-            message: 'Een chat is beëindigd en verwijderd vanwege 7 dagen inactiviteit.',
+            venue_name: 'Een chat is beëindigd en verwijderd vanwege 7 dagen inactiviteit.',
             is_read: false,
             created_date: now.toISOString(),
           }).catch(() => {});
@@ -243,7 +305,7 @@ export default function Chat() {
           base44.entities.Notification.create({
             to_email: r.user_b_email,
             type: 'chat_inactive',
-            message: 'Een chat is beëindigd en verwijderd vanwege 7 dagen inactiviteit.',
+            venue_name: 'Een chat is beëindigd en verwijderd vanwege 7 dagen inactiviteit.',
             is_read: false,
             created_date: now.toISOString(),
           }).catch(() => {});
@@ -316,11 +378,19 @@ export default function Chat() {
 
       // Create notification for user A (best-effort)
       try {
+        const myProfs = await base44.entities.UserProfile.filter({ user_email: user?.email }).catch(() => []);
+        const myProf = myProfs && myProfs[0];
+        const avatar = myProf?.avatar ? myProf.avatar.trim() : '';
+        const age = myProf?.age ? `${myProf.age} jaar` : '';
+        const senderLabel = (avatar && age) ? `${avatar} • ${age}` : (avatar || age || 'Je match');
+
         await base44.entities.Notification.create({
-          user_email: room.user_a_email,
-          type: 'chat_accepted',
-          message: 'Je chat-uitnodiging is geaccepteerd! 🎉 Jullie hebben 48u.',
-          read: false,
+          to_email: room.user_a_email,
+          from_email: user?.email,
+          from_name: senderLabel,
+          type: 'chat',
+          venue_name: JSON.stringify({ roomId: room.id, text: 'Je chat-uitnodiging is geaccepteerd! 🎉' }),
+          is_read: false,
           created_date: new Date().toISOString(),
         });
       } catch (notifErr) {
@@ -339,10 +409,8 @@ export default function Chat() {
 
   const handleDeclineRoom = async (room) => {
     try {
-      await base44.entities.ChatRoom.update(room.id, {
-        status: 'deleted',
-        deleted_at: new Date().toISOString(),
-      });
+      localStorage.setItem(`deleted_chat_hidden_${room.id}`, 'true');
+      await deleteChatRoomAndMedia(room.id, { deletedBy: user?.email });
 
       // Send rejection notification to the other user
       const otherEmail = room.user_a_email === user?.email ? room.user_b_email : room.user_a_email;
@@ -351,7 +419,8 @@ export default function Chat() {
           to_email: otherEmail,
           from_email: user?.email,
           type: 'chat_rejected',
-          message: 'Je chat-uitnodiging is afgewezen.',
+          message: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
+          venue_name: 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.',
           is_read: false,
           created_date: new Date().toISOString(),
         }).catch(() => {});
@@ -366,9 +435,76 @@ export default function Chat() {
   };
 
   const handleOpenRoom = (room) => {
+    if (room.status === 'deleted') {
+      toast.info('Deze chat is beëindigd en kan niet meer geopend worden.');
+      return;
+    }
     setMessageCounts(prev => ({ ...prev, [room.id]: 0 }));
     setActiveRoom(room);
   };
+
+  // Auto-open room if specified in query params
+  useEffect(() => {
+    if (!roomIdFromUrl || !user) return;
+    if (activeRoom && activeRoom.id === roomIdFromUrl) return;
+
+    const found = rooms.find(r => r.id === roomIdFromUrl);
+    if (found) {
+      if (found.status === 'deleted') {
+        toast.info('Deze chat is beëindigd en kan niet meer geopend worden.');
+        setSearchParams({}, { replace: true });
+        return;
+      }
+      handleOpenRoom(found);
+      return;
+    }
+
+    if (!loading) {
+      base44.entities.ChatRoom.filter({ id: roomIdFromUrl })
+        .then(async (res) => {
+          const room = res && res[0];
+          if (room) {
+            const otherEmail = room.user_a_email === user.email ? room.user_b_email : room.user_a_email;
+            if (otherEmail && !profiles[otherEmail]) {
+              const profs = await base44.entities.UserProfile.filter({ user_email: otherEmail }).catch(() => []);
+              if (profs && profs[0]) {
+                setProfiles(prev => ({ ...prev, [otherEmail]: profs[0] }));
+              }
+            }
+            handleOpenRoom(room);
+          }
+        })
+        .catch(err => console.error('Error fetching room from URL:', err));
+    }
+  }, [roomIdFromUrl, rooms, loading, user, activeRoom]);
+
+  const handleBackFromRoom = useCallback(() => {
+    setActiveRoom(null);
+    setSearchParams({}, { replace: true });
+    loadData();
+  }, [loadData, setSearchParams]);
+
+  const handleRoomUpdate = useCallback((updated) => {
+    setActiveRoom(prev => {
+      if (!prev) return updated;
+      if (
+        prev.id === updated.id &&
+        prev.status === updated.status &&
+        prev.phase === updated.phase &&
+        prev.phase_expires_at === updated.phase_expires_at &&
+        prev.extension_accepted_a === updated.extension_accepted_a &&
+        prev.extension_accepted_b === updated.extension_accepted_b &&
+        prev.photo_sent_a === updated.photo_sent_a &&
+        prev.photo_sent_b === updated.photo_sent_b &&
+        prev.contact_sent_a === updated.contact_sent_a &&
+        prev.contact_sent_b === updated.contact_sent_b &&
+        prev.deleted_at === updated.deleted_at
+      ) {
+        return prev;
+      }
+      return updated;
+    });
+  }, []);
 
   if (activeRoom) {
     const otherEmail = activeRoom.user_a_email === user?.email ? activeRoom.user_b_email : activeRoom.user_a_email;
@@ -378,16 +514,30 @@ export default function Chat() {
         room={activeRoom}
         currentUserEmail={user?.email}
         otherProfile={otherProfile}
-        onBack={() => { setActiveRoom(null); loadData(); }}
-        onRoomUpdate={(updated) => setActiveRoom(updated)}
+        onBack={handleBackFromRoom}
+        onRoomUpdate={handleRoomUpdate}
       />
     );
   }
 
+  const now = new Date();
   const pendingInvites = rooms.filter(r => r.status === 'pending' && r.user_b_email === user?.email);
   const sentInvites = rooms.filter(r => r.status === 'pending' && r.user_a_email === user?.email);
   const activeRooms = rooms.filter(r => r.status === 'active');
-  const archivedRooms = rooms.filter(r => r.status === 'archived' && r.deleted_at && new Date(r.deleted_at) > new Date());
+  const archivedRooms = rooms.filter(r => r.status === 'archived' && r.deleted_at && new Date(r.deleted_at) > now);
+  const deletedRooms = rooms.filter(r => {
+    if (r.status !== 'deleted') return false;
+    // Show for 24h
+    if (r.deleted_at && new Date(r.deleted_at) <= now) return false;
+    // Do not show to the user who ended/deleted the chat
+    const isA = r.user_a_email === user?.email;
+    const iDeletedIt = isA ? r.extension_accepted_a === false : r.extension_accepted_b === false;
+    if (iDeletedIt) return false;
+    if (localStorage.getItem(`deleted_chat_hidden_${r.id}`)) return false;
+    return true;
+  });
+
+  const hasAnyRooms = pendingInvites.length > 0 || sentInvites.length > 0 || activeRooms.length > 0 || archivedRooms.length > 0 || deletedRooms.length > 0;
 
   return (
     <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
@@ -431,7 +581,7 @@ export default function Chat() {
           <div className="flex items-center justify-center py-20">
             <div className="w-10 h-10 rounded-full border-4 border-pink-200 border-t-pink-500 animate-spin" />
           </div>
-        ) : rooms.length === 0 ? (
+        ) : !hasAnyRooms ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.1)' }}>
               <MessageCircle className="w-9 h-9 text-[#FF4B72]" />
@@ -577,6 +727,29 @@ export default function Chat() {
                         currentUserEmail={user?.email}
                         isDark={isDark}
                         onClick={() => setActiveRoom(room)}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Verwijderde chats */}
+            {deletedRooms.length > 0 && (
+              <section>
+                <p className="text-xs font-black uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5 text-gray-500">
+                  <Trash2 className="w-3 h-3 text-gray-500" /> Verwijderde chats
+                </p>
+                <div className="space-y-2">
+                  {deletedRooms.map(room => {
+                    const otherEmail = room.user_a_email === user?.email ? room.user_b_email : room.user_a_email;
+                    const profile = profiles[otherEmail];
+                    return (
+                      <DeletedRoomCard
+                        key={room.id}
+                        room={room}
+                        otherProfile={profile}
+                        isDark={isDark}
                       />
                     );
                   })}
