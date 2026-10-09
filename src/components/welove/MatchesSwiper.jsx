@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import MatchAnimation from './MatchAnimation';
@@ -42,6 +42,22 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
   React.useEffect(() => {
     setLikedProfiles(new Set(initialLikedIds));
   }, [initialLikedIds]);
+
+  // Sluit het 3-bolletjes menu wanneer de gebruiker ergens anders op de pagina klikt of tikt
+  useEffect(() => {
+    if (!openMenuProfileId) return;
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest?.('.profile-options-menu-container')) {
+        setOpenMenuProfileId(null);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    window.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      window.removeEventListener('click', handleOutsideClick);
+      window.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [openMenuProfileId]);
 
   const bg = 'transparent';
   const textMain = isDark ? 'text-white' : 'text-gray-900';
@@ -262,7 +278,22 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
   );
 
   return (
-    <div className="h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col" style={{ background: bg }}>
+    <div className="h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col relative" style={{ background: bg }}>
+      {/* Backdrop om menu te sluiten als er ergens anders op de pagina wordt geklikt */}
+      {openMenuProfileId && (
+        <div
+          className="fixed inset-0 z-35 bg-transparent"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpenMenuProfileId(null);
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            setOpenMenuProfileId(null);
+          }}
+        />
+      )}
+
       {visibleProfiles.map((profile, index) => {
         const isLiked = likedProfiles.has(profile.id);
         const activeAnims = doubleTapAnims.filter(a => a.profileId === profile.id);
@@ -315,7 +346,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
             </AnimatePresence>
 
             {/* ── Three-dots button (top right) ── */}
-            <div className="absolute top-4 right-3 z-30 pointer-events-auto">
+            <div className="profile-options-menu-container absolute top-4 right-3 z-40 pointer-events-auto">
               <button
                 onClick={(e) => handleMenuToggle(e, profile.id)}
                 className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center active:scale-90 transition-transform shadow-lg"

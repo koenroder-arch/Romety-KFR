@@ -1016,7 +1016,7 @@ export default function Pinpoint() {
             {/* Filter button next to search bar */}
             <button
               onClick={toggleNearbyFilter}
-              className="w-[52px] h-[52px] rounded-[20px] flex items-center justify-center flex-shrink-0 transition-all duration-300 active:scale-90"
+              className="w-[52px] h-[52px] rounded-[20px] flex items-center justify-center flex-shrink-0 transition-all duration-300 hover:scale-105 active:scale-90 cursor-pointer"
               style={{
                 background: useNearbyFilter ? GRAD : searchBarBg,
                 border: useNearbyFilter ? '1.5px solid rgba(255,255,255,0.35)' : `1.5px solid ${searchBarBorder(false)}`,
@@ -1044,6 +1044,7 @@ export default function Pinpoint() {
               className="absolute w-full rounded-[20px] shadow-2xl mt-2 search-panel"
               style={{ background: dropdownBg, backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: dropdownBorder, boxShadow: '0 16px 40px rgba(0,0,0,0.35)' }}
             >
+
               {/* Live suggestions */}
               {searchSuggestions.length > 0 && searchSuggestions.map((item, i) => (
                 <button

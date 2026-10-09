@@ -1,13 +1,82 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import confetti from 'canvas-confetti';
 import { Heart, MessageCircle, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 export default function MatchAnimation({ myProfile, matchedProfile, onDone, onClose, onSendHint }) {
+  const navigate = useNavigate();
+  const [unlockingChat, setUnlockingChat] = useState(false);
+
   const handleDone = () => {
     if (onDone) onDone();
-    else if (onClose) onClose();
+    if (onClose) onClose();
+  };
+
+  const handleUnlockChat = async (e) => {
+    e?.stopPropagation();
+    if (unlockingChat || !matchedProfile?.user_email || !myProfile?.user_email) return;
+    setUnlockingChat(true);
+
+    try {
+      const myEmail = myProfile.user_email;
+      const partnerEmail = matchedProfile.user_email;
+
+      // Controleer of er al een chatroom bestaat tussen deze twee
+      const [roomsA, roomsB] = await Promise.all([
+        base44.entities.ChatRoom.filter({ user_a_email: myEmail, user_b_email: partnerEmail }).catch(() => []),
+        base44.entities.ChatRoom.filter({ user_a_email: partnerEmail, user_b_email: myEmail }).catch(() => []),
+      ]);
+      const existing = [...(roomsA || []), ...(roomsB || [])].find(r => r && r.status !== 'deleted' && !r.deleted_at);
+
+      if (existing) {
+        handleDone();
+        navigate(createPageUrl('Chat'));
+        return;
+      }
+
+      // Maak nieuwe chatroom aan met status 'pending'
+      const newRoom = await base44.entities.ChatRoom.create({
+        user_a_email: myEmail,
+        user_b_email: partnerEmail,
+        status: 'pending',
+        phase: 1,
+        extension_accepted_a: false,
+        extension_accepted_b: false,
+        photo_sent_a: false,
+        photo_sent_b: false,
+      });
+
+      // Stuur chat uitnodiging notificatie
+      try {
+        const avatar = myProfile?.avatar ? myProfile.avatar.trim() : '';
+        const age = myProfile?.age ? `${myProfile.age} jaar` : '';
+        const senderLabel = (avatar && age) ? `${avatar} • ${age}` : (avatar || age || 'Je match');
+
+        await base44.entities.Notification.create({
+          to_email: partnerEmail,
+          from_email: myEmail,
+          from_name: senderLabel,
+          type: 'chat',
+          venue_name: JSON.stringify({ roomId: newRoom?.id, text: 'Wil met je chatten! 💬' }),
+          is_read: false,
+          created_date: new Date().toISOString(),
+        }).catch(() => {});
+      } catch (notifErr) {
+        console.warn('Chat notification error in MatchAnimation:', notifErr);
+      }
+
+      handleDone();
+      navigate(createPageUrl('Chat'));
+    } catch (err) {
+      console.error('Error unlocking chat in MatchAnimation:', err);
+      handleDone();
+      navigate(createPageUrl('Chat'));
+    } finally {
+      setUnlockingChat(false);
+    }
   };
 
   const [visible, setVisible] = useState(false);
@@ -291,26 +360,20 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onCl
           Let the good times roll
         </p>
 
-        {/* Button */}
+        {/* Button: Chat ontgrendelen */}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (hasSentToday) {
-              setShowLimitPopup(true);
-            } else if (onSendHint) {
-              onSendHint(matchedProfile);
-            } else {
-              handleDone();
-            }
-          }}
-          className="w-full max-w-[300px] py-4 rounded-full flex items-center justify-center gap-3 active:scale-95 transition-transform relative overflow-hidden"
+          onClick={handleUnlockChat}
+          disabled={unlockingChat}
+          className="w-full max-w-[300px] py-4 rounded-full flex items-center justify-center gap-3 active:scale-95 transition-transform relative overflow-hidden shadow-2xl"
           style={{
             background: 'linear-gradient(90deg, #FF4B72 0%, #FFB84D 100%)',
             boxShadow: '0 8px 30px rgba(255,75,114,0.6)'
           }}
         >
           <div className="absolute inset-0 bg-white/20 opacity-0 hover:opacity-100 transition-opacity" />
-          <span className="text-white font-bold text-[18px]">Stuur een hint</span>
+          <span className="text-white font-bold text-[18px]">
+            {unlockingChat ? 'Ontgrendelen...' : 'Chat ontgrendelen'}
+          </span>
           <MessageCircle className="w-6 h-6 text-white" fill="white" strokeWidth={1} />
         </button>
 

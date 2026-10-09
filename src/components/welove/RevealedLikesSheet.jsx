@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, Heart, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Check } from 'lucide-react';
@@ -33,42 +33,96 @@ export default function RevealedLikesSheet({
   const [reportedEmails, setReportedEmails] = useState(new Set());
   const [reportState, setReportState] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [doubleTapAnims, setDoubleTapAnims] = useState([]);
+  const [pendingLikedEmails, setPendingLikedEmails] = useState(new Set());
+  const likingEmailRef = useRef(new Set());
+
+  // Sluit het 3-bolletjes menu wanneer de gebruiker ergens anders op de pagina klikt of tikt
+  useEffect(() => {
+    if (!openMenuProfileId) return;
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest?.('.profile-options-menu-container')) {
+        setOpenMenuProfileId(null);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    window.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      window.removeEventListener('click', handleOutsideClick);
+      window.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [openMenuProfileId]);
 
   const bg = isDark ? '#08090E' : '#F8F9FB';
   const textSub = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)';
 
   const activeProfiles = profiles.filter((p) => !likedEmails.has(p.user_email) && !reportedEmails.has(p.user_email));
 
+  const handleDoubleTapAtCoord = (x, y, profile) => {
+    if (openMenuProfileId) {
+      setOpenMenuProfileId(null);
+      return;
+    }
+
+    // Altijd direct de hart-animatie tonen op de exacte tikpositie
+    const animId = Date.now() + Math.random();
+    setDoubleTapAnims((prev) => [...prev, { id: animId, profileId: profile.id, x, y }]);
+    setTimeout(() => {
+      setDoubleTapAnims((prev) => prev.filter((a) => a.id !== animId));
+    }, 1200);
+
+    // Like en match triggeren als dit profiel nog niet in verwerking is
+    if (!likedEmails.has(profile.user_email) && !likingEmailRef.current.has(profile.user_email)) {
+      handleLikeBack(profile);
+    }
+  };
+
   const handleLikeBack = async (profile) => {
     if (!profile || !currentUser) return;
-    setLikedEmails((prev) => new Set(prev).add(profile.user_email));
+    if (likedEmails.has(profile.user_email) || likingEmailRef.current.has(profile.user_email)) return;
 
-    try {
-      await base44.entities.Like.create({
-        from_email: currentUser.email,
-        to_email: profile.user_email,
-      });
+    likingEmailRef.current.add(profile.user_email);
+    setPendingLikedEmails((prev) => new Set(prev).add(profile.user_email));
 
-      await Promise.all([
-        base44.entities.Notification.create({
-          to_email: profile.user_email,
+    // Voer de like en notificaties asynchroon uit in de database
+    (async () => {
+      try {
+        await base44.entities.Like.create({
           from_email: currentUser.email,
-          type: 'match',
-          from_name: myProfile?.display_name || 'Iemand',
-        }).catch(() => {}),
-        base44.entities.Notification.create({
-          to_email: currentUser.email,
-          from_email: profile.user_email,
-          type: 'match',
-          from_name: profile.display_name || 'Een Match',
-        }).catch(() => {}),
-      ]);
+          to_email: profile.user_email,
+        });
 
+        await Promise.all([
+          base44.entities.Notification.create({
+            to_email: profile.user_email,
+            from_email: currentUser.email,
+            type: 'match',
+            from_name: myProfile?.display_name || 'Iemand',
+          }).catch(() => {}),
+          base44.entities.Notification.create({
+            to_email: currentUser.email,
+            from_email: profile.user_email,
+            type: 'match',
+            from_name: profile.display_name || 'Een Match',
+          }).catch(() => {}),
+        ]);
+      } catch (err) {
+        console.error('Error liking revealed profile:', err);
+      }
+    })();
+
+    // 1. Na 0,5 seconde opent het matchscherm direct
+    setTimeout(() => {
       setMatchAnim({ myProfile, matchedProfile: profile });
+    }, 500);
+
+    // 2. De foto van dat profiel blijft achter het matchscherm staan voor nog 1 seconde (totaal 1,5s),
+    // zodat de foto niet verspringt voordat je naar het matchscherm gaat
+    setTimeout(() => {
+      setLikedEmails((prev) => new Set(prev).add(profile.user_email));
+      likingEmailRef.current.delete(profile.user_email);
       if (onRefresh) onRefresh();
-    } catch (err) {
-      console.error('Error liking revealed profile:', err);
-    }
+    }, 1500);
   };
 
   const handleSubmitReport = async () => {
@@ -142,6 +196,21 @@ export default function RevealedLikesSheet({
           }
         `}</style>
 
+        {/* Backdrop om menu te sluiten als er ergens anders op de pagina wordt geklikt */}
+        {openMenuProfileId && (
+          <div
+            className="fixed inset-0 z-35 bg-transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpenMenuProfileId(null);
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              setOpenMenuProfileId(null);
+            }}
+          />
+        )}
+
         {/* Profile Swiper Area (Full screen snap-scrolling feed like Matches page) */}
         <div className="absolute inset-0 z-0">
           <div
@@ -151,19 +220,64 @@ export default function RevealedLikesSheet({
             {activeProfiles.map((profile) => {
               const isMenuOpen = openMenuProfileId === profile.id;
               const isBioExpanded = expandedBioId === profile.id;
+              const activeAnims = doubleTapAnims.filter(a => a.profileId === profile.id);
 
               return (
-                <div key={profile.id} className="w-full h-full flex-shrink-0 snap-start snap-always relative">
+                <div 
+                  key={profile.id} 
+                  className="w-full h-full flex-shrink-0 snap-start snap-always relative select-none"
+                  onDoubleClick={(e) => {
+                    if (e.target.closest('button') || e.target.closest('.profile-options-menu-container')) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    handleDoubleTapAtCoord(x, y, profile);
+                  }}
+                >
                   {/* Photo Background Carousel with Swipe & Indicator Dots */}
                   <ProfilePhotoCarousel
                     profile={profile}
                     isDark={isDark}
+                    onDoubleTap={(x, y, p) => handleDoubleTapAtCoord(x, y, p)}
                     dotsClassName="top-[102px] left-4 z-30"
                   />
 
+                  {/* ── Top-Level Double Tap Hearts Animation (Pops over entire card with glow) ── */}
+                  <AnimatePresence>
+                    {activeAnims.map(anim => (
+                      <motion.div
+                        key={anim.id}
+                        initial={{ scale: 0, opacity: 0, x: '-50%', y: '-50%' }}
+                        animate={{ 
+                          scale: [0, 1.35, 1.15], 
+                          opacity: [0, 1, 1, 0],
+                          y: ['-50%', '-65%', '-80%']
+                        }}
+                        exit={{ opacity: 0 }}
+                        transition={{ 
+                          duration: 1.2, 
+                          times: [0, 0.25, 0.7, 1],
+                          ease: 'easeOut'
+                        }}
+                        className="absolute pointer-events-none z-50 flex items-center justify-center"
+                        style={{ left: anim.x, top: anim.y }}
+                      >
+                        <div className="relative flex items-center justify-center">
+                          <div className="absolute w-28 h-28 rounded-full bg-pink-500/35 blur-xl animate-pulse" />
+                          <Heart 
+                            className="w-28 h-28 drop-shadow-[0_8px_30px_rgba(255,75,114,0.85)]" 
+                            fill="#FF4B72" 
+                            color="#FF4B72" 
+                            strokeWidth={0} 
+                          />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+
                   {/* ── Three-dots options button (top right) ── */}
                   <div
-                    className="absolute right-4 z-30 pointer-events-auto"
+                    className="profile-options-menu-container absolute right-4 z-40 pointer-events-auto"
                     style={{ top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 58px)' }}
                   >
                     <button
@@ -271,15 +385,18 @@ export default function RevealedLikesSheet({
 
                       {/* Action Button: Like Terug */}
                       <button
-                        onClick={() => handleLikeBack(profile)}
-                        className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 font-black text-sm sm:text-base text-white transition-transform active:scale-95 shadow-xl"
+                        onClick={() => handleLikeBack(profile, 1500)}
+                        disabled={pendingLikedEmails.has(profile.user_email)}
+                        className={`w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 font-black text-sm sm:text-base text-white transition-all shadow-xl ${
+                          pendingLikedEmails.has(profile.user_email) ? 'opacity-90' : 'active:scale-95'
+                        }`}
                         style={{
                           background: GRAD,
                           boxShadow: '0 8px 24px rgba(255, 75, 114, 0.45)',
                         }}
                       >
-                        <Heart className="w-5 h-5 fill-white text-white animate-pulse" />
-                        <span>Like terug & match direct!</span>
+                        <Heart className={`w-5 h-5 fill-white text-white ${pendingLikedEmails.has(profile.user_email) ? 'animate-bounce' : 'animate-pulse'}`} />
+                        <span>{pendingLikedEmails.has(profile.user_email) ? 'Geliked! 💖' : 'Like terug & match direct!'}</span>
                       </button>
                     </div>
                   </div>
@@ -439,7 +556,10 @@ export default function RevealedLikesSheet({
           <MatchAnimation
             myProfile={matchAnim.myProfile}
             matchedProfile={matchAnim.matchedProfile}
-            onDone={() => setMatchAnim(null)}
+            onDone={() => {
+              setMatchAnim(null);
+              onClose?.();
+            }}
             onClose={() => setMatchAnim(null)}
             onSendHint={(profile) => {
               setMatchAnim(null);

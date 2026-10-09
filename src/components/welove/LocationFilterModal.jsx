@@ -140,7 +140,7 @@ export default function LocationFilterModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
             onClick={safeDismissModal}
             className="fixed inset-0 bg-black/80 backdrop-blur-md"
           />
@@ -148,10 +148,10 @@ export default function LocationFilterModal({
           {/* Dialog Container */}
           <motion.div
             key="location-filter-modal-dialog"
-            initial={{ opacity: 0, scale: 0.96, y: -12 }}
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -12 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, scale: 0.95, y: 12 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 340 }}
             className="relative w-full max-w-md rounded-[32px] p-6 sm:p-7 shadow-2xl overflow-visible z-10 mt-2 sm:mt-4"
             style={{
               background: bgModal,
@@ -193,66 +193,6 @@ export default function LocationFilterModal({
               </div>
             )}
 
-            {/* GPS Button (Same gradient & style as venue CTA button) */}
-            <button
-              onClick={() => {
-                onSelectGps();
-                safeDismissModal();
-              }}
-              className="w-full rounded-[20px] p-3.5 sm:p-4 flex items-center justify-between text-left transition-all active:scale-[0.98] cursor-pointer text-white"
-              style={{
-                background: GRAD,
-                boxShadow: isGpsActive
-                  ? '0 8px 26px rgba(255, 75, 114, 0.5), 0 0 0 2px rgba(255,255,255,0.45)'
-                  : '0 8px 24px rgba(255, 75, 114, 0.35)',
-                border: 'none',
-              }}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 bg-white/20 backdrop-blur-md shadow-sm"
-                >
-                  <Crosshair className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-sm font-black truncate text-white">Filter op huidige locatie</span>
-              </div>
-              {isGpsActive ? (
-                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-md">
-                  <Check className="w-3.5 h-3.5 text-pink-600 font-black" />
-                </div>
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                  <Crosshair className="w-3.5 h-3.5 text-white/80" />
-                </div>
-              )}
-            </button>
-
-            {/* "of" Divider */}
-            <div className="flex items-center gap-3 my-3.5 px-1 select-none">
-              <div
-                className="flex-1 h-[1px]"
-                style={{
-                  background: isDark
-                    ? 'linear-gradient(90deg, transparent, rgba(255,255,255,0.14))'
-                    : 'linear-gradient(90deg, transparent, rgba(0,0,0,0.10))',
-                }}
-              />
-              <span
-                className="text-xs font-medium tracking-wide lowercase"
-                style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)' }}
-              >
-                of
-              </span>
-              <div
-                className="flex-1 h-[1px]"
-                style={{
-                  background: isDark
-                    ? 'linear-gradient(90deg, rgba(255,255,255,0.14), transparent)'
-                    : 'linear-gradient(90deg, rgba(0,0,0,0.10), transparent)',
-                }}
-              />
-            </div>
-
             {/* Search Input Container with Overlapping Suggestions */}
             <div className="relative mb-3.5 z-40">
               <div
@@ -273,7 +213,7 @@ export default function LocationFilterModal({
                   value={cityQuery}
                   onChange={(e) => handleSearchCity(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
-                  onBlur={() => setSearchFocused(false)}
+                  onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                   placeholder="Typ bijvoorbeeld Amsterdam..."
                   className={`flex-1 bg-transparent text-base focus:outline-none ${textMain} placeholder-gray-400`}
                   style={{ fontSize: '16px' }}
@@ -290,7 +230,7 @@ export default function LocationFilterModal({
               </div>
 
               {/* Overlapping Suggestions Dropdown */}
-              {suggestions.length > 0 && (
+              {(suggestions.length > 0 || (searchFocused && cityQuery.length === 0)) && (
                 <div
                   className="absolute left-0 right-0 top-full mt-2 rounded-[22px] shadow-2xl z-[100] overflow-hidden"
                   style={{
@@ -299,7 +239,49 @@ export default function LocationFilterModal({
                     boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
                   }}
                 >
-                  {suggestions.slice(0, 3).map((s, idx) => (
+                  {/* When clicking in search without typing: show 'Filteren op huidige locatie' with Romety-colored kader */}
+                  {cityQuery.length === 0 && (
+                    <div className="p-2">
+                      <div
+                        className="p-[1.5px] rounded-[18px] transition-all duration-200 hover:scale-[1.01] active:scale-[0.98]"
+                        style={{
+                          background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+                          boxShadow: '0 4px 18px rgba(255, 75, 114, 0.28)',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onSelectGps();
+                            safeDismissModal();
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onSelectGps();
+                            safeDismissModal();
+                          }}
+                          className="w-full px-3.5 py-3 text-left flex items-center gap-3 rounded-[16.5px] transition-colors cursor-pointer"
+                          style={{
+                            background: isDark ? '#141624' : '#FFFFFF',
+                          }}
+                        >
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm" style={{ background: GRAD }}>
+                            <Crosshair className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-bold truncate ${textMain}`}>Filteren op huidige locatie</p>
+                            <p className="text-xs text-gray-400 truncate mt-0.5">Gebruik je live GPS positie</p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* When typing: live city suggestions */}
+                  {cityQuery.length > 0 && suggestions.slice(0, 3).map((s, idx) => (
                     <button
                       key={s.id || idx}
                       type="button"

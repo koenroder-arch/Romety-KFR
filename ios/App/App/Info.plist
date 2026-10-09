@@ -47,5 +47,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+
+	<!-- Privacy & Hardware Permissions for App Store -->
+	<key>NSCameraUsageDescription</key>
+	<string>Romety heeft toegang tot je camera nodig om foto's en verhalen te maken.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Romety heeft toegang tot je microfoon nodig om video's met geluid op te nemen voor verhalen.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Romety heeft toegang tot je fotobibliotheek nodig om foto's te kiezen voor je profiel en verhalen.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Romety heeft toestemming nodig om gemaakte foto's en verhalen op te slaan in je fotobibliotheek.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Romety gebruikt je locatie om hotspots, evenementen en matches in je buurt te tonen op de Pinpoint-kaart.</string>
 </dict>
 </plist>

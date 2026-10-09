@@ -190,6 +190,10 @@ export const authStorage = {
 
     if (foundUser) {
       if (!foundUser.email && foundUser.user_email) foundUser.email = foundUser.user_email;
+      if (foundUser.email) {
+        foundUser.email = foundUser.email.trim().toLowerCase();
+        foundUser.user_email = foundUser.email;
+      }
       inMemoryUser = foundUser;
       // Self-heal synchronous stores asynchronously
       setTimeout(() => authStorage.saveUser(foundUser), 0);
@@ -209,6 +213,10 @@ export const authStorage = {
     const idbUser = await getIDBUser();
     if (idbUser && (idbUser.email || idbUser.user_email || idbUser.id)) {
       if (!idbUser.email && idbUser.user_email) idbUser.email = idbUser.user_email;
+      if (idbUser.email) {
+        idbUser.email = idbUser.email.trim().toLowerCase();
+        idbUser.user_email = idbUser.email;
+      }
       inMemoryUser = idbUser;
       authStorage.saveUser(idbUser);
       return idbUser;
@@ -266,6 +274,10 @@ export const authStorage = {
     if (!userObj) return;
     if (!userObj.email && userObj.user_email) {
       userObj.email = userObj.user_email;
+    }
+    if (userObj.email) {
+      userObj.email = userObj.email.trim().toLowerCase();
+      userObj.user_email = userObj.email;
     }
     inMemoryUser = userObj;
     const str = JSON.stringify(userObj);

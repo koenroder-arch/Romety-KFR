@@ -156,19 +156,26 @@ export default function Account() {
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Lock body and background scrolling when activeSheet popup is open
+  // Lock body and background scrolling when editing screen or activeSheet popup is open
   useEffect(() => {
-    if (activeSheet) {
-      const originalOverflow = document.body.style.overflow;
+    if (editing || activeSheet) {
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalHtmlOverflow = document.documentElement.style.overflow;
       const originalTouchAction = document.body.style.touchAction;
+
       document.body.style.overflow = 'hidden';
-      document.body.style.touchAction = 'none';
+      document.documentElement.style.overflow = 'hidden';
+      if (activeSheet) {
+        document.body.style.touchAction = 'none';
+      }
+
       return () => {
-        document.body.style.overflow = originalOverflow;
+        document.body.style.overflow = originalBodyOverflow;
+        document.documentElement.style.overflow = originalHtmlOverflow;
         document.body.style.touchAction = originalTouchAction;
       };
     }
-  }, [activeSheet]);
+  }, [editing, activeSheet]);
 
   // Change detection for Save button & Discard warning
   const hasChanges = React.useMemo(() => {
@@ -885,7 +892,7 @@ export default function Account() {
 
   return (
     <div 
-      className="min-h-screen max-w-md mx-auto relative" 
+      className={`min-h-screen max-w-md mx-auto relative ${editing ? 'overflow-hidden max-h-screen pointer-events-none' : ''}`} 
       style={{ 
         background: bg, 
         fontFamily: "'Inter', sans-serif", 
@@ -1416,7 +1423,7 @@ export default function Account() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className={`fixed inset-0 z-[200] ${activeSheet ? 'overflow-hidden pointer-events-none' : 'overflow-y-auto'} max-w-md mx-auto flex flex-col`}
+            className={`fixed inset-0 z-[200] ${activeSheet ? 'overflow-hidden pointer-events-none' : 'overflow-y-auto pointer-events-auto'} max-w-md mx-auto flex flex-col overscroll-contain`}
             style={{ background: bg }}
           >
             {/* Header */}

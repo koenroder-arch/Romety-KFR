@@ -38,6 +38,22 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
     if (currentUser) loadChatRooms();
   }, [currentUser]);
 
+  // Sluit het 3-bolletjes menu wanneer de gebruiker ergens anders op de pagina klikt of tikt
+  useEffect(() => {
+    if (!openMenuProfileId) return;
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest?.('.profile-options-menu-container')) {
+        setOpenMenuProfileId(null);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    window.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      window.removeEventListener('click', handleOutsideClick);
+      window.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [openMenuProfileId]);
+
   const loadChatRooms = async () => {
     try {
       const [roomsA, roomsB] = await Promise.all([
@@ -184,6 +200,21 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
           }
         `}</style>
 
+        {/* Backdrop om menu te sluiten als er ergens anders op de pagina wordt geklikt */}
+        {openMenuProfileId && (
+          <div
+            className="fixed inset-0 z-35 bg-transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpenMenuProfileId(null);
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              setOpenMenuProfileId(null);
+            }}
+          />
+        )}
+
         {/* Profile Swiper Area (Full screen scrolling snap feed) */}
         <div className="absolute inset-0 z-0">
           <div 
@@ -205,7 +236,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
 
                   {/* ── Three-dots options button (top right) ── */}
                   <div 
-                    className="absolute right-4 z-30 pointer-events-auto"
+                    className="profile-options-menu-container absolute right-4 z-40 pointer-events-auto"
                     style={{ top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 58px)' }}
                   >
                     <button

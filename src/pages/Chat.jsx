@@ -10,7 +10,7 @@ import ChatRoomView from '@/components/welove/ChatRoomView';
 import { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { createPageUrl } from '@/utils';
-import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { deleteChatRoomAndMedia, getSyncedChatReadCounts } from '@/lib/chatUtils';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -43,6 +43,7 @@ function DeletedRoomCard({ room, otherProfile, isDark }) {
   const photos = getProfilePhotos(otherProfile);
   const avatar = photos[0] || null;
   const displayTitle = otherProfile?.age ? `${otherProfile.age} jaar` : 'Match';
+  const isInactive = room.contact_sent_a === 'inactivity' || room.contact_sent_b === 'inactivity';
 
   let remainingText = '';
   if (room.deleted_at) {
@@ -51,9 +52,17 @@ function DeletedRoomCard({ room, otherProfile, isDark }) {
     remainingText = ` · Nog ${hours}u`;
   }
 
+  const toastMsg = isInactive
+    ? 'Deze chat is beëindigd vanwege 7 dagen inactiviteit en kan niet meer geopend worden.'
+    : 'Deze chat is beëindigd en kan niet meer geopend worden.';
+
+  const subText = isInactive
+    ? `❌ Beëindigd wegens 7 dagen inactiviteit${remainingText}`
+    : `❌ Chat beëindigd${remainingText}`;
+
   return (
     <div
-      onClick={() => toast.info('Deze chat is beëindigd en kan niet meer geopend worden.')}
+      onClick={() => toast.info(toastMsg)}
       className="w-full flex items-center gap-3.5 p-3 rounded-2xl border text-left cursor-not-allowed select-none transition-opacity opacity-75"
       style={{
         background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
@@ -92,7 +101,7 @@ function DeletedRoomCard({ room, otherProfile, isDark }) {
           </span>
         </div>
         <p className="text-xs truncate font-medium text-gray-500">
-          ❌ Chat beëindigd{remainingText}
+          {subText}
         </p>
       </div>
     </div>
@@ -259,6 +268,7 @@ export default function Chat() {
       }
 
       // Load message counts & latest message timestamp for active rooms
+      await getSyncedChatReadCounts(user.email);
       const counts = {};
       const latestActivity = {};
       await Promise.all(
@@ -284,40 +294,51 @@ export default function Chat() {
         })
       );
 
-      // Filter out rooms with > 7 days of inactivity and notify users
+      // Check rooms with > 7 days of inactivity and mark them as 24h greyed out
       const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-      const activeRooms = [];
-      for (const r of visible) {
-        const lastTime = latestActivity[r.id] || new Date(r.created_at || 0).getTime();
-        if (now.getTime() - lastTime > SEVEN_DAYS_MS) {
-          // Delete all photos from storage and mark room as deleted
-          deleteChatRoomAndMedia(r.id);
+      await Promise.all(
+        visible.map(async (r) => {
+          if (r.status === 'deleted') return;
+          const lastTime = latestActivity[r.id] || new Date(r.created_at || 0).getTime();
+          if (now.getTime() - lastTime > SEVEN_DAYS_MS) {
+            // Delete media and update room status in DB as deleted with 24h expiry
+            await deleteChatRoomAndMedia(r.id, { reason: 'inactivity' });
 
-          // Notify both users
-          base44.entities.Notification.create({
-            to_email: r.user_a_email,
-            type: 'chat_inactive',
-            venue_name: 'Een chat is beëindigd en verwijderd vanwege 7 dagen inactiviteit.',
-            is_read: false,
-            created_date: now.toISOString(),
-          }).catch(() => {});
+            // Mutate in-memory object so it renders immediately as a deleted room for 24 hours
+            r.status = 'deleted';
+            r.contact_sent_a = 'inactivity';
+            r.contact_sent_b = 'inactivity';
+            r.extension_accepted_a = true;
+            r.extension_accepted_b = true;
+            r.chat_closed_at = now.toISOString();
+            r.deleted_at = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-          base44.entities.Notification.create({
-            to_email: r.user_b_email,
-            type: 'chat_inactive',
-            venue_name: 'Een chat is beëindigd en verwijderd vanwege 7 dagen inactiviteit.',
-            is_read: false,
-            created_date: now.toISOString(),
-          }).catch(() => {});
-        } else {
-          activeRooms.push(r);
-        }
-      }
+            // Notify both users
+            base44.entities.Notification.create({
+              to_email: r.user_a_email,
+              type: 'chat_inactive',
+              venue_name: 'Een chat is beëindigd wegens 7 dagen inactiviteit.',
+              is_read: false,
+              created_date: now.toISOString(),
+            }).catch(() => {});
 
-      // Sort: pending first, then by latest message activity descending with stable ID tiebreaker
-      activeRooms.sort((a, b) => {
+            base44.entities.Notification.create({
+              to_email: r.user_b_email,
+              type: 'chat_inactive',
+              venue_name: 'Een chat is beëindigd wegens 7 dagen inactiviteit.',
+              is_read: false,
+              created_date: now.toISOString(),
+            }).catch(() => {});
+          }
+        })
+      );
+
+      // Sort visible rooms: pending first, then active by latest activity descending, then archived/deleted
+      visible.sort((a, b) => {
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (b.status === 'pending' && a.status !== 'pending') return 1;
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (b.status === 'active' && a.status !== 'active') return 1;
         const timeA = latestActivity[a.id] || new Date(a.created_at || 0).getTime();
         const timeB = latestActivity[b.id] || new Date(b.created_at || 0).getTime();
         if (timeB !== timeA) return timeB - timeA;
@@ -327,7 +348,7 @@ export default function Chat() {
       if (Object.keys(profMap).length > 0) {
         setProfiles(prev => ({ ...prev, ...profMap }));
       }
-      setRooms([...activeRooms]);
+      setRooms([...visible]);
       setMessageCounts(counts);
     } catch (e) {}
     setLoading(false);
@@ -529,10 +550,14 @@ export default function Chat() {
     if (r.status !== 'deleted') return false;
     // Show for 24h
     if (r.deleted_at && new Date(r.deleted_at) <= now) return false;
-    // Do not show to the user who ended/deleted the chat
-    const isA = r.user_a_email === user?.email;
-    const iDeletedIt = isA ? r.extension_accepted_a === false : r.extension_accepted_b === false;
-    if (iDeletedIt) return false;
+    const isInactive = r.contact_sent_a === 'inactivity' || r.contact_sent_b === 'inactivity';
+    // If ended due to 7-day inactivity, both users see the card for 24h
+    if (!isInactive) {
+      // Do not show to the user who ended/deleted the chat
+      const isA = r.user_a_email === user?.email;
+      const iDeletedIt = isA ? r.extension_accepted_a === false : r.extension_accepted_b === false;
+      if (iDeletedIt) return false;
+    }
     if (localStorage.getItem(`deleted_chat_hidden_${r.id}`)) return false;
     return true;
   });

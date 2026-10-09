@@ -41,7 +41,11 @@ const createEntityHandler = (tableName) => {
       if (filters) {
         Object.entries(filters).forEach(([key, val]) => {
           if (val !== undefined && val !== null) {
-            query = query.eq(key, val);
+            let searchVal = val;
+            if (typeof searchVal === 'string' && (key.includes('email') || searchVal.includes('@'))) {
+              searchVal = searchVal.trim().toLowerCase();
+            }
+            query = query.eq(key, searchVal);
           }
         });
       }
@@ -63,7 +67,11 @@ const createEntityHandler = (tableName) => {
         if (filters) {
           Object.entries(filters).forEach(([key, val]) => {
             if (val !== undefined && val !== null) {
-              fallbackQuery = fallbackQuery.eq(key, val);
+              let searchVal = val;
+              if (typeof searchVal === 'string' && (key.includes('email') || searchVal.includes('@'))) {
+                searchVal = searchVal.trim().toLowerCase();
+              }
+              fallbackQuery = fallbackQuery.eq(key, searchVal);
             }
           });
         }
@@ -78,6 +86,11 @@ const createEntityHandler = (tableName) => {
 
     create: async (data) => {
       const payload = { ...data };
+      Object.keys(payload).forEach((k) => {
+        if (typeof payload[k] === 'string' && (k.includes('email') || payload[k].includes('@'))) {
+          payload[k] = payload[k].trim().toLowerCase();
+        }
+      });
       if (!('created_date' in payload) && !('created_at' in payload)) {
         if (tableName === 'ChatRoom' || tableName === 'ChatMessage') {
           payload.created_at = new Date().toISOString();

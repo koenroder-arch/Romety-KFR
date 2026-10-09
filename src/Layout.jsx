@@ -9,6 +9,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
 
 import { base44 } from '@/api/base44Client';
+import { getSyncedChatReadCounts, deleteChatRoomAndMedia } from '@/lib/chatUtils';
 
 const NAV_CONFIG = [
   { key: 'navHome', icon: Home, page: 'Home' },
@@ -28,7 +29,7 @@ export default function Layout({ children, currentPageName }) {
     return () => window.removeEventListener('romety_hints_photo_state', handlePhotoState);
   }, []);
 
-  const showNav = !['Onboarding', 'Language', 'Login'].includes(currentPageName) && !(currentPageName === 'Hints' && hintsPhotoCaptured);
+  const showNav = !['Onboarding', 'Language', 'Login', 'Hints'].includes(currentPageName);
   const { unreadCount, markAllRead } = useNotifications();
   const { lang } = useLang();
   const { theme } = useTheme();
@@ -59,6 +60,7 @@ export default function Layout({ children, currentPageName }) {
       try {
         const email = localStorage.getItem('romety_user_email');
         if (!email) return;
+        await getSyncedChatReadCounts(email);
         const [rooms = [], rooms2 = []] = await Promise.all([
           base44.entities.ChatRoom.filter({ user_a_email: email }).catch(() => []),
           base44.entities.ChatRoom.filter({ user_b_email: email }).catch(() => [])
@@ -77,10 +79,22 @@ export default function Layout({ children, currentPageName }) {
 
         const activeRooms = uniqueRooms.filter(r => r.status === 'active');
         if (activeRooms.length > 0) {
+          const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+          const nowMs = Date.now();
           await Promise.all(
             activeRooms.map(async (r) => {
               try {
                 const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id }).catch(() => []);
+                const latestMsgTime = msgs && msgs.length > 0
+                  ? Math.max(...msgs.map(m => new Date(m.created_at || m.created_date || 0).getTime()))
+                  : new Date(r.created_at || 0).getTime();
+
+                // If inactive for > 7 days, trigger deletion and do NOT count towards badge
+                if (nowMs - latestMsgTime > SEVEN_DAYS_MS) {
+                  deleteChatRoomAndMedia(r.id, { reason: 'inactivity' }).catch(() => {});
+                  return;
+                }
+
                 const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== email);
                 const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
                 const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
@@ -189,7 +203,7 @@ export default function Layout({ children, currentPageName }) {
             touchAction: 'none',
           }}
         >
-          <div className="flex justify-around items-center px-2 py-4">
+          <div className="flex justify-around items-center px-2 pt-3 pb-2">
             {NAV_ITEMS.map(({ name, icon: Icon, page }) => {
               const isActive = currentPageName === page;
               const inactiveColor = isDark ? 'rgba(255,255,255,0.5)' : '#888888';

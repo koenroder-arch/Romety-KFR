@@ -5,7 +5,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { ChevronLeft, Send, Camera, X, Clock, MoreVertical, AlertTriangle, Trash2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
-import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { deleteChatRoomAndMedia, syncChatReadState } from '@/lib/chatUtils';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -347,6 +347,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     if (localRoom.id) {
       const partnerMsgs = messages.filter(m => !m.is_system && m.sender_email !== currentUserEmail);
       localStorage.setItem(`chat_read_count_${localRoom.id}`, String(partnerMsgs.length));
+      syncChatReadState(currentUserEmail, localRoom.id, partnerMsgs.length);
     }
   }, [loading, messages, localRoom.id, currentUserEmail]);
 

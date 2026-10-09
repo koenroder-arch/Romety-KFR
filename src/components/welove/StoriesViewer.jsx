@@ -422,9 +422,28 @@ export default function StoriesViewer({
           <div className="w-2/3 h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); handleNext(); }} />
         </div>
 
+        {/* Ambient blurred backdrop so non-9:16 photos blend seamlessly without empty black bars */}
+        {activeStory.media_url && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            {activeStory.media_type === 'video' ? (
+              <video
+                src={activeStory.media_url}
+                className="w-full h-full object-cover blur-3xl opacity-35 scale-125 brightness-75"
+                muted
+              />
+            ) : (
+              <img
+                src={activeStory.media_url}
+                alt=""
+                className="w-full h-full object-cover blur-3xl opacity-40 scale-125 brightness-75"
+              />
+            )}
+          </div>
+        )}
+
         {/* Loading Indicator beneath the media */}
         {!mediaLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center z-0">
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
              <div className="w-9 h-9 rounded-full border-3 border-[#FF4B72]/20 border-t-[#FF4B72] animate-spin" />
           </div>
         )}
@@ -434,7 +453,7 @@ export default function StoriesViewer({
             key={activeStory.media_url}
             ref={videoRef}
             src={activeStory.media_url} 
-            className="w-full max-h-[85vh] object-contain pointer-events-none z-10 relative" 
+            className="w-full h-full max-h-[85vh] object-contain pointer-events-none z-10 relative" 
             autoPlay 
             playsInline 
             muted 
@@ -451,7 +470,7 @@ export default function StoriesViewer({
             key={activeStory.media_url}
             src={activeStory.media_url} 
             alt="" 
-            className="w-full h-full max-h-[100vh] object-cover pointer-events-none z-10 relative" 
+            className="w-full h-full max-h-[85vh] object-contain pointer-events-none z-10 relative" 
             onLoad={() => {
               setMediaLoaded(true);
               mediaLoadedRef.current = true;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
 import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame, Loader2, Camera } from 'lucide-react';
@@ -19,6 +20,7 @@ import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
+import { getSyncedChatReadCounts, deleteChatRoomAndMedia } from '@/lib/chatUtils';
 
 const REPORT_REASONS = [
   { id: 'ongepaste_foto', label: 'Ongepaste foto', emoji: '🖼️' },
@@ -176,7 +178,9 @@ export default function Home() {
         allClubs = [],
         allHints = [],
         allStories = [],
-        reportedEmails = new Set()
+        reportedEmails = new Set(),
+        roomsA = [],
+        roomsB = []
       ] = await Promise.all([
         base44.entities.UserProfile.filter({ user_email: u.email }).catch(() => []),
         base44.entities.VenueCheckIn.filter({ user_email: u.email }).catch(() => []),
@@ -189,7 +193,9 @@ export default function Home() {
         base44.entities.Club.list().catch(() => []),
         base44.entities.Hint.list('-created_date', 100).catch(() => []),
         base44.entities.Story.list('-created_date', 100).catch(() => []),
-        fetchReportedEmails(u.email).catch(() => new Set())
+        fetchReportedEmails(u.email).catch(() => new Set()),
+        base44.entities.ChatRoom.filter({ user_a_email: u.email }).catch(() => []),
+        base44.entities.ChatRoom.filter({ user_b_email: u.email }).catch(() => []),
       ]);
 
       const safeProfiles = allProfilesData.filter((p) => p && p.user_email && !reportedEmails.has(p.user_email));
@@ -231,19 +237,59 @@ export default function Home() {
       });
       setMatches(matchData);
 
+      // Unieke chatrooms van de huidige gebruiker
+      const allUserRoomsRaw = [...(roomsA || []), ...(roomsB || [])];
+      const seenRawIds = new Set();
+      const uniqueAllRooms = allUserRoomsRaw.filter(r => {
+        if (!r || seenRawIds.has(r.id)) return false;
+        seenRawIds.add(r.id);
+        return true;
+      });
+
+      // Bepaal voor elke partner of de chat actief/pending is, of verwijderd
+      const activePartnerEmails = new Set();
+      const deletedPartnerEmails = new Set();
+      uniqueAllRooms.forEach(r => {
+        const partner = (r.user_a_email === u.email ? r.user_b_email : r.user_a_email || '').toLowerCase().trim();
+        if (!partner) return;
+        if (r.status === 'active' || r.status === 'pending') {
+          activePartnerEmails.add(partner);
+        } else if (r.status === 'deleted' || r.deleted_at) {
+          deletedPartnerEmails.add(partner);
+        }
+      });
+
       // Super matches
-      const iLiked = new Set(likesISent.map((l) => l && l.to_email).filter(Boolean));
-      const likedMe = new Set(likesIReceived.map((l) => l && l.from_email).filter(Boolean));
-      const mutualEmails = [...iLiked].filter((e) => likedMe.has(e) && !reportedEmails.has(e));
+      const iLiked = new Set(likesISent.map((l) => l && (l.to_email || '').toLowerCase().trim()).filter(Boolean));
+      const likedMe = new Set(likesIReceived.map((l) => l && (l.from_email || '').toLowerCase().trim()).filter(Boolean));
+      const mutualEmails = [...iLiked].filter((e) => {
+        if (!likedMe.has(e)) return false;
+        if (reportedEmails.has(e)) return false;
+        // Wanneer een chat met deze partner verwijderd is (voor welke reden dan ook) en er is geen actieve/pending chat,
+        // gaat de supermatch ook weg en worden eventuele likes in de database opgeruimd.
+        if (deletedPartnerEmails.has(e) && !activePartnerEmails.has(e)) {
+          supabase.from('Like').delete().match({ from_email: u.email, to_email: e }).catch(() => {});
+          supabase.from('Like').delete().match({ from_email: e, to_email: u.email }).catch(() => {});
+          return false;
+        }
+        return true;
+      });
       setSuperMatchCount(mutualEmails.length);
 
-      // Unmatched likes (who liked me but I haven't liked back, excluding reported)
-      const unmatched = likesIReceived.filter((l) => l && l.from_email && !iLiked.has(l.from_email) && !reportedEmails.has(l.from_email));
+      // Unmatched likes (who liked me but I haven't liked back, excluding reported & deleted partners)
+      const unmatched = likesIReceived.filter((l) => {
+        const from = l && (l.from_email || '').toLowerCase().trim();
+        if (!from) return false;
+        if (iLiked.has(from)) return false;
+        if (reportedEmails.has(from)) return false;
+        if (deletedPartnerEmails.has(from) && !activePartnerEmails.has(from)) return false;
+        return true;
+      });
       setUnmatchedLikes(unmatched);
       setAllProfiles(safeProfiles);
 
       // Supermatch profiles for sheet
-      const superProfs = safeProfiles.filter((p) => p && p.user_email && mutualEmails.includes(p.user_email));
+      const superProfs = safeProfiles.filter((p) => p && p.user_email && mutualEmails.includes(p.user_email.toLowerCase().trim()));
       setSuperMatchProfiles(superProfs);
 
       // Mutual matches for SendHintSheet
@@ -251,17 +297,8 @@ export default function Home() {
 
       // Chat unread count calculation (incoming invites + unread partner messages)
       try {
-        const [roomsA = [], roomsB = []] = await Promise.all([
-          base44.entities.ChatRoom.filter({ user_a_email: u.email }).catch(() => []),
-          base44.entities.ChatRoom.filter({ user_b_email: u.email }).catch(() => []),
-        ]);
-        const allUserRooms = [...roomsA, ...roomsB].filter(r => r && r.status !== 'deleted' && !r.deleted_at);
-        const seenRoomIds = new Set();
-        const uniqueRooms = allUserRooms.filter(r => {
-          if (seenRoomIds.has(r.id)) return false;
-          seenRoomIds.add(r.id);
-          return true;
-        });
+        await getSyncedChatReadCounts(u.email);
+        const uniqueRooms = uniqueAllRooms.filter(r => r && r.status !== 'deleted' && !r.deleted_at);
 
         let totalBadge = 0;
 
@@ -271,10 +308,22 @@ export default function Home() {
 
         // 2. Active rooms with unread messages from partner
         const activeRooms = uniqueRooms.filter(r => r.status === 'active');
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        const nowMs = Date.now();
         await Promise.all(
           activeRooms.map(async (r) => {
             try {
               const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
+              const latestMsgTime = msgs && msgs.length > 0
+                ? Math.max(...msgs.map(m => new Date(m.created_at || m.created_date || 0).getTime()))
+                : new Date(r.created_at || 0).getTime();
+
+              // If inactive for > 7 days, trigger deletion and do NOT count towards badge
+              if (nowMs - latestMsgTime > SEVEN_DAYS_MS) {
+                deleteChatRoomAndMedia(r.id, { reason: 'inactivity' }).catch(() => {});
+                return;
+              }
+
               const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== u.email);
               const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
               const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
@@ -594,19 +643,8 @@ export default function Home() {
         }}
       >
         <div className="relative flex items-center justify-between w-full">
-          {/* Logo on the left */}
-          <div className="flex items-center z-10">
-            <img 
-              src="/romety-logo-transparent.png?v=3" 
-              alt="Romety" 
-              className="h-7 w-auto object-contain select-none transition-transform active:scale-95" 
-              style={{
-                imageRendering: 'auto',
-                mixBlendMode: isDark ? 'screen' : 'normal',
-                filter: isDark ? 'drop-shadow(0 0 10px rgba(234, 63, 211, 0.4))' : 'drop-shadow(0 2px 8px rgba(255, 75, 114, 0.25))'
-              }}
-            />
-          </div>
+          {/* Left spacer (logo removed) */}
+          <div className="w-8 z-10" />
 
           {/* Centered Title */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

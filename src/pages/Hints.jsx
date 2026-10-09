@@ -4,11 +4,11 @@ import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
-import { X, Send, AlertCircle, Download, RefreshCw, Zap, ZapOff, Type, MapPin } from 'lucide-react';
+import { X, Send, AlertCircle, Download, RefreshCw, Zap, ZapOff, Type, MapPin, Trash2, Image as ImageIcon } from 'lucide-react';
 import { createPageUrl } from '@/utils';
 
 // Helper component for Drag & Drop (1 finger), Pinch-to-zoom (2 fingers), and Rotate (2 fingers)
-function GestureSticker({ transform, onTransformChange, onTap, children, innerRef }) {
+function GestureSticker({ transform, onTransformChange, onTap, children, innerRef, stickerType, onDragStart, onDragMove, onDragEnd }) {
   const stateRef = useRef({
     isInteracting: false,
     startX: 0,
@@ -72,6 +72,9 @@ function GestureSticker({ transform, onTransformChange, onTap, children, innerRe
       const dx = e.touches[0].clientX - stateRef.current.startX;
       const dy = e.touches[0].clientY - stateRef.current.startY;
       if (Math.hypot(dx, dy) > 5) {
+        if (!stateRef.current.moved) {
+          onDragStart?.(stickerType);
+        }
         stateRef.current.moved = true;
       }
       onTransformChange(prev => ({
@@ -79,6 +82,9 @@ function GestureSticker({ transform, onTransformChange, onTap, children, innerRe
         x: stateRef.current.initX + dx,
         y: stateRef.current.initY + dy,
       }));
+      if (stateRef.current.moved) {
+        onDragMove?.(e.touches[0].clientX, e.touches[0].clientY, stickerType);
+      }
     } else if (e.touches.length >= 2) {
       // 2 finger Pinch-to-zoom & Rotate
       const t1 = e.touches[0];
@@ -118,7 +124,12 @@ function GestureSticker({ transform, onTransformChange, onTap, children, innerRe
         initAngle: 0,
       };
     } else if (e.touches.length === 0) {
-      if (!stateRef.current.moved && (Date.now() - stateRef.current.startTime) < 280) {
+      if (stateRef.current.moved) {
+        const lastTouch = e.changedTouches && e.changedTouches[0];
+        const clientX = lastTouch ? lastTouch.clientX : stateRef.current.startX;
+        const clientY = lastTouch ? lastTouch.clientY : stateRef.current.startY;
+        onDragEnd?.(clientX, clientY, stickerType);
+      } else if ((Date.now() - stateRef.current.startTime) < 280) {
         onTap?.();
       }
       stateRef.current.isInteracting = false;
@@ -138,18 +149,28 @@ function GestureSticker({ transform, onTransformChange, onTap, children, innerRe
     const onMouseMove = (moveEvt) => {
       const dx = moveEvt.clientX - startX;
       const dy = moveEvt.clientY - startY;
-      if (Math.hypot(dx, dy) > 4) moved = true;
+      if (Math.hypot(dx, dy) > 4) {
+        if (!moved) {
+          onDragStart?.(stickerType);
+        }
+        moved = true;
+      }
       onTransformChange(prev => ({
         ...prev,
         x: initX + dx,
         y: initY + dy,
       }));
+      if (moved) {
+        onDragMove?.(moveEvt.clientX, moveEvt.clientY, stickerType);
+      }
     };
 
-    const onMouseUp = () => {
+    const onMouseUp = (upEvt) => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
-      if (!moved && (Date.now() - startTime) < 280) {
+      if (moved) {
+        onDragEnd?.(upEvt.clientX, upEvt.clientY, stickerType);
+      } else if ((Date.now() - startTime) < 280) {
         onTap?.();
       }
     };
@@ -176,7 +197,7 @@ function GestureSticker({ transform, onTransformChange, onTap, children, innerRe
       onTouchEnd={handleTouchEnd}
       onMouseDown={handleMouseDown}
       onWheel={handleWheel}
-      className="absolute z-30 select-none cursor-grab active:cursor-grabbing touch-none"
+      className="absolute z-30 select-none cursor-grab active:cursor-grabbing touch-none gesture-sticker-item"
       style={{
         left: '50%',
         top: '50%',
@@ -221,7 +242,95 @@ export default function Hints() {
   const [locTransform, setLocTransform] = useState({ x: 0, y: -75, scale: 1, rotation: 0 });
   const textRef = useRef(null);
   const locRef = useRef(null);
+  const textInputRef = useRef(null);
   const previewContainerRef = useRef(null);
+
+  // Trash can drag-to-delete state
+  const trashRef = useRef(null);
+  const [isDraggingSticker, setIsDraggingSticker] = useState(false);
+  const [isOverTrash, setIsOverTrash] = useState(false);
+  const isOverTrashRef = useRef(false);
+  const draggingTypeRef = useRef(null);
+
+  const checkOverTrash = (clientX, clientY) => {
+    if (!trashRef.current) return false;
+    const rect = trashRef.current.getBoundingClientRect();
+    const pad = 30; // Generous drop area
+    const isOver = (
+      clientX >= rect.left - pad &&
+      clientX <= rect.right + pad &&
+      clientY >= rect.top - pad &&
+      clientY <= rect.bottom + pad
+    );
+    if (isOver && !isOverTrashRef.current) {
+      if (navigator.vibrate) navigator.vibrate(25);
+    }
+    isOverTrashRef.current = isOver;
+    setIsOverTrash(isOver);
+    return isOver;
+  };
+
+  const handleStickerDragStart = (type) => {
+    draggingTypeRef.current = type;
+    setIsDraggingSticker(true);
+  };
+
+  const handleStickerDragMove = (clientX, clientY) => {
+    checkOverTrash(clientX, clientY);
+  };
+
+  const handleStickerDragEnd = (clientX, clientY, type) => {
+    const droppedInTrash = isOverTrashRef.current || checkOverTrash(clientX, clientY);
+    const targetType = type || draggingTypeRef.current;
+    
+    if (droppedInTrash && targetType) {
+      if (targetType === 'text') {
+        setStoryText('');
+        setTextTransform({ x: 0, y: 15, scale: 1, rotation: 0 });
+        toast.success('Tekst verwijderd 🗑️');
+      } else if (targetType === 'location') {
+        setStoryLocation(null);
+        setLocTransform({ x: 0, y: -75, scale: 1, rotation: 0 });
+        toast.success('Locatie verwijderd 🗑️');
+      }
+      if (navigator.vibrate) navigator.vibrate([40, 50, 40]);
+    }
+
+    setIsDraggingSticker(false);
+    setIsOverTrash(false);
+    isOverTrashRef.current = false;
+    draggingTypeRef.current = null;
+  };
+
+  const handleTrashClick = () => {
+    if (storyText && storyLocation) {
+      setStoryText('');
+      setTextTransform({ x: 0, y: 15, scale: 1, rotation: 0 });
+      toast.success('Tekst verwijderd 🗑️');
+    } else if (storyText) {
+      setStoryText('');
+      setTextTransform({ x: 0, y: 15, scale: 1, rotation: 0 });
+      toast.success('Tekst verwijderd 🗑️');
+    } else if (storyLocation) {
+      setStoryLocation(null);
+      setLocTransform({ x: 0, y: -75, scale: 1, rotation: 0 });
+      toast.success('Locatie verwijderd 🗑️');
+    }
+    if (navigator.vibrate) navigator.vibrate(40);
+  };
+
+  // Auto-focus text input and position cursor at end when text modal opens
+  useEffect(() => {
+    if (showTextModal) {
+      setTimeout(() => {
+        if (textInputRef.current) {
+          textInputRef.current.focus();
+          textInputRef.current.selectionStart = textInputRef.current.value.length;
+          textInputRef.current.selectionEnd = textInputRef.current.value.length;
+        }
+      }, 50);
+    }
+  }, [showTextModal]);
 
   // Capture preview state
   const [capturedBlob, setCapturedBlob] = useState(null);
@@ -291,6 +400,13 @@ export default function Hints() {
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('webkit-playsinline', 'true');
+        try {
+          await videoRef.current.play();
+        } catch (e) {
+          console.warn('Video play error:', e);
+        }
       }
     } catch (err) {
       console.warn('Camera access failed:', err.name, err.message);
@@ -302,6 +418,13 @@ export default function Hints() {
         setStream(videoOnlyStream);
         if (videoRef.current) {
           videoRef.current.srcObject = videoOnlyStream;
+          videoRef.current.setAttribute('playsinline', 'true');
+          videoRef.current.setAttribute('webkit-playsinline', 'true');
+          try {
+            await videoRef.current.play();
+          } catch (e) {
+            console.warn('Video play error:', e);
+          }
         }
       } catch (err2) {
         if (err2.name === 'NotAllowedError' || err2.name === 'PermissionDeniedError') {
@@ -390,8 +513,9 @@ export default function Hints() {
     }
   };
 
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
+  const capturePhoto = async () => {
+    const video = videoRef.current;
+    if (!video) return;
     if (navigator.vibrate) navigator.vibrate(50);
 
     if (flashMode) {
@@ -399,33 +523,101 @@ export default function Hints() {
       setTimeout(() => setScreenFlash(false), 260);
     }
 
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    try {
+      // 1. Zorg dat de video actief draait
+      if (video.paused) {
+        try {
+          await video.play();
+        } catch (e) {}
+      }
 
-    const ctx = canvas.getContext('2d');
-    if (facingMode === 'user') {
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-    }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // 2. Wacht tot de compositor een actuele frame heeft getekend (voorkomt lege zwarte frames in iOS Safari)
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-    canvas.toBlob(
-      (blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          setCapturedBlob(blob);
-          setCapturedType('photo');
-          setCapturedUrl(url);
+      // 3. Bepaal afmetingen met veilige fallback
+      const width = video.videoWidth || video.clientWidth || 720;
+      const height = video.videoHeight || video.clientHeight || 1280;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      // 4. Teken frame (tot 3 pogingen mocht het eerste frame nog leeg/zwart zijn)
+      let drawn = false;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 60));
+        }
+
+        ctx.save();
+        ctx.clearRect(0, 0, width, height);
+
+        if (facingMode === 'user') {
+          ctx.translate(width, 0);
+          ctx.scale(-1, 1);
+        }
+
+        ctx.drawImage(video, 0, 0, width, height);
+        ctx.restore();
+
+        try {
+          const pixel = ctx.getImageData(Math.floor(width / 2), Math.floor(height / 2), 1, 1).data;
+          if (pixel[0] > 0 || pixel[1] > 0 || pixel[2] > 0) {
+            drawn = true;
+            break;
+          }
+        } catch (e) {
+          drawn = true;
+          break;
+        }
+      }
+
+      // 5. Genereer dataUrl voor directe, foutloze preview in <img>
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      setCapturedUrl(dataUrl);
+      setCapturedType('photo');
+
+      // 6. Genereer Blob voor latere uploads en stop daarna pas netjes de camera tracks
+      canvas.toBlob(
+        async (blob) => {
+          if (blob) {
+            setCapturedBlob(blob);
+          } else {
+            try {
+              const res = await fetch(dataUrl);
+              const b = await res.blob();
+              setCapturedBlob(b);
+            } catch (err) {
+              console.warn('Fallback blob error:', err);
+            }
+          }
+
           if (stream) {
             stream.getTracks().forEach((t) => t.stop());
           }
-        }
-      },
-      'image/jpeg',
-      0.95
-    );
+        },
+        'image/jpeg',
+        0.95
+      );
+    } catch (err) {
+      console.error('Error in capturePhoto:', err);
+      toast.error('Kon foto niet vastleggen, probeer opnieuw');
+    }
+  };
+
+  const handleGalleryPick = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isVideo = file.type.startsWith('video');
+    const url = URL.createObjectURL(file);
+    setCapturedBlob(file);
+    setCapturedType(isVideo ? 'video' : 'photo');
+    setCapturedUrl(url);
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+    }
+    e.target.value = '';
   };
 
   const startRecording = () => {
@@ -491,7 +683,7 @@ export default function Hints() {
   };
 
   const resetCamera = () => {
-    if (capturedUrl) {
+    if (capturedUrl && capturedUrl.startsWith('blob:')) {
       URL.revokeObjectURL(capturedUrl);
     }
     setCapturedBlob(null);
@@ -501,6 +693,10 @@ export default function Hints() {
     setStoryLocation(null);
     setTextTransform({ x: 0, y: 15, scale: 1, rotation: 0 });
     setLocTransform({ x: 0, y: -75, scale: 1, rotation: 0 });
+    setIsDraggingSticker(false);
+    setIsOverTrash(false);
+    isOverTrashRef.current = false;
+    draggingTypeRef.current = null;
     initCamera(facingMode);
   };
 
@@ -693,7 +889,10 @@ export default function Hints() {
     return (
       <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
         {/* Top close button */}
-        <div className="p-4 flex items-center justify-between z-10">
+        <div 
+          className="p-4 flex items-center justify-between z-10"
+          style={{ paddingTop: 'max(16px, calc(env(safe-area-inset-top, 0px) + 12px))' }}
+        >
           <button
             onClick={() => navigate(createPageUrl('Home'))}
             className="p-2.5 rounded-full bg-black/5 dark:bg-white/10 active:scale-90 transition-transform"
@@ -748,10 +947,48 @@ export default function Hints() {
     lastTapRef.current = now;
   };
 
+  // Snapchat-style: tap anywhere on the captured photo to place text right there
+  const handlePhotoClick = (e) => {
+    if (!capturedUrl) {
+      handleDoubleTap();
+      return;
+    }
+    // If click happened on an interactive sticker (location or text), let the sticker handle its own tap/drag
+    if (e.target.closest?.('.gesture-sticker-item')) return;
+
+    const container = previewContainerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+
+    const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX);
+    const clientY = e.clientY ?? (e.touches && e.touches[0]?.clientY);
+    if (clientX === undefined || clientY === undefined) return;
+
+    const centerY = rect.top + rect.height / 2;
+    const rawOffsetY = clientY - centerY;
+
+    // Constrain Y so the text sticker doesn't clip beyond top bar or bottom action bar
+    const minY = -Math.round(rect.height * 0.36);
+    const maxY = Math.round(rect.height * 0.30);
+    const clampedY = Math.max(minY, Math.min(maxY, rawOffsetY));
+
+    setTextTransform(prev => ({
+      ...prev,
+      x: 0,
+      y: Math.round(clampedY),
+    }));
+    setShowTextModal(true);
+  };
+
   return (
     <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col justify-between bg-black text-white" style={{ zIndex: 40 }}>
       {/* ── TOP CONTROLS BAR ── */}
-      <div className="absolute top-4 left-0 right-0 z-50 px-4 flex items-center justify-between pointer-events-auto">
+      <div 
+        className="absolute left-0 right-0 z-50 px-4 flex items-center justify-between pointer-events-auto"
+        style={{
+          top: 'max(16px, calc(env(safe-area-inset-top, 0px) + 12px))',
+        }}
+      >
         {/* Left: Close or Discard */}
         <button
           type="button"
@@ -843,7 +1080,7 @@ export default function Hints() {
       <div 
         ref={previewContainerRef}
         className="flex-1 w-full h-full relative flex items-center justify-center overflow-hidden bg-black select-none touch-none"
-        onClick={handleDoubleTap}
+        onClick={handlePhotoClick}
       >
         {/* Full-screen flash illumination effect */}
         {screenFlash && (
@@ -855,14 +1092,14 @@ export default function Hints() {
             {capturedType === 'video' ? (
               <video
                 src={capturedUrl}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover pointer-events-none"
                 autoPlay
                 playsInline
                 loop
                 controls={false}
               />
             ) : (
-              <img src={capturedUrl} alt="Preview" className="w-full h-full object-cover" />
+              <img src={capturedUrl} alt="Preview" className="w-full h-full object-cover pointer-events-none" />
             )}
 
             {/* Overlays: Movable, resizable & rotatable Location sticker */}
@@ -872,6 +1109,10 @@ export default function Hints() {
                 transform={locTransform}
                 onTransformChange={setLocTransform}
                 onTap={() => setShowLocationModal(true)}
+                stickerType="location"
+                onDragStart={() => handleStickerDragStart('location')}
+                onDragMove={handleStickerDragMove}
+                onDragEnd={handleStickerDragEnd}
               >
                 <div className="bg-black/70 backdrop-blur-md px-4 py-2 rounded-full border border-pink-500/50 text-white font-bold text-xs sm:text-sm shadow-2xl flex items-center gap-1.5 hover:bg-black/80 ring-1 ring-pink-500/30">
                   <MapPin className="w-3.5 h-3.5 text-pink-500 fill-pink-500 flex-shrink-0" />
@@ -887,6 +1128,10 @@ export default function Hints() {
                 transform={textTransform}
                 onTransformChange={setTextTransform}
                 onTap={() => setShowTextModal(true)}
+                stickerType="text"
+                onDragStart={() => handleStickerDragStart('text')}
+                onDragMove={handleStickerDragMove}
+                onDragEnd={handleStickerDragEnd}
               >
                 <div className="bg-black/75 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-white/25 text-white font-black text-sm sm:text-base text-center shadow-2xl max-w-[280px] break-words hover:bg-black/85 ring-1 ring-white/20">
                   <span className="pointer-events-none">{storyText}</span>
@@ -937,6 +1182,7 @@ export default function Hints() {
                 ref={videoRef}
                 autoPlay
                 playsInline
+                webkit-playsinline="true"
                 muted
                 className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
               />
@@ -952,32 +1198,76 @@ export default function Hints() {
         )}
       </div>
 
-      {/* ── VOOR HET MAKEN VAN EEN FOTO: SHUTTER BUTTON (Boven de navigatiebalk) ── */}
+      {/* ── VOOR HET MAKEN VAN EEN FOTO: APPLE-STYLE ZWARTE DOORZICHTIGE BALK MET SHUTTER ── */}
       {!capturedUrl && !permissionError && (
         <div 
-          className="absolute bottom-[68px] sm:bottom-[74px] left-0 right-0 z-50 flex items-center justify-center pointer-events-auto pb-3"
+          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 select-none flex items-center justify-between px-8"
+          style={{
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+            paddingTop: '16px',
+            paddingBottom: 'max(24px, env(safe-area-inset-bottom, 24px))',
+          }}
         >
-          <button
-            type="button"
-            onTouchStart={handlePressStart}
-            onTouchEnd={handlePressEnd}
-            onMouseDown={handlePressStart}
-            onMouseUp={handlePressEnd}
-            className="w-20 h-20 rounded-full flex items-center justify-center relative cursor-pointer select-none transition-all duration-300 active:scale-95 shadow-2xl"
-            style={{
-              background: 'rgba(255, 255, 255, 0.25)',
-              border: '4px solid #FFFFFF',
-              boxShadow: isRecording ? '0 0 24px rgba(239, 68, 68, 0.9)' : '0 6px 20px rgba(0,0,0,0.5)',
-              transform: isRecording ? 'scale(1.15)' : 'scale(1)',
-            }}
-            aria-label="Foto maken"
-          >
-            <div
-              className={`rounded-full transition-all duration-300 ${
-                isRecording ? 'w-10 h-10 bg-red-500 rounded' : 'w-16 h-16 bg-white'
-              }`}
-            />
-          </button>
+          {/* Linker knop: Galerij / Upload knop (zoals foto-thumbnail bij Apple) */}
+          <div className="w-14 flex items-center justify-center">
+            <label 
+              className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition-all flex items-center justify-center cursor-pointer border border-white/20 shadow-md"
+              title="Foto of video kiezen uit galerij"
+            >
+              <ImageIcon className="w-5 h-5 text-white/90" />
+              <input 
+                type="file" 
+                accept="image/*,video/*" 
+                className="hidden" 
+                onChange={handleGalleryPick}
+              />
+            </label>
+          </div>
+
+          {/* Midden: Apple Camera Shutter Button */}
+          <div className="flex items-center justify-center">
+            <button
+              type="button"
+              onTouchStart={handlePressStart}
+              onTouchEnd={handlePressEnd}
+              onMouseDown={handlePressStart}
+              onMouseUp={handlePressEnd}
+              className="w-[78px] h-[78px] rounded-full flex items-center justify-center relative cursor-pointer select-none transition-all duration-200 active:scale-95"
+              style={{
+                background: 'transparent',
+                border: '4px solid #FFFFFF',
+                boxShadow: isRecording 
+                  ? '0 0 24px rgba(239, 68, 68, 0.9)' 
+                  : '0 4px 20px rgba(0, 0, 0, 0.4)',
+                transform: isRecording ? 'scale(1.12)' : 'scale(1)',
+              }}
+              aria-label="Foto maken of video opnemen"
+            >
+              <div
+                className={`transition-all duration-200 ${
+                  isRecording 
+                    ? 'w-8 h-8 bg-red-500 rounded-lg shadow-sm' 
+                    : 'w-[62px] h-[62px] rounded-full bg-white active:bg-white/90 shadow-sm'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Rechter knop: Camera omdraaien (zoals flip camera bij Apple) */}
+          <div className="w-14 flex items-center justify-center">
+            <button
+              type="button"
+              onClick={toggleCamera}
+              className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition-all flex items-center justify-center cursor-pointer border border-white/20 shadow-md"
+              title="Camera draaien"
+              aria-label="Camera draaien"
+            >
+              <RefreshCw className="w-5 h-5 text-white/90" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -992,7 +1282,7 @@ export default function Hints() {
             boxShadow: isDark ? '0 -4px 24px rgba(0,0,0,0.5)' : '0 -4px 24px rgba(0,0,0,0.06)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            paddingBottom: 'max(14px, env(safe-area-inset-bottom))',
+            paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
             paddingTop: '12px',
             paddingLeft: '16px',
             paddingRight: '16px',
@@ -1042,67 +1332,128 @@ export default function Hints() {
         </div>
       )}
 
-      {/* ── MODAL: STORY TEXT EDITOR ── */}
+      {/* ── PRULLENBAK RECHTSONDERIN (Drag text or location to delete) ── */}
+      {capturedUrl && (storyText || storyLocation) && (
+        <div
+          ref={trashRef}
+          onClick={handleTrashClick}
+          className={`fixed z-[210] flex items-center justify-center rounded-full transition-all duration-200 cursor-pointer select-none ${
+            isOverTrash
+              ? 'w-14 h-14 bg-red-600 scale-125 shadow-[0_0_30px_rgba(239,68,68,0.95)] border-2 border-white text-white'
+              : isDraggingSticker
+              ? 'w-13 h-13 bg-red-500/30 backdrop-blur-md border border-red-500/80 text-red-400 scale-110 animate-pulse shadow-[0_4px_20px_rgba(239,68,68,0.4)]'
+              : 'w-11 h-11 bg-black/60 backdrop-blur-md border border-white/20 text-white/80 hover:text-red-400 hover:border-red-500/50 hover:bg-black/80 shadow-lg active:scale-90'
+          }`}
+          style={{
+            bottom: 'calc(max(20px, env(safe-area-inset-bottom, 20px)) + 74px)',
+            right: 'calc(50% - min(50vw, 224px) + 16px)',
+          }}
+          title="Sleep hierheen om te verwijderen"
+          aria-label="Sleep tekst of locatie hierheen om te verwijderen"
+        >
+          <Trash2
+            className={`transition-all duration-200 ${
+              isOverTrash
+                ? 'w-6 h-6 text-white scale-120 rotate-[-12deg]'
+                : isDraggingSticker
+                ? 'w-5 h-5 text-red-300'
+                : 'w-4.5 h-4.5'
+            }`}
+          />
+        </div>
+      )}
+
+      {/* ── MODAL: STORY TEXT EDITOR (Snapchat-style inline floating caption) ── */}
       {showTextModal && (
         <div 
-          className="fixed inset-0 z-[250] bg-black/75 backdrop-blur-md flex flex-col items-center justify-center p-6 select-none"
+          className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm flex flex-col justify-between select-none animate-fadeIn"
+          style={{
+            paddingTop: 'max(16px, calc(env(safe-area-inset-top, 0px) + 12px))',
+            paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px))',
+          }}
           onClick={() => setShowTextModal(false)}
         >
+          {/* Top Controls Bar */}
           <div 
-            className="w-full max-w-sm rounded-[28px] bg-[#141521] border border-white/15 p-5 text-white shadow-2xl flex flex-col"
+            className="w-full px-5 flex items-center justify-between z-10"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-pink-500/20 text-pink-500 flex items-center justify-center">
-                  <Type className="w-4 h-4" />
-                </div>
-                <h3 className="text-sm font-black">Tekst toevoegen</h3>
-              </div>
+            {storyText ? (
               <button
                 type="button"
-                onClick={() => setShowTextModal(false)}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 cursor-pointer"
+                onClick={() => {
+                  setStoryText('');
+                  setShowTextModal(false);
+                }}
+                className="py-1.5 px-3.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-xs hover:bg-red-500/25 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <X className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Wissen</span>
               </button>
-            </div>
+            ) : (
+              <div className="w-16" />
+            )}
 
-            <textarea
-              rows={3}
-              autoFocus
-              maxLength={80}
-              value={storyText}
-              onChange={e => setStoryText(e.target.value)}
-              placeholder="Typ een bericht over je foto..."
-              className="w-full rounded-2xl bg-white/5 border border-white/15 p-3.5 text-sm text-white placeholder-white/40 outline-none resize-none focus:border-pink-500"
-            />
-            <div className="flex justify-between items-center text-[11px] text-white/50 mt-1.5 mb-4 px-1">
-              <span>Maximaal 80 tekens</span>
-              <span>{storyText.length}/80</span>
-            </div>
+            <span className="text-white/60 text-xs font-semibold tracking-wide">
+              {storyText.length > 0 ? `${storyText.length}/80` : 'Tik om te typen'}
+            </span>
 
-            <div className="flex gap-2.5">
-              {storyText && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStoryText('');
-                    setShowTextModal(false);
+            <button
+              type="button"
+              onClick={() => setShowTextModal(false)}
+              className="py-1.5 px-5 rounded-full font-black text-xs text-white shadow-lg active:scale-95 transition-all cursor-pointer"
+              style={{
+                background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+                boxShadow: '0 4px 16px rgba(255, 75, 114, 0.45)',
+              }}
+            >
+              Klaar
+            </button>
+          </div>
+
+          {/* Positioned Text Input at the tapped Y location */}
+          <div className="flex-1 w-full max-w-md mx-auto flex items-center justify-center relative pointer-events-none px-4">
+            <div
+              className="w-full max-w-[320px] pointer-events-auto flex flex-col items-center"
+              style={{
+                transform: `translate3d(0px, ${Math.max(-180, Math.min(100, textTransform.y))}px, 0px)`,
+                transition: 'transform 0.15s ease-out',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div 
+                className="w-full bg-black/80 backdrop-blur-md px-5 py-3.5 rounded-2xl border text-white font-black shadow-2xl transition-all"
+                style={{
+                  borderColor: 'rgba(255, 75, 114, 0.7)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 75, 114, 0.25)',
+                }}
+              >
+                <textarea
+                  ref={textInputRef}
+                  rows={2}
+                  autoFocus
+                  maxLength={80}
+                  value={storyText}
+                  onChange={e => setStoryText(e.target.value)}
+                  placeholder="Typ een bericht..."
+                  className="w-full bg-transparent text-center text-white font-black text-base sm:text-lg outline-none resize-none placeholder-white/40 leading-snug"
+                  style={{
+                    caretColor: '#FF4B72',
                   }}
-                  className="py-2.5 px-3.5 rounded-xl border border-red-500/30 text-red-400 bg-red-500/10 font-bold text-xs hover:bg-red-500/20 active:scale-95 transition-all cursor-pointer"
-                >
-                  Verwijderen
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowTextModal(false)}
-                className="flex-1 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-pink-500 to-rose-600 shadow-md active:scale-95 transition-all cursor-pointer"
-              >
-                Klaar
-              </button>
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      setShowTextModal(false);
+                    }
+                  }}
+                />
+              </div>
             </div>
+          </div>
+
+          {/* Bottom Hint */}
+          <div className="w-full text-center text-white/40 text-[11px] pointer-events-none pb-2">
+            Tik buiten het vak of op Klaar om te bevestigen
           </div>
         </div>
       )}

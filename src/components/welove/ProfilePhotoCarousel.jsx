@@ -80,6 +80,9 @@ export default function ProfilePhotoCarousel({
           setCurrentIndex(prev => prev - 1);
         }
       }
+      setTimeout(() => {
+        isSwiping.current = false;
+      }, 200);
     }
     touchStartX.current = null;
     touchStartY.current = null;
@@ -101,6 +104,9 @@ export default function ProfilePhotoCarousel({
       } else {
         goToPrev();
       }
+      setTimeout(() => {
+        isSwiping.current = false;
+      }, 200);
     }
     isDraggingMouse.current = false;
     mouseStartX.current = null;
@@ -114,7 +120,7 @@ export default function ProfilePhotoCarousel({
     }
 
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 330;
+    const DOUBLE_TAP_DELAY = 400;
     const lastTap = lastTapRef.current;
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -172,7 +178,7 @@ export default function ProfilePhotoCarousel({
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onClick={handleTap}
-      style={{ touchAction: 'pan-y' }}
+      style={{ touchAction: 'pan-y manipulation' }}
     >
       {/* Background Image / Avatar — absolute inset-0 to prevent any layout shifts or scroll-snap jumps */}
       {currentPhotoUrl ? (
