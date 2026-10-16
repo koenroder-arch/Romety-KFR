@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import MatchAnimation from './MatchAnimation';
-import StoriesViewer from './StoriesViewer';
 import { Heart, MessageCircle, MoreVertical, AlertTriangle, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfilePhotoCarousel from './ProfilePhotoCarousel';
@@ -26,9 +25,6 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
   const [doubleTapAnims, setDoubleTapAnims] = useState([]);
   const [reportedEmails, setReportedEmails] = useState(new Set());
   
-  // Story viewer state
-  const [selectedStoryGroup, setSelectedStoryGroup] = useState(null);
-
   // Three-dots menu state
   const [openMenuProfileId, setOpenMenuProfileId] = useState(null);
 
@@ -97,9 +93,6 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     }
   };
 
-  const lastClickRef = useRef({});
-  const singleClickTimeoutRef = useRef({});
-
   const handleDoubleTapAtCoord = (x, y, profile) => {
     const animId = Date.now() + Math.random();
     setDoubleTapAnims(prev => [...prev, { id: animId, profileId: profile.id, x, y }]);
@@ -137,61 +130,6 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     setTimeout(() => {
       setDoubleTapAnims(prev => prev.filter(a => a.id !== animId));
     }, 950);
-  };
-
-  const handleCardClick = (e, profile, isMenuOpen) => {
-    if (isMenuOpen) {
-      setOpenMenuProfileId(null);
-      return;
-    }
-
-    const now = Date.now();
-    const DOUBLE_PRESS_DELAY = 330;
-    const lastClick = lastClickRef.current[profile.id] || 0;
-
-    if (now - lastClick < DOUBLE_PRESS_DELAY) {
-      // Double tap!
-      if (singleClickTimeoutRef.current[profile.id]) {
-        clearTimeout(singleClickTimeoutRef.current[profile.id]);
-        singleClickTimeoutRef.current[profile.id] = null;
-      }
-
-      const rect = e.currentTarget.getBoundingClientRect();
-      const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : (rect.left + rect.width / 2));
-      const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : (rect.top + rect.height / 2));
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-
-      handleDoubleTapAtCoord(x, y, profile);
-      lastClickRef.current[profile.id] = 0;
-    } else {
-      lastClickRef.current[profile.id] = now;
-
-      if (singleClickTimeoutRef.current[profile.id]) {
-        clearTimeout(singleClickTimeoutRef.current[profile.id]);
-      }
-      singleClickTimeoutRef.current[profile.id] = setTimeout(() => {
-        handleSingleClick(profile);
-        singleClickTimeoutRef.current[profile.id] = null;
-      }, DOUBLE_PRESS_DELAY);
-    }
-  };
-
-  const handleSingleClick = async (profile) => {
-    try {
-      const nineHoursAgo = new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString();
-      const userStories = await base44.entities.Story.filter({ user_email: profile.user_email }, '-created_date', 50);
-      const activeStories = userStories.filter(s => s.created_date >= nineHoursAgo);
-      if (activeStories.length > 0) {
-        setSelectedStoryGroup({
-          user_email: profile.user_email,
-          profile: profile,
-          items: activeStories.reverse(),
-        });
-      }
-    } catch (err) {
-      console.error("Error fetching stories:", err);
-    }
   };
 
   const handleMenuToggle = (e, profileId) => {
@@ -308,7 +246,6 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               profile={profile}
               isDark={isDark}
               onDoubleTap={(x, y, p) => handleDoubleTapAtCoord(x, y, p)}
-              onClick={() => handleSingleClick(profile)}
               dotsClassName="top-4 left-4 z-30"
             />
 
@@ -495,25 +432,6 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
           </div>
         );
       })}
-
-      {/* Stories Viewer Overlay */}
-      {selectedStoryGroup && (
-        <StoriesViewer
-          group={selectedStoryGroup}
-          allGroups={null} // Only viewing one profile's stories
-          onClose={() => setSelectedStoryGroup(null)}
-          isDark={isDark}
-          currentUserEmail={currentUserEmail}
-          onStoryDeleted={(storyId) => {
-            setSelectedStoryGroup((prev) => {
-              if (!prev) return null;
-              const updatedItems = prev.items.filter((item) => item.id !== storyId);
-              if (updatedItems.length === 0) return null;
-              return { ...prev, items: updatedItems };
-            });
-          }}
-        />
-      )}
 
       {/* ── Report Modal ── */}
       <AnimatePresence>

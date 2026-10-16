@@ -136,6 +136,18 @@ export default function Onboarding() {
         }
         setUser(u);
         
+        let registeredUsername = '';
+        try {
+          const pending = JSON.parse(sessionStorage.getItem('romety_pending_verification') || '{}');
+          registeredUsername = pending.username || '';
+        } catch (e) {}
+        if (!registeredUsername) {
+          try {
+            registeredUsername = localStorage.getItem('romety_registered_username') || '';
+          } catch (e) {}
+        }
+        const fallbackName = u.display_name || u.full_name || u.user_metadata?.display_name || registeredUsername || '';
+
         const existing = await base44.entities.UserProfile.filter({ user_email: u.email.toLowerCase().trim() });
         if (existing && existing.length > 0) {
           const profile = existing[0];
@@ -143,10 +155,11 @@ export default function Onboarding() {
             window.location.replace('/');
             return;
           }
+          const finalDisplayName = profile.display_name || registeredUsername || fallbackName || '';
           setForm(f => ({
             ...f,
             contact_email: u.email,
-            display_name: profile.display_name || '',
+            display_name: finalDisplayName,
             age: profile.age ? String(profile.age) : '',
             gender: profile.gender || '',
             height_cm: profile.height_cm ? String(profile.height_cm) : '',
@@ -167,7 +180,7 @@ export default function Onboarding() {
             setPhotoPreview(profile.photo_url);
           }
         } else {
-          setForm(f => ({ ...f, contact_email: u.email }));
+          setForm(f => ({ ...f, contact_email: u.email, display_name: registeredUsername || fallbackName || '' }));
         }
       } catch (err) {
         console.error('Onboarding auth error:', err);
@@ -193,7 +206,7 @@ export default function Onboarding() {
 
   const canContinue = () => {
     if (uploading) return false;
-    if (step === 0) return !!(form.display_name && form.avatar && form.age && Number(form.age) >= 18 && form.gender && form.height_cm && form.relationship_status && form.agreed_to_terms);
+    if (step === 0) return !!(form.display_name && form.avatar && form.age && Number(form.age) >= 18 && Number(form.age) <= 90 && form.gender && form.height_cm && Number(form.height_cm) <= 260 && form.relationship_status && form.agreed_to_terms);
     if (step === 1) return !!(form.country); // country step
     if (step === 2) return !!(form.looking_for);
     if (step === 3) return form.traits.length >= 3 && form.interests.length >= 2;
@@ -250,6 +263,10 @@ export default function Onboarding() {
     } else {
       await base44.entities.UserProfile.create(data);
     }
+    try {
+      localStorage.removeItem('romety_registered_username');
+      sessionStorage.removeItem('romety_pending_verification');
+    } catch (e) {}
   };
 
   const nextStep = async () => {
@@ -339,15 +356,65 @@ export default function Onboarding() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{t.age}</label>
-                <input type="number" min="18" max="100" className={inputCls} placeholder={t.agePh} value={form.age}
-                  onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
+                <input 
+                  type="number" 
+                  min="18" 
+                  max="90" 
+                  className={inputCls} 
+                  placeholder={t.agePh} 
+                  value={form.age}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setForm(f => ({ ...f, age: '' }));
+                      return;
+                    }
+                    const num = Number(val);
+                    if (num > 90) {
+                      setForm(f => ({ ...f, age: 90 }));
+                    } else {
+                      setForm(f => ({ ...f, age: val }));
+                    }
+                  }}
+                  onBlur={e => {
+                    const num = Number(e.target.value);
+                    if (num && num > 90) setForm(f => ({ ...f, age: 90 }));
+                    if (num && num < 18) setForm(f => ({ ...f, age: 18 }));
+                  }}
                   style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                 />
                 {form.age && Number(form.age) < 18 && <p className="text-red-400 text-xs mt-1 font-semibold">{t.ageError}</p>}
+                {form.age && Number(form.age) > 90 && <p className="text-red-400 text-xs mt-1 font-semibold">Maximale leeftijd is 90 jaar.</p>}
               </div>
               <div>
                 <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{t.height}</label>
-                <input type="number" min="140" max="220" className={inputCls} placeholder={t.heightPh} value={form.height_cm} onChange={e => setForm(f => ({ ...f, height_cm: e.target.value }))} style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                <input 
+                  type="number" 
+                  min="100" 
+                  max="260" 
+                  className={inputCls} 
+                  placeholder={t.heightPh} 
+                  value={form.height_cm} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setForm(f => ({ ...f, height_cm: '' }));
+                      return;
+                    }
+                    const num = Number(val);
+                    if (num > 260) {
+                      setForm(f => ({ ...f, height_cm: 260 }));
+                    } else {
+                      setForm(f => ({ ...f, height_cm: val }));
+                    }
+                  }}
+                  onBlur={e => {
+                    const num = Number(e.target.value);
+                    if (num && num > 260) setForm(f => ({ ...f, height_cm: 260 }));
+                  }}
+                  style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                />
+                {form.height_cm && Number(form.height_cm) > 260 && <p className="text-red-400 text-xs mt-1 font-semibold">Maximale lengte is 260 cm.</p>}
               </div>
             </div>
 
@@ -471,12 +538,12 @@ export default function Onboarding() {
               <div className="space-y-3 mt-3 bg-white/5 border border-white/10 rounded-[16px] p-4" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.max}</span>
-                  <input type="range" min="18" max="70" value={form.max_age_pref} onChange={e => setForm(f => ({ ...f, max_age_pref: Math.max(Number(e.target.value), f.min_age_pref + 1) }))} className="flex-1 accent-[#FF4B72]" />
+                  <input type="range" min="18" max="90" value={form.max_age_pref} onChange={e => setForm(f => ({ ...f, max_age_pref: Math.max(Number(e.target.value), f.min_age_pref + 1) }))} className="flex-1 accent-[#FF4B72]" />
                   <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.max_age_pref}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.min}</span>
-                  <input type="range" min="18" max="70" value={form.min_age_pref} onChange={e => setForm(f => ({ ...f, min_age_pref: Math.min(Number(e.target.value), f.max_age_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
+                  <input type="range" min="18" max="90" value={form.min_age_pref} onChange={e => setForm(f => ({ ...f, min_age_pref: Math.min(Number(e.target.value), f.max_age_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
                   <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.min_age_pref}</span>
                 </div>
               </div>
@@ -486,12 +553,12 @@ export default function Onboarding() {
               <div className="space-y-3 mt-3 bg-white/5 border border-white/10 rounded-[16px] p-4" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.max}</span>
-                  <input type="range" min="140" max="210" value={form.max_height_pref} onChange={e => setForm(f => ({ ...f, max_height_pref: Math.max(Number(e.target.value), f.min_height_pref + 1) }))} className="flex-1 accent-[#FF4B72]" />
+                  <input type="range" min="140" max="260" value={form.max_height_pref} onChange={e => setForm(f => ({ ...f, max_height_pref: Math.max(Number(e.target.value), f.min_height_pref + 1) }))} className="flex-1 accent-[#FF4B72]" />
                   <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.max_height_pref}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.min}</span>
-                  <input type="range" min="140" max="210" value={form.min_height_pref} onChange={e => setForm(f => ({ ...f, min_height_pref: Math.min(Number(e.target.value), f.max_height_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
+                  <input type="range" min="140" max="260" value={form.min_height_pref} onChange={e => setForm(f => ({ ...f, min_height_pref: Math.min(Number(e.target.value), f.max_height_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
                   <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.min_height_pref}</span>
                 </div>
               </div>

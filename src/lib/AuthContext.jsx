@@ -30,9 +30,9 @@ export const AuthProvider = ({ children }) => {
       console.log(`[AuthContext] onAuthStateChange event=${event} session=${session ? 'present' : 'null'}`);
       if (cancelled) return;
 
-      // Yield to persistent user if present
+      // Yield to persistent user if present and no active Supabase session
       const activeStored = authStorage.getUserSync();
-      if (activeStored) {
+      if (activeStored && !session?.user) {
         setUser(activeStored);
         if (initialCheckCompleted) {
           setIsLoading(false);

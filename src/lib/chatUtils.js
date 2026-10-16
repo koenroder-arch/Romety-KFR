@@ -59,6 +59,8 @@ export async function deleteChatRoomAndMedia(roomId, { hardDelete = false, delet
     // 4. Update of verwijder de chatroom
     if (hardDelete) {
       await client.from('ChatRoom').delete().eq('id', roomId).catch(() => {});
+      await base44.entities.ChatRoom.delete(roomId).catch(() => {});
+      await client.from('Notification').delete().like('venue_name', `%"roomId":"${roomId}"%`).catch(() => {});
     } else {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 uur zichtbaar voor de ander (of voor beiden bij inactiviteit)

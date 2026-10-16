@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
-import { supabase } from '@/api/supabaseClient';
+import { supabase, supabaseAdmin } from '@/api/supabaseClient';
 import { authStorage } from '@/lib/authStorage';
+import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
 import { 
@@ -467,9 +468,21 @@ export default function Account() {
       toast.error('Kies minimaal 3 interesses (3 tot 5)!');
       return;
     }
-    if (form.age !== undefined && form.age !== null && form.age !== '' && Number(form.age) < 18) {
-      toast.error('Je moet minimaal 18 jaar oud zijn!');
-      return;
+    if (form.age !== undefined && form.age !== null && form.age !== '') {
+      if (Number(form.age) < 18) {
+        toast.error('Je moet minimaal 18 jaar oud zijn!');
+        return;
+      }
+      if (Number(form.age) > 90) {
+        toast.error('Maximale leeftijd is 90 jaar!');
+        return;
+      }
+    }
+    if (form.height_cm !== undefined && form.height_cm !== null && form.height_cm !== '') {
+      if (Number(form.height_cm) > 260) {
+        toast.error('Maximale lengte is 260 cm!');
+        return;
+      }
     }
     setShowSaveConfirm(true);
   };
@@ -605,9 +618,18 @@ export default function Account() {
         setMinItemsWarningModal('interests');
         return;
       }
-    } else if (activeSheet === 'age_height' && form.age && Number(form.age) < 18) {
-      setForm(f => ({ ...f, age: 18 }));
-      toast.info('Leeftijd is ingesteld op 18 jaar.');
+    } else if (activeSheet === 'age_height') {
+      if (form.age && Number(form.age) < 18) {
+        setForm(f => ({ ...f, age: 18 }));
+        toast.info('Leeftijd is ingesteld op 18 jaar.');
+      } else if (form.age && Number(form.age) > 90) {
+        setForm(f => ({ ...f, age: 90 }));
+        toast.info('Leeftijd is gemaximaliseerd op 90 jaar.');
+      }
+      if (form.height_cm && Number(form.height_cm) > 260) {
+        setForm(f => ({ ...f, height_cm: 260 }));
+        toast.info('Lengte is gemaximaliseerd op 260 cm.');
+      }
     }
     setActiveSheet(null);
   };
@@ -648,10 +670,12 @@ export default function Account() {
       const email = (user.email || user.user_email || '').toLowerCase().trim();
 
       if (email) {
+        const client = supabaseAdmin || supabase;
+
         // 0. Save exit feedback to Supabase if provided
         try {
           if (deleteAnswers?.selectedOption) {
-            await supabase.from('AccountDeletionSurvey').insert([
+            await client.from('AccountDeletionSurvey').insert([
               {
                 reason: deleteAnswers.selectedOption,
                 custom_feedback: deleteAnswers.customText?.trim() || null,
@@ -666,7 +690,7 @@ export default function Account() {
 
         // 1. Delete user photos & story media from storage
         try {
-          const { data: userProfiles } = await supabase.from('UserProfile').select('photo_url, photos').eq('user_email', email);
+          const { data: userProfiles } = await client.from('UserProfile').select('photo_url, photos').eq('user_email', email);
           if (userProfiles && userProfiles.length > 0) {
             for (const p of userProfiles) {
               if (p.photo_url) await base44.integrations.Core.DeleteFile({ file_url: p.photo_url }).catch(() => {});
@@ -683,7 +707,7 @@ export default function Account() {
         }
 
         try {
-          const { data: userStories } = await supabase.from('Story').select('media_url').eq('user_email', email);
+          const { data: userStories } = await client.from('Story').select('media_url').eq('user_email', email);
           if (userStories && userStories.length > 0) {
             for (const s of userStories) {
               if (s.media_url) await base44.integrations.Core.DeleteFile({ file_url: s.media_url }).catch(() => {});
@@ -693,50 +717,116 @@ export default function Account() {
           console.warn('[handleDeleteAccount] Error deleting story media:', e);
         }
 
+        // 2. Delete ALL chats and invitations (both received and sent invitations, and active chats)
         try {
-          const { data: userChatMsgs } = await supabase.from('ChatMessage').select('media_url').eq('sender_email', email);
+          // Haal alle chatrooms op waarin deze gebruiker zit (zowel verzonden als ontvangen uitnodigingen en actieve chats)
+          const [roomsA, roomsB] = await Promise.all([
+            client.from('ChatRoom').select('id, user_a_email, user_b_email').eq('user_a_email', email),
+            client.from('ChatRoom').select('id, user_a_email, user_b_email').eq('user_b_email', email),
+          ]);
+          
+          const combinedRooms = [...(roomsA?.data || []), ...(roomsB?.data || [])];
+          const uniqueRoomMap = new Map();
+          combinedRooms.forEach(r => {
+            if (r && r.id) uniqueRoomMap.set(r.id, r);
+          });
+          const allUserRooms = Array.from(uniqueRoomMap.values());
+          const allRoomIds = allUserRooms.map(r => r.id);
+
+          // Verwijder mediabestanden en berichten voor alle chatrooms via deleteChatRoomAndMedia
+          for (const room of allUserRooms) {
+            await deleteChatRoomAndMedia(room.id, { hardDelete: true }).catch(err => {
+              console.warn(`[handleDeleteAccount] deleteChatRoomAndMedia mislukt voor room ${room.id}:`, err);
+            });
+          }
+
+          // Verwijder mediabestanden uit berichten van de gebruiker (als die buiten de kamers vielen)
+          const { data: userChatMsgs } = await client.from('ChatMessage').select('media_url').eq('sender_email', email);
           if (userChatMsgs && userChatMsgs.length > 0) {
             for (const m of userChatMsgs) {
-              if (m.media_url) await base44.integrations.Core.DeleteFile({ file_url: m.media_url }).catch(() => {});
+              if (m.media_url) await base44.integrations.Core.DeleteFile({ file_url: m.media_url, bucket: 'chat-uploads' }).catch(() => {});
             }
           }
+
+          // Schoon eventuele overgebleven chatberichten op
+          if (allRoomIds.length > 0) {
+            await client.from('ChatMessage').delete().in('room_id', allRoomIds).catch(() => {});
+          }
+          await client.from('ChatMessage').delete().eq('sender_email', email).catch(() => {});
+
+          // Schoon definitief alle chatrooms op via meerdere queries voor gegarandeerde verwijdering
+          if (allRoomIds.length > 0) {
+            await client.from('ChatRoom').delete().in('id', allRoomIds).catch(() => {});
+          }
+          await client.from('ChatRoom').delete().eq('user_a_email', email).catch(() => {});
+          await client.from('ChatRoom').delete().eq('user_b_email', email).catch(() => {});
+
+          // Verwijder ook via base44 client voor consistentie
+          await Promise.allSettled(
+            allUserRooms.map(r => base44.entities.ChatRoom.delete(r.id).catch(() => {}))
+          );
+
+          // Schoon specifieke localStorage keys op voor deze rooms
+          allRoomIds.forEach(id => {
+            try {
+              localStorage.removeItem(`chat_read_count_${id}`);
+              localStorage.removeItem(`deleted_chat_hidden_${id}`);
+            } catch (e) {}
+          });
         } catch (e) {
-          console.warn('[handleDeleteAccount] Error deleting chat photos:', e);
+          console.warn('[handleDeleteAccount] Error deleting chats and invitations:', e);
         }
 
-        // 2. Delete all records across all Supabase tables in parallel safely
+        // 3. Delete all records across all Supabase tables in parallel safely
         const deleteTasks = [
-          supabase.from('UserProfile').delete().eq('user_email', email),
-          supabase.from('UserDestination').delete().eq('user_email', email),
-          supabase.from('VenueCheckIn').delete().eq('user_email', email),
-          supabase.from('Like').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
-          supabase.from('Hint').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
-          supabase.from('GameSession').delete().or(`player1_email.eq.${email},player2_email.eq.${email}`),
-          supabase.from('CardGameRound').delete().eq('asker_email', email),
-          supabase.from('NumberGameState').delete().eq('player_email', email),
-          supabase.from('Notification').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
-          supabase.from('Story').delete().eq('user_email', email),
-          supabase.from('SearchHistory').delete().eq('user_email', email),
-          supabase.from('ChatRoom').delete().or(`user1_email.eq.${email},user2_email.eq.${email}`),
-          supabase.from('ChatMessage').delete().eq('sender_email', email),
-          supabase.from('SeenProfiles').delete().or(`user_email.eq.${email},seen_user_email.eq.${email}`),
-          supabase.from('PremiumSubscription').delete().eq('user_email', email),
-          supabase.from('Report').delete().or(`reporter_email.eq.${email},reported_email.eq.${email}`),
+          client.from('UserProfile').delete().eq('user_email', email),
+          client.from('UserDestination').delete().eq('user_email', email),
+          client.from('VenueCheckIn').delete().eq('user_email', email),
+          client.from('Like').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
+          client.from('Like').delete().eq('from_email', email),
+          client.from('Like').delete().eq('to_email', email),
+          client.from('Hint').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
+          client.from('Hint').delete().eq('from_email', email),
+          client.from('Hint').delete().eq('to_email', email),
+          client.from('GameSession').delete().or(`player1_email.eq.${email},player2_email.eq.${email}`),
+          client.from('GameSession').delete().eq('player1_email', email),
+          client.from('GameSession').delete().eq('player2_email', email),
+          client.from('CardGameRound').delete().eq('asker_email', email),
+          client.from('NumberGameState').delete().eq('player_email', email),
+          client.from('Notification').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
+          client.from('Notification').delete().eq('from_email', email),
+          client.from('Notification').delete().eq('to_email', email),
+          client.from('Story').delete().eq('user_email', email),
+          client.from('SearchHistory').delete().eq('user_email', email),
+          client.from('ChatRoom').delete().eq('user_a_email', email),
+          client.from('ChatRoom').delete().eq('user_b_email', email),
+          client.from('ChatMessage').delete().eq('sender_email', email),
+          client.from('SeenProfiles').delete().or(`user_email.eq.${email},seen_user_email.eq.${email}`),
+          client.from('PremiumSubscription').delete().eq('user_email', email),
+          client.from('Report').delete().or(`reporter_email.eq.${email},reported_email.eq.${email}`),
         ];
 
         await Promise.allSettled(deleteTasks);
       }
 
-      // 3. Clear all local auth storage (localStorage, sessionStorage, IndexedDB, cookies)
+      // 4. Clear all local auth storage and chat caches (localStorage, sessionStorage, IndexedDB, cookies)
       authStorage.clearUser();
       try {
         localStorage.removeItem('welove_lang');
         localStorage.removeItem('romety_user_email');
         localStorage.removeItem('seen_chat_room_ids');
+
+        // Schoon alle chat-gerelateerde keys op
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('chat_read_count_') || key.startsWith('deleted_chat_hidden_')) {
+            localStorage.removeItem(key);
+          }
+        });
+
         sessionStorage.setItem('romety_splash_shown', 'true');
       } catch (err) {}
 
-      // 4. Sign out from Supabase Auth
+      // 5. Sign out from Supabase Auth
       try {
         await supabase.auth.signOut();
       } catch (e) {
@@ -746,7 +836,7 @@ export default function Account() {
       toast.dismiss(toastId);
       toast.success('Je account is succesvol verwijderd.');
 
-      // 5. Redirect to Language selection page (leads to Onboarding after language is chosen)
+      // 6. Redirect to Language selection page (leads to Onboarding after language is chosen)
       setTimeout(() => {
         window.location.replace('/Language');
       }, 400);
@@ -892,7 +982,7 @@ export default function Account() {
 
   return (
     <div 
-      className={`min-h-screen max-w-md mx-auto relative ${editing ? 'overflow-hidden max-h-screen pointer-events-none' : ''}`} 
+      className={`min-h-screen max-w-md mx-auto relative ${editing ? 'overflow-hidden max-h-screen' : ''}`} 
       style={{ 
         background: bg, 
         fontFamily: "'Inter', sans-serif", 
@@ -1659,7 +1749,7 @@ export default function Account() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {form.min_height_pref || 140} – {form.max_height_pref || 210} cm
+                        {form.min_height_pref || 140} – {form.max_height_pref || 260} cm
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1679,7 +1769,7 @@ export default function Account() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {form.min_age_pref || 18} – {form.max_age_pref || 70} jr
+                        {form.min_age_pref || 18} – {form.max_age_pref || 90} jr
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1830,38 +1920,82 @@ export default function Account() {
                       <input
                         type="number"
                         min="18"
-                        max="99"
+                        max="90"
                         className={`w-full font-bold rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'}`}
                         value={form.age || ''}
-                        onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setForm(f => ({ ...f, age: '' }));
+                            return;
+                          }
+                          const num = Number(val);
+                          if (num > 90) {
+                            setForm(f => ({ ...f, age: 90 }));
+                            toast.info('Maximale leeftijd is 90 jaar.');
+                          } else {
+                            setForm(f => ({ ...f, age: val }));
+                          }
+                        }}
                         onBlur={e => {
                           const num = Number(e.target.value);
                           if (num && num < 18) {
                             setForm(f => ({ ...f, age: 18 }));
                             toast.info('Leeftijd is automatisch ingesteld op het minimum van 18 jaar.');
+                          } else if (num && num > 90) {
+                            setForm(f => ({ ...f, age: 90 }));
+                            toast.info('Leeftijd is automatisch ingesteld op het maximum van 90 jaar.');
                           }
                         }}
                         placeholder="Bijv. 24"
                       />
-                      {form.age && Number(form.age) < 18 && (
+                      {form.age && (Number(form.age) < 18 || Number(form.age) > 90) && (
                         <p className="text-[11px] font-bold text-red-500 mt-1">
-                          ⚠️ Minimale leeftijd is 18 jaar.
+                          {Number(form.age) < 18 ? '⚠️ Minimale leeftijd is 18 jaar.' : '⚠️ Maximale leeftijd is 90 jaar.'}
                         </p>
                       )}
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold uppercase tracking-wider block mb-1.5" style={{ color: textSub }}>
-                        Eigen lengte (cm)
-                      </label>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: textSub }}>
+                          Eigen lengte (cm)
+                        </label>
+                        <span className="text-[10px] font-bold text-pink-500">Max. 260 cm</span>
+                      </div>
                       <input
                         type="number"
-                        min="120"
-                        max="230"
+                        min="100"
+                        max="260"
                         className={`w-full font-bold rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'}`}
                         value={form.height_cm || ''}
-                        onChange={e => setForm(f => ({ ...f, height_cm: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setForm(f => ({ ...f, height_cm: '' }));
+                            return;
+                          }
+                          const num = Number(val);
+                          if (num > 260) {
+                            setForm(f => ({ ...f, height_cm: 260 }));
+                            toast.info('Maximale lengte is 260 cm.');
+                          } else {
+                            setForm(f => ({ ...f, height_cm: val }));
+                          }
+                        }}
+                        onBlur={e => {
+                          const num = Number(e.target.value);
+                          if (num && num > 260) {
+                            setForm(f => ({ ...f, height_cm: 260 }));
+                            toast.info('Lengte is automatisch ingesteld op het maximum van 260 cm.');
+                          }
+                        }}
                         placeholder="Bijv. 182"
                       />
+                      {form.height_cm && Number(form.height_cm) > 260 && (
+                        <p className="text-[11px] font-bold text-red-500 mt-1">
+                          ⚠️ Maximale lengte is 260 cm.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2164,20 +2298,20 @@ export default function Account() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold" style={{ color: textSub }}>Bereik:</span>
                       <span className="text-sm font-black text-pink-500">
-                        {form.min_height_pref || 140} – {form.max_height_pref || 210} cm
+                        {form.min_height_pref || 140} – {form.max_height_pref || 260} cm
                       </span>
                     </div>
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-xs font-semibold mb-1">
                           <span style={{ color: textSub }}>Max. lengte</span>
-                          <span className="font-bold text-pink-500">{form.max_height_pref || 210} cm</span>
+                          <span className="font-bold text-pink-500">{form.max_height_pref || 260} cm</span>
                         </div>
                         <input
                           type="range"
                           min="140"
-                          max="210"
-                          value={form.max_height_pref || 210}
+                          max="260"
+                          value={form.max_height_pref || 260}
                           onChange={e => setForm(f => ({
                             ...f,
                             max_height_pref: Math.max(Number(e.target.value), (f.min_height_pref || 140) + 1)
@@ -2193,11 +2327,11 @@ export default function Account() {
                         <input
                           type="range"
                           min="140"
-                          max="210"
+                          max="260"
                           value={form.min_height_pref || 140}
                           onChange={e => setForm(f => ({
                             ...f,
-                            min_height_pref: Math.min(Number(e.target.value), (f.max_height_pref || 210) - 1)
+                            min_height_pref: Math.min(Number(e.target.value), (f.max_height_pref || 260) - 1)
                           }))}
                           className="w-full accent-pink-500 cursor-pointer"
                         />
@@ -2214,20 +2348,20 @@ export default function Account() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold" style={{ color: textSub }}>Bereik:</span>
                       <span className="text-sm font-black text-pink-500">
-                        {form.min_age_pref || 18} – {form.max_age_pref || 70} jaar
+                        {form.min_age_pref || 18} – {form.max_age_pref || 90} jaar
                       </span>
                     </div>
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-xs font-semibold mb-1">
                           <span style={{ color: textSub }}>Max. leeftijd</span>
-                          <span className="font-bold text-pink-500">{form.max_age_pref || 70} jaar</span>
+                          <span className="font-bold text-pink-500">{form.max_age_pref || 90} jaar</span>
                         </div>
                         <input
                           type="range"
                           min="18"
-                          max="70"
-                          value={form.max_age_pref || 70}
+                          max="90"
+                          value={form.max_age_pref || 90}
                           onChange={e => setForm(f => ({
                             ...f,
                             max_age_pref: Math.max(Number(e.target.value), (f.min_age_pref || 18) + 1)
@@ -2243,11 +2377,11 @@ export default function Account() {
                         <input
                           type="range"
                           min="18"
-                          max="70"
+                          max="90"
                           value={form.min_age_pref || 18}
                           onChange={e => setForm(f => ({
                             ...f,
-                            min_age_pref: Math.min(Number(e.target.value), (f.max_age_pref || 70) - 1)
+                            min_age_pref: Math.min(Number(e.target.value), (f.max_age_pref || 90) - 1)
                           }))}
                           className="w-full accent-pink-500 cursor-pointer"
                         />
@@ -2272,7 +2406,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.2 }} 
-            className="fixed inset-0 z-[350] flex items-center justify-center bg-black/70 backdrop-blur-sm px-6 select-none" 
+            className="fixed inset-0 z-[350] pointer-events-auto flex items-center justify-center bg-black/70 backdrop-blur-sm px-6 select-none" 
             onClick={handleCancelMinItemsLeave}
           >
             <motion.div 
@@ -2301,7 +2435,7 @@ export default function Account() {
                 <button 
                   type="button"
                   onClick={handleCancelMinItemsLeave} 
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border ${
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all border cursor-pointer ${
                     isDark 
                       ? 'border-white/15 text-white bg-white/5 hover:bg-white/10' 
                       : 'border-gray-200 text-gray-700 bg-gray-100 hover:bg-gray-200'
@@ -2312,7 +2446,7 @@ export default function Account() {
                 <button 
                   type="button"
                   onClick={handleConfirmMinItemsLeave} 
-                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-md active:scale-95 transition-all hover:opacity-95"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-md active:scale-95 transition-all hover:opacity-95 cursor-pointer"
                 >
                   Ja, ga terug
                 </button>
@@ -2330,7 +2464,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
+            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
             onClick={() => setShowSaveConfirm(false)}
           >
             <motion.div 
@@ -2350,14 +2484,16 @@ export default function Account() {
               </p>
               <div className="flex gap-2">
                 <button 
+                  type="button"
                   onClick={() => setShowSaveConfirm(false)} 
-                  className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
+                  className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15 cursor-pointer"
                 >
                   Annuleren
                 </button>
                 <button 
+                  type="button"
                   onClick={executeSave} 
-                  className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:opacity-95"
+                  className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:opacity-95 cursor-pointer"
                 >
                   Ja, opslaan
                 </button>
@@ -2375,7 +2511,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
+            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
             onClick={handleCancelDiscard}
           >
             <motion.div 
@@ -2395,14 +2531,16 @@ export default function Account() {
               </p>
               <div className="flex gap-2">
                 <button 
+                  type="button"
                   onClick={handleCancelDiscard} 
-                  className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
+                  className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15 cursor-pointer"
                 >
                   Annuleren
                 </button>
                 <button 
+                  type="button"
                   onClick={handleConfirmDiscard} 
-                  className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
+                  className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700 cursor-pointer"
                 >
                   Ja, verwerpen
                 </button>
@@ -2420,7 +2558,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.24 }} 
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" 
+            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" 
             onClick={() => setShowPreview(false)}
           >
             <motion.div 
@@ -2502,7 +2640,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
+            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
             onClick={() => setShowLogoutConfirm(false)}
           >
             <motion.div 
@@ -2547,7 +2685,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
+            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
             onClick={() => setShowDeleteConfirm(false)}
           >
             <motion.div 
@@ -2596,7 +2734,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
             onClick={() => setShowDeleteSurvey(false)}
           >
             <motion.div 
@@ -2709,7 +2847,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[110] flex items-center justify-center p-6"
+            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-6"
             style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', overflowY: 'hidden' }}
             onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
           >
@@ -2804,7 +2942,7 @@ export default function Account() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
             onClick={() => setShowFeedbackModal(false)}
           >
             <motion.div 

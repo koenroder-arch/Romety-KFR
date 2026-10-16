@@ -43,6 +43,8 @@ export default function ProfilePhotoCarousel({
     if (e) e.stopPropagation();
     if (currentIndex < totalPhotos - 1) {
       setCurrentIndex(prev => prev + 1);
+    } else {
+      setCurrentIndex(0);
     }
   };
 
