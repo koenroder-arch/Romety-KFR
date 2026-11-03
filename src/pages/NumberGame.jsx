@@ -127,6 +127,7 @@ export default function NumberGame() {
   const [partnerProfile, setPartnerProfile] = useState(null);
   const [myProfile, setMyProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const initialLoadedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Inputs
@@ -141,19 +142,20 @@ export default function NumberGame() {
   const pollRef = useRef(null);
   const sessionId = new URLSearchParams(window.location.search).get('session');
 
+  const userEmail = user?.email || (user ? 'logged_in' : null);
   useEffect(() => {
     if (user !== undefined && sessionId) {
-      loadData();
+      loadData(initialLoadedRef.current);
       pollRef.current = setInterval(() => {
         loadData(true);
       }, 5000);
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [user, sessionId]);
+  }, [userEmail, user === undefined, sessionId]);
 
   const loadData = async (silent = false) => {
     if (!user || !sessionId) return;
-    if (!silent) setLoading(true);
+    if (!initialLoadedRef.current && !silent) setLoading(true);
 
     const [asP1, asP2, myProfs] = await Promise.all([
       base44.entities.GameSession.filter({ player1_email: user.email }),
@@ -162,7 +164,11 @@ export default function NumberGame() {
     ]);
     const allSessions = [...asP1, ...asP2];
     const sess = allSessions.find(s => s.id === sessionId);
-    if (!sess) { setLoading(false); return; }
+    if (!sess) {
+      setLoading(false);
+      initialLoadedRef.current = true;
+      return;
+    }
     setSession(sess);
     if (myProfs && myProfs.length > 0) setMyProfile(myProfs[0]);
 
@@ -179,7 +185,8 @@ export default function NumberGame() {
     setPartnerState(theirs || null);
     setPartnerProfile(partnerProfs[0] || null);
 
-    if (!silent) setLoading(false);
+    setLoading(false);
+    initialLoadedRef.current = true;
   };
 
   const handleSetupNumber = async () => {

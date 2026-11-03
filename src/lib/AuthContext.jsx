@@ -11,6 +11,23 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(initialUser);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Stabilize user updates: retain previous object reference if identity is unchanged
+  const setStableUser = (newUser) => {
+    setUser((prev) => {
+      if (!prev && !newUser) return null;
+      if (prev && newUser) {
+        const prevEmail = (prev.email || prev.user_email || '').toLowerCase().trim();
+        const nextEmail = (newUser.email || newUser.user_email || '').toLowerCase().trim();
+        const prevId = prev.id;
+        const nextId = newUser.id;
+        if (prevEmail && nextEmail && prevEmail === nextEmail && (!prevId || !nextId || prevId === nextId)) {
+          return prev; // bail out of re-render
+        }
+      }
+      return newUser;
+    });
+  };
+
   useEffect(() => {
     let cancelled = false;
     let initialCheckCompleted = false;
@@ -33,7 +50,7 @@ export const AuthProvider = ({ children }) => {
       // Yield to persistent user if present and no active Supabase session
       const activeStored = authStorage.getUserSync();
       if (activeStored && !session?.user) {
-        setUser(activeStored);
+        setStableUser(activeStored);
         if (initialCheckCompleted) {
           setIsLoading(false);
         }
@@ -48,7 +65,7 @@ export const AuthProvider = ({ children }) => {
           user_email: (supaUser.email || '').toLowerCase().trim(),
           ...supaUser.user_metadata
         };
-        setUser(userObj);
+        setStableUser(userObj);
         authStorage.saveUser(userObj);
 
         // On first verified sign-in (SIGNED_IN event), create profile if it doesn't exist yet
@@ -69,7 +86,7 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } else {
-        setUser(prev => prev || authStorage.getUserSync());
+        setStableUser(prev => prev || authStorage.getUserSync());
       }
 
       if (initialCheckCompleted) {
@@ -89,14 +106,14 @@ export const AuthProvider = ({ children }) => {
               email: (u.email || '').toLowerCase().trim(),
               user_email: (u.user_email || u.email || '').toLowerCase().trim()
             };
-            setUser(cleaned);
+            setStableUser(cleaned);
             authStorage.saveUser(cleaned);
           } else {
             const asyncUser = await authStorage.getUserAsync();
             if (asyncUser) {
-              setUser(asyncUser);
+              setStableUser(asyncUser);
             } else {
-              setUser(null);
+              setStableUser(null);
             }
           }
         }
@@ -105,9 +122,9 @@ export const AuthProvider = ({ children }) => {
         if (!cancelled) {
           const asyncUser = await authStorage.getUserAsync();
           if (asyncUser) {
-            setUser(asyncUser);
+            setStableUser(asyncUser);
           } else {
-            setUser(null);
+            setStableUser(null);
           }
         }
       } finally {
@@ -138,6 +155,7 @@ export const AuthProvider = ({ children }) => {
       user,
       isAuthenticated: !!user,
       isLoadingAuth: isLoading,
+      isLoading: isLoading,
       isLoadingPublicSettings: false,
       authError: null,
       logout,

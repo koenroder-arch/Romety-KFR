@@ -112,6 +112,7 @@ export default function CardGame() {
   const [partnerProfile, setPartnerProfile] = useState(null);
   const [myProfile, setMyProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const initialLoadedRef = useRef(false);
   const [cards, setCards] = useState([]);
   const cardsRef = useRef([]);
   cardsRef.current = cards;
@@ -127,19 +128,20 @@ export default function CardGame() {
   const pollRef = useRef(null);
   const sessionId = new URLSearchParams(window.location.search).get('session');
 
+  const userEmail = user?.email || (user ? 'logged_in' : null);
   useEffect(() => {
     if (user !== undefined && sessionId) {
-      loadData();
+      loadData(initialLoadedRef.current);
       pollRef.current = setInterval(() => {
         loadData(true);
       }, 5000);
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [user, sessionId]);
+  }, [userEmail, user === undefined, sessionId]);
 
   const loadData = async (silent = false) => {
     if (!user || !sessionId) return;
-    if (!silent) setLoading(true);
+    if (!initialLoadedRef.current && !silent) setLoading(true);
 
     const [sessions, roundData] = await Promise.all([
       base44.entities.GameSession.filter({ player1_email: user.email }),
@@ -190,7 +192,8 @@ export default function CardGame() {
       }
     }
 
-    if (!silent) setLoading(false);
+    setLoading(false);
+    initialLoadedRef.current = true;
 
     if (!pollRef.current) {
       pollRef.current = setInterval(() => loadData(true), 5000);

@@ -35,24 +35,10 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
 
   useEffect(() => {
-    if (currentUser) loadChatRooms();
-  }, [currentUser]);
-
-  // Sluit het 3-bolletjes menu wanneer de gebruiker ergens anders op de pagina klikt of tikt
-  useEffect(() => {
-    if (!openMenuProfileId) return;
-    const handleOutsideClick = (e) => {
-      if (!e.target.closest?.('.profile-options-menu-container')) {
-        setOpenMenuProfileId(null);
-      }
-    };
-    window.addEventListener('click', handleOutsideClick);
-    window.addEventListener('touchstart', handleOutsideClick);
-    return () => {
-      window.removeEventListener('click', handleOutsideClick);
-      window.removeEventListener('touchstart', handleOutsideClick);
-    };
-  }, [openMenuProfileId]);
+    if (currentUser && profiles && profiles.length > 0) {
+      loadChatRooms();
+    }
+  }, [currentUser, profiles?.length]);
 
   const loadChatRooms = async () => {
     try {
@@ -159,24 +145,26 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
 
   if (!profiles || profiles.length === 0 || activeProfiles.length === 0) {
     return createPortal(
-      <AnimatePresence>
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+      <div 
+        className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm select-none"
+        onClick={onClose}
+      >
+        <div 
+          className="relative z-10 flex flex-col items-center gap-4 px-6 text-center"
+          onClick={(e) => e.stopPropagation()}
         >
-          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.8)' }} onClick={onClose} />
-          <div className="relative z-10 flex flex-col items-center gap-4 px-8 text-center">
-            <span className="text-5xl">💜</span>
-            <p className="text-white font-black text-xl">Nog geen supermatches</p>
-            <p className="text-white/60 text-sm">Like iemand terug en ze worden je supermatch!</p>
-            <button onClick={onClose} className="mt-4 px-6 py-2.5 rounded-full font-bold text-white text-sm" style={{ background: GRAD }}>
-              Sluiten
-            </button>
-          </div>
-        </motion.div>
-      </AnimatePresence>,
+          <span className="text-5xl">💜</span>
+          <p className="text-white font-black text-xl">Nog geen supermatches</p>
+          <p className="text-white/60 text-sm max-w-xs">Like iemand terug en ze worden je supermatch!</p>
+          <button 
+            onClick={onClose} 
+            className="mt-4 px-6 py-2.5 rounded-full font-bold text-white text-sm active:scale-95 transition-transform cursor-pointer" 
+            style={{ background: GRAD, boxShadow: '0 8px 24px rgba(255, 75, 114, 0.35)' }}
+          >
+            Sluiten
+          </button>
+        </div>
+      </div>,
       document.body
     );
   }
@@ -188,7 +176,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-        className="fixed inset-0 z-50 max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
+        className="fixed inset-0 z-[250] max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
         style={{ 
           background: bg, 
           touchAction: 'pan-y' 
@@ -254,12 +242,12 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                     <AnimatePresence>
                       {isMenuOpen && (
                         <motion.div
-                          initial={{ opacity: 0, scale: 0.85, y: -8 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.85, y: -8 }}
-                          transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.16, ease: 'easeOut' }}
                           className="absolute top-11 right-0 min-w-[192px] rounded-2xl overflow-hidden shadow-2xl border border-white/15 z-40"
-                          style={{ background: 'rgba(18,18,28,0.95)', backdropFilter: 'blur(20px)' }}
+                          style={{ background: '#12121C' }}
                         >
                           {/* Bio option */}
                           <button

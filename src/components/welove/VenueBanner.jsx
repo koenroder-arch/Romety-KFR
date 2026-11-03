@@ -11,6 +11,7 @@ export default function VenueBanner({ checkIn, onRemoved }) {
 
   const handleRemove = async () => {
     try {
+      localStorage.removeItem('romety_pending_venue_toast');
       if (checkIn.status !== undefined) {
         // UserDestination
         await base44.entities.UserDestination.update(checkIn.id, { status: 'expired' });

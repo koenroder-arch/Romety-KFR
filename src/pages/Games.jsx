@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
@@ -48,23 +48,29 @@ export default function Games() {
   const [sessions, setSessions] = useState([]);
   const [profiles, setProfiles] = useState({});
   const [loading, setLoading] = useState(true);
+  const initialLoadedRef = useRef(false);
   const [pendingInvites, setPendingInvites] = useState([]);
   const [activeGames, setActiveGames] = useState([]);
   const [finishedGames, setFinishedGames] = useState([]);
 
+  const userEmail = user?.email || (user ? 'logged_in' : null);
   useEffect(() => {
     if (user !== undefined) {
-      loadData();
+      loadData(initialLoadedRef.current);
       const interval = setInterval(() => {
         loadData(true);
       }, 10000);
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [userEmail, user === undefined]);
 
   const loadData = async (silent = false) => {
-    if (!silent) setLoading(true);
-    if (!user) { setLoading(false); return; }
+    if (!initialLoadedRef.current && !silent) setLoading(true);
+    if (!user) {
+      setLoading(false);
+      initialLoadedRef.current = true;
+      return;
+    }
 
     try {
       const [asP1 = [], asP2 = []] = await Promise.all([
@@ -98,7 +104,8 @@ export default function Games() {
     } catch (e) {
       console.error("[Games] Error loading games data:", e);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
+      initialLoadedRef.current = true;
     }
   };
 

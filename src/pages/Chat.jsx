@@ -352,11 +352,12 @@ export default function Chat() {
       setMessageCounts(counts);
     } catch (e) {}
     setLoading(false);
-  }, [user]);
+  }, [user?.email, user === undefined]);
 
+  const userEmail = user?.email || (user ? 'logged_in' : null);
   useEffect(() => {
     if (user !== undefined) loadData();
-  }, [user, loadData]);
+  }, [userEmail, user === undefined, loadData]);
 
   // Polling every 6 seconds to automatically re-sort and receive incoming messages when visible
   useEffect(() => {
@@ -367,12 +368,12 @@ export default function Chat() {
       }
     }, 6000);
     return () => clearInterval(interval);
-  }, [user, activeRoom, loadData]);
+  }, [userEmail, activeRoom, loadData]);
 
   // Save email to localStorage for Layout badge polling
   useEffect(() => {
     if (user?.email) localStorage.setItem('romety_user_email', user.email);
-  }, [user]);
+  }, [userEmail]);
 
   const handleAcceptRoom = async (room) => {
     setAcceptingRoom(room.id);

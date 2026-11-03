@@ -24,12 +24,14 @@ const LayoutWrapper = ({ children, currentPageName }) => {
 };
 
 const OnboardingGate = ({ children }) => {
-  const { user, isLoading } = useAuth();
-  const [checking, setChecking] = React.useState(true);
+  const { user, isLoadingAuth } = useAuth();
+  const [checking, setChecking] = React.useState(() => {
+    return localStorage.getItem('romety_onboarding_complete') !== 'true';
+  });
   const [needsOnboarding, setNeedsOnboarding] = React.useState(false);
 
   React.useEffect(() => {
-    if (isLoading) return;
+    if (isLoadingAuth) return;
 
     if (!user) {
       setChecking(false);
@@ -37,9 +39,20 @@ const OnboardingGate = ({ children }) => {
       return;
     }
 
+    const email = user.email ? user.email.toLowerCase().trim() : '';
+    if (!email) {
+      setChecking(false);
+      return;
+    }
+
     // Fetch profile and check onboarding status case-insensitively
-    base44.entities.UserProfile.filter({ user_email: user.email.toLowerCase().trim() }).then((profiles) => {
+    base44.entities.UserProfile.filter({ user_email: email }).then((profiles) => {
       const done = profiles?.[0]?.onboarding_complete === true;
+      if (done) {
+        localStorage.setItem('romety_onboarding_complete', 'true');
+      } else {
+        localStorage.removeItem('romety_onboarding_complete');
+      }
       setNeedsOnboarding(!done);
       setChecking(false);
     }).catch((err) => {
@@ -47,9 +60,9 @@ const OnboardingGate = ({ children }) => {
       setNeedsOnboarding(false);
       setChecking(false);
     });
-  }, [user?.email, isLoading]);
+  }, [user?.email, isLoadingAuth]);
 
-  if (isLoading || checking) {
+  if (isLoadingAuth || (checking && localStorage.getItem('romety_onboarding_complete') !== 'true')) {
     return null;
   }
 

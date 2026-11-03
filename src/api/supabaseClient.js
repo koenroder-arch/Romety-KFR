@@ -7,13 +7,11 @@ if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === 'YOUR_SUPABASE_URL' || s
   console.warn('Supabase URL or Anon Key is not properly set in .env.local.');
 }
 
-const supabaseSecretKey = import.meta.env.VITE_SUPABASE_SECRET_KEY;
-
 export const supabase = createClient(
   supabaseUrl && supabaseUrl !== 'YOUR_SUPABASE_URL' ? supabaseUrl : 'https://placeholder.supabase.co',
   supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' ? supabaseAnonKey : 'placeholder'
 );
 
-export const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey !== 'YOUR_SUPABASE_SECRET_KEY')
-  ? createClient(supabaseUrl, supabaseSecretKey, { auth: { persistSession: false } })
-  : supabase;
+// In client-side Vite builds, never expose the service_role secret key!
+// supabaseAdmin safely aliases the authenticated supabase client.
+export const supabaseAdmin = supabase;

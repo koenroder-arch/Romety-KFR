@@ -219,6 +219,7 @@ export default function Hints() {
   const [myProfile, setMyProfile] = useState(null);
   const [myCheckIn, setMyCheckIn] = useState(null);
   const [loading, setLoading] = useState(true);
+  const initialLoadedRef = useRef(false);
 
   // Camera settings & stream
   const [stream, setStream] = useState(null);
@@ -346,17 +347,19 @@ export default function Hints() {
   const recordingIntervalRef = useRef(null);
   const lastTapRef = useRef(0);
 
+  const userEmail = user?.email || (user ? 'logged_in' : null);
   useEffect(() => {
     if (user !== undefined) {
-      loadData();
+      loadData(initialLoadedRef.current);
     }
-  }, [user]);
+  }, [userEmail, user === undefined]);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!initialLoadedRef.current && !silent) setLoading(true);
     const u = user;
     if (!u) {
       setLoading(false);
+      initialLoadedRef.current = true;
       return;
     }
 
@@ -381,8 +384,10 @@ export default function Hints() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
+      initialLoadedRef.current = true;
     }
-    setLoading(false);
   };
 
   const initCamera = async (mode) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
@@ -34,6 +34,8 @@ export default function Matches() {
   const [matches, setMatches] = useState([]);
   const [myCheckIn, setMyCheckIn] = useState(null);
   const [loading, setLoading] = useState(true);
+  const initialLoadedRef = useRef(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [hintingProfile, setHintingProfile] = useState(null);
   const [initialLikedIds, setInitialLikedIds] = useState([]);
   const [hasSentToday, setHasSentToday] = useState(false);
@@ -41,13 +43,22 @@ export default function Matches() {
   const [timeLeft, setTimeLeft] = useState('');
   const [hints, setHints] = useState([]);
 
-  useEffect(() => { if (user !== undefined) loadData(); }, [user]); // undefined = still loading auth
+  const userEmail = user?.email || (user ? 'logged_in' : null);
+  useEffect(() => {
+    if (user !== undefined) loadData(initialLoadedRef.current);
+  }, [userEmail, user === undefined]);
   useEffect(() => {markAllRead();}, []);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!initialLoadedRef.current && !silent) setLoading(true);
     const u = user;
-    if (!u) {setLoading(false);return;}
+    if (!u) {
+      setLoading(false);
+      initialLoadedRef.current = true;
+      setInitialLoaded(true);
+      return;
+    }
+    try {
 
     const profiles = await base44.entities.UserProfile.filter({ user_email: u.email });
     const myProf = profiles[0] || null;
@@ -139,9 +150,14 @@ export default function Matches() {
     } catch (e) {
       setHints([]);
     }
-
+  } catch (err) {
+    console.error("Error loading matches:", err);
+  } finally {
     setLoading(false);
-  };
+    initialLoadedRef.current = true;
+    setInitialLoaded(true);
+  }
+};
 
   const isPremium = true;
 
@@ -184,7 +200,7 @@ export default function Matches() {
       </div>
 
       {/* No location locked state */}
-      {!myLocation && (
+      {!myLocation && initialLoaded && !loading && (
         <div className="flex-1 flex flex-col items-center justify-center p-4 pb-20">
           <div 
             className="w-full max-w-sm p-6 rounded-[28px] text-center flex flex-col items-center border shadow-2xl transition-all"

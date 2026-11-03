@@ -156,27 +156,23 @@ export default function Account() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const initialLoadedRef = useRef(false);
 
-  // Lock body and background scrolling when editing screen or activeSheet popup is open
+  // Lock body and background scrolling when editing screen is open
   useEffect(() => {
-    if (editing || activeSheet) {
+    if (editing) {
       const originalBodyOverflow = document.body.style.overflow;
       const originalHtmlOverflow = document.documentElement.style.overflow;
-      const originalTouchAction = document.body.style.touchAction;
 
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
-      if (activeSheet) {
-        document.body.style.touchAction = 'none';
-      }
 
       return () => {
         document.body.style.overflow = originalBodyOverflow;
         document.documentElement.style.overflow = originalHtmlOverflow;
-        document.body.style.touchAction = originalTouchAction;
       };
     }
-  }, [editing, activeSheet]);
+  }, [editing]);
 
   // Change detection for Save button & Discard warning
   const hasChanges = React.useMemo(() => {
@@ -190,9 +186,9 @@ export default function Account() {
     if ((form.looking_for || '') !== (initialForm.looking_for || '')) return true;
     if ((form.bio || '') !== (initialForm.bio || '')) return true;
     if (Number(form.min_age_pref || 18) !== Number(initialForm.min_age_pref || 18)) return true;
-    if (Number(form.max_age_pref || 35) !== Number(initialForm.max_age_pref || 35)) return true;
-    if (Number(form.min_height_pref || 150) !== Number(initialForm.min_height_pref || 150)) return true;
-    if (Number(form.max_height_pref || 205) !== Number(initialForm.max_height_pref || 205)) return true;
+    if (Number(form.max_age_pref || 90) !== Number(initialForm.max_age_pref || 90)) return true;
+    if (Number(form.min_height_pref || 140) !== Number(initialForm.min_height_pref || 140)) return true;
+    if (Number(form.max_height_pref || 260) !== Number(initialForm.max_height_pref || 260)) return true;
     
     const initialTraits = initialForm.traits || [];
     const currentTraits = form.traits || [];
@@ -263,13 +259,19 @@ export default function Account() {
     setPendingNavUrl(null);
   };
 
+  const userEmail = user?.email || (user ? 'logged_in' : null);
   useEffect(() => { 
-    if (user !== undefined) loadData(); 
-  }, [user]);
+    if (user !== undefined) loadData(initialLoadedRef.current); 
+  }, [userEmail, user === undefined]);
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
+    if (!initialLoadedRef.current && !silent) setLoading(true);
     const u = user;
-    if (!u) { setLoading(false); return; }
+    if (!u) {
+      setLoading(false);
+      initialLoadedRef.current = true;
+      return;
+    }
 
     try {
       const [
@@ -306,10 +308,10 @@ export default function Account() {
         interests: Array.isArray(p?.interests) ? p.interests : [],
         photos: Array.isArray(p?.photos) ? p.photos.filter(Boolean) : (p?.photo_url ? [p.photo_url] : []),
         country: p?.country || 'Nederland',
-        min_age_pref: p?.min_age_pref !== undefined && p?.min_age_pref !== null ? p.min_age_pref : 18,
-        max_age_pref: p?.max_age_pref !== undefined && p?.max_age_pref !== null ? p.max_age_pref : 35,
-        min_height_pref: p?.min_height_pref !== undefined && p?.min_height_pref !== null ? p.min_height_pref : 150,
-        max_height_pref: p?.max_height_pref !== undefined && p?.max_height_pref !== null ? p.max_height_pref : 205,
+        min_age_pref: (p?.min_age_pref !== undefined && p?.min_age_pref !== null && Number(p?.min_age_pref) >= 18) ? Number(p.min_age_pref) : 18,
+        max_age_pref: (p?.max_age_pref !== undefined && p?.max_age_pref !== null && Number(p?.max_age_pref) <= 90 && Number(p?.max_age_pref) >= 18) ? Number(p.max_age_pref) : 90,
+        min_height_pref: (p?.min_height_pref !== undefined && p?.min_height_pref !== null && Number(p?.min_height_pref) >= 140) ? Number(p.min_height_pref) : 140,
+        max_height_pref: (p?.max_height_pref !== undefined && p?.max_height_pref !== null && Number(p?.max_height_pref) <= 260 && Number(p?.max_height_pref) >= 140) ? Number(p.max_height_pref) : 260,
       };
       setForm(initialVals);
       setInitialForm(initialVals);
@@ -351,8 +353,10 @@ export default function Account() {
       });
     } catch (e) {
       console.error('Failed to load profile data:', e);
+    } finally {
+      setLoading(false);
+      initialLoadedRef.current = true;
     }
-    setLoading(false);
   };
 
   const handlePhotoUpload = async (file, slotIndex) => {
@@ -517,9 +521,9 @@ export default function Account() {
         photo_url: photosList[0] || myProfile?.photo_url || null,
         country: form.country || 'Nederland',
         min_age_pref: Number(form.min_age_pref) || 18,
-        max_age_pref: Number(form.max_age_pref) || 35,
-        min_height_pref: Number(form.min_height_pref) || 150,
-        max_height_pref: Number(form.max_height_pref) || 205,
+        max_age_pref: Number(form.max_age_pref) || 90,
+        min_height_pref: Number(form.min_height_pref) || 140,
+        max_height_pref: Number(form.max_height_pref) || 260,
         user_email: u.email
       };
 
@@ -662,15 +666,24 @@ export default function Account() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!user) return;
     setDeleting(true);
     const toastId = toast.loading('Account en gegevens worden verwijderd...');
 
     try {
-      const email = (user.email || user.user_email || '').toLowerCase().trim();
+      const email = (
+        user?.email || 
+        user?.user_email || 
+        myProfile?.user_email || 
+        myProfile?.contact_email || 
+        authStorage.getUserSync()?.email || 
+        localStorage.getItem('romety_user_email') || 
+        localStorage.getItem('romety_last_email') || 
+        ''
+      ).toLowerCase().trim();
 
       if (email) {
         const client = supabaseAdmin || supabase;
+        const fallbackClient = supabase;
 
         // 0. Save exit feedback to Supabase if provided
         try {
@@ -690,7 +703,7 @@ export default function Account() {
 
         // 1. Delete user photos & story media from storage
         try {
-          const { data: userProfiles } = await client.from('UserProfile').select('photo_url, photos').eq('user_email', email);
+          const { data: userProfiles } = await client.from('UserProfile').select('photo_url, photos').ilike('user_email', email);
           if (userProfiles && userProfiles.length > 0) {
             for (const p of userProfiles) {
               if (p.photo_url) await base44.integrations.Core.DeleteFile({ file_url: p.photo_url }).catch(() => {});
@@ -702,12 +715,21 @@ export default function Account() {
               }
             }
           }
+          if (myProfile?.photo_url) {
+            await base44.integrations.Core.DeleteFile({ file_url: myProfile.photo_url }).catch(() => {});
+          }
+          if (Array.isArray(myProfile?.photos)) {
+            for (const photo of myProfile.photos) {
+              const url = typeof photo === 'string' ? photo : photo?.url;
+              if (url) await base44.integrations.Core.DeleteFile({ file_url: url }).catch(() => {});
+            }
+          }
         } catch (e) {
           console.warn('[handleDeleteAccount] Error deleting profile photos:', e);
         }
 
         try {
-          const { data: userStories } = await client.from('Story').select('media_url').eq('user_email', email);
+          const { data: userStories } = await client.from('Story').select('media_url').ilike('user_email', email);
           if (userStories && userStories.length > 0) {
             for (const s of userStories) {
               if (s.media_url) await base44.integrations.Core.DeleteFile({ file_url: s.media_url }).catch(() => {});
@@ -719,10 +741,10 @@ export default function Account() {
 
         // 2. Delete ALL chats and invitations (both received and sent invitations, and active chats)
         try {
-          // Haal alle chatrooms op waarin deze gebruiker zit (zowel verzonden als ontvangen uitnodigingen en actieve chats)
+          // Haal alle chatrooms op waarin deze gebruiker zit
           const [roomsA, roomsB] = await Promise.all([
-            client.from('ChatRoom').select('id, user_a_email, user_b_email').eq('user_a_email', email),
-            client.from('ChatRoom').select('id, user_a_email, user_b_email').eq('user_b_email', email),
+            client.from('ChatRoom').select('id, user_a_email, user_b_email').ilike('user_a_email', email),
+            client.from('ChatRoom').select('id, user_a_email, user_b_email').ilike('user_b_email', email),
           ]);
           
           const combinedRooms = [...(roomsA?.data || []), ...(roomsB?.data || [])];
@@ -741,7 +763,7 @@ export default function Account() {
           }
 
           // Verwijder mediabestanden uit berichten van de gebruiker (als die buiten de kamers vielen)
-          const { data: userChatMsgs } = await client.from('ChatMessage').select('media_url').eq('sender_email', email);
+          const { data: userChatMsgs } = await client.from('ChatMessage').select('media_url').ilike('sender_email', email);
           if (userChatMsgs && userChatMsgs.length > 0) {
             for (const m of userChatMsgs) {
               if (m.media_url) await base44.integrations.Core.DeleteFile({ file_url: m.media_url, bucket: 'chat-uploads' }).catch(() => {});
@@ -751,15 +773,20 @@ export default function Account() {
           // Schoon eventuele overgebleven chatberichten op
           if (allRoomIds.length > 0) {
             await client.from('ChatMessage').delete().in('room_id', allRoomIds).catch(() => {});
+            await fallbackClient.from('ChatMessage').delete().in('room_id', allRoomIds).catch(() => {});
           }
-          await client.from('ChatMessage').delete().eq('sender_email', email).catch(() => {});
+          await client.from('ChatMessage').delete().ilike('sender_email', email).catch(() => {});
+          await fallbackClient.from('ChatMessage').delete().ilike('sender_email', email).catch(() => {});
 
           // Schoon definitief alle chatrooms op via meerdere queries voor gegarandeerde verwijdering
           if (allRoomIds.length > 0) {
             await client.from('ChatRoom').delete().in('id', allRoomIds).catch(() => {});
+            await fallbackClient.from('ChatRoom').delete().in('id', allRoomIds).catch(() => {});
           }
-          await client.from('ChatRoom').delete().eq('user_a_email', email).catch(() => {});
-          await client.from('ChatRoom').delete().eq('user_b_email', email).catch(() => {});
+          await client.from('ChatRoom').delete().ilike('user_a_email', email).catch(() => {});
+          await client.from('ChatRoom').delete().ilike('user_b_email', email).catch(() => {});
+          await fallbackClient.from('ChatRoom').delete().ilike('user_a_email', email).catch(() => {});
+          await fallbackClient.from('ChatRoom').delete().ilike('user_b_email', email).catch(() => {});
 
           // Verwijder ook via base44 client voor consistentie
           await Promise.allSettled(
@@ -779,56 +806,106 @@ export default function Account() {
 
         // 3. Delete all records across all Supabase tables in parallel safely
         const deleteTasks = [
-          client.from('UserProfile').delete().eq('user_email', email),
-          client.from('UserDestination').delete().eq('user_email', email),
-          client.from('VenueCheckIn').delete().eq('user_email', email),
-          client.from('Like').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
-          client.from('Like').delete().eq('from_email', email),
-          client.from('Like').delete().eq('to_email', email),
-          client.from('Hint').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
-          client.from('Hint').delete().eq('from_email', email),
-          client.from('Hint').delete().eq('to_email', email),
-          client.from('GameSession').delete().or(`player1_email.eq.${email},player2_email.eq.${email}`),
-          client.from('GameSession').delete().eq('player1_email', email),
-          client.from('GameSession').delete().eq('player2_email', email),
-          client.from('CardGameRound').delete().eq('asker_email', email),
-          client.from('NumberGameState').delete().eq('player_email', email),
-          client.from('Notification').delete().or(`from_email.eq.${email},to_email.eq.${email}`),
-          client.from('Notification').delete().eq('from_email', email),
-          client.from('Notification').delete().eq('to_email', email),
-          client.from('Story').delete().eq('user_email', email),
-          client.from('SearchHistory').delete().eq('user_email', email),
-          client.from('ChatRoom').delete().eq('user_a_email', email),
-          client.from('ChatRoom').delete().eq('user_b_email', email),
-          client.from('ChatMessage').delete().eq('sender_email', email),
-          client.from('SeenProfiles').delete().or(`user_email.eq.${email},seen_user_email.eq.${email}`),
-          client.from('PremiumSubscription').delete().eq('user_email', email),
-          client.from('Report').delete().or(`reporter_email.eq.${email},reported_email.eq.${email}`),
-        ];
+          client.from('UserProfile').delete().ilike('user_email', email),
+          client.from('UserProfile').delete().ilike('contact_email', email),
+          fallbackClient.from('UserProfile').delete().ilike('user_email', email),
+          fallbackClient.from('UserProfile').delete().ilike('contact_email', email),
+          myProfile?.id ? client.from('UserProfile').delete().eq('id', myProfile.id) : null,
+          myProfile?.id ? fallbackClient.from('UserProfile').delete().eq('id', myProfile.id) : null,
+          myProfile?.id ? base44.entities.UserProfile.delete(myProfile.id).catch(() => {}) : null,
+          client.from('UserDestination').delete().ilike('user_email', email),
+          fallbackClient.from('UserDestination').delete().ilike('user_email', email),
+          client.from('VenueCheckIn').delete().ilike('user_email', email),
+          fallbackClient.from('VenueCheckIn').delete().ilike('user_email', email),
+          client.from('Like').delete().ilike('from_email', email),
+          client.from('Like').delete().ilike('to_email', email),
+          fallbackClient.from('Like').delete().ilike('from_email', email),
+          fallbackClient.from('Like').delete().ilike('to_email', email),
+          client.from('Hint').delete().ilike('from_email', email),
+          client.from('Hint').delete().ilike('to_email', email),
+          fallbackClient.from('Hint').delete().ilike('from_email', email),
+          fallbackClient.from('Hint').delete().ilike('to_email', email),
+          client.from('GameSession').delete().ilike('player1_email', email),
+          client.from('GameSession').delete().ilike('player2_email', email),
+          fallbackClient.from('GameSession').delete().ilike('player1_email', email),
+          fallbackClient.from('GameSession').delete().ilike('player2_email', email),
+          client.from('CardGameRound').delete().ilike('asker_email', email),
+          fallbackClient.from('CardGameRound').delete().ilike('asker_email', email),
+          client.from('NumberGameState').delete().ilike('player_email', email),
+          fallbackClient.from('NumberGameState').delete().ilike('player_email', email),
+          client.from('Notification').delete().ilike('from_email', email),
+          client.from('Notification').delete().ilike('to_email', email),
+          fallbackClient.from('Notification').delete().ilike('from_email', email),
+          fallbackClient.from('Notification').delete().ilike('to_email', email),
+          client.from('Story').delete().ilike('user_email', email),
+          fallbackClient.from('Story').delete().ilike('user_email', email),
+          client.from('SearchHistory').delete().ilike('user_email', email),
+          fallbackClient.from('SearchHistory').delete().ilike('user_email', email),
+          client.from('ChatRoom').delete().ilike('user_a_email', email),
+          client.from('ChatRoom').delete().ilike('user_b_email', email),
+          fallbackClient.from('ChatRoom').delete().ilike('user_a_email', email),
+          fallbackClient.from('ChatRoom').delete().ilike('user_b_email', email),
+          client.from('ChatMessage').delete().ilike('sender_email', email),
+          fallbackClient.from('ChatMessage').delete().ilike('sender_email', email),
+          client.from('SeenProfiles').delete().ilike('user_email', email),
+          client.from('SeenProfiles').delete().ilike('seen_user_email', email),
+          fallbackClient.from('SeenProfiles').delete().ilike('user_email', email),
+          fallbackClient.from('SeenProfiles').delete().ilike('seen_user_email', email),
+          client.from('PremiumSubscription').delete().ilike('user_email', email),
+          fallbackClient.from('PremiumSubscription').delete().ilike('user_email', email),
+          client.from('Report').delete().ilike('reporter_email', email),
+          client.from('Report').delete().ilike('reported_email', email),
+          fallbackClient.from('Report').delete().ilike('reporter_email', email),
+          fallbackClient.from('Report').delete().ilike('reported_email', email),
+          client.from('Feedback').delete().ilike('user_email', email),
+          fallbackClient.from('Feedback').delete().ilike('user_email', email),
+          client.from('AccountDeletionSurvey').delete().ilike('user_email', email),
+          fallbackClient.from('AccountDeletionSurvey').delete().ilike('user_email', email),
+        ].filter(Boolean);
 
         await Promise.allSettled(deleteTasks);
+
+        // 4. Delete user completely from Supabase Auth via secure RPC (or fallback)
+        try {
+          await supabase.rpc('delete_user_account').catch((rpcErr) => {
+            console.warn('[handleDeleteAccount] RPC delete_user_account note:', rpcErr);
+          });
+        } catch (authDelErr) {
+          console.warn('[handleDeleteAccount] Error calling delete_user_account RPC:', authDelErr);
+        }
       }
 
-      // 4. Clear all local auth storage and chat caches (localStorage, sessionStorage, IndexedDB, cookies)
+      // 5. Clear all local auth storage and chat caches (localStorage, sessionStorage, IndexedDB, cookies)
       authStorage.clearUser();
       try {
         localStorage.removeItem('welove_lang');
+        localStorage.removeItem('welove_user');
+        localStorage.removeItem('welove_user_async');
         localStorage.removeItem('romety_user_email');
+        localStorage.removeItem('romety_last_email');
+        localStorage.removeItem('romety_registered_username');
+        localStorage.removeItem('romety_pending_verification');
         localStorage.removeItem('seen_chat_room_ids');
 
-        // Schoon alle chat-gerelateerde keys op
+        // Schoon alle gerelateerde keys op
         Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('chat_read_count_') || key.startsWith('deleted_chat_hidden_')) {
+          if (
+            key.startsWith('chat_') || 
+            key.startsWith('deleted_chat_') || 
+            key.startsWith('romety_') ||
+            key.startsWith('sb-')
+          ) {
             localStorage.removeItem(key);
           }
         });
 
+        sessionStorage.clear();
         sessionStorage.setItem('romety_splash_shown', 'true');
       } catch (err) {}
 
-      // 5. Sign out from Supabase Auth
+      // 6. Sign out globally from Supabase Auth
       try {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'global' });
       } catch (e) {
         console.warn('[handleDeleteAccount] signOut error:', e);
       }
@@ -836,9 +913,9 @@ export default function Account() {
       toast.dismiss(toastId);
       toast.success('Je account is succesvol verwijderd.');
 
-      // 6. Redirect to Language selection page (leads to Onboarding after language is chosen)
+      // 7. Redirect directly to Login page
       setTimeout(() => {
-        window.location.replace('/Language');
+        window.location.replace('/Login');
       }, 400);
 
     } catch (e) {
@@ -846,12 +923,19 @@ export default function Account() {
       authStorage.clearUser();
       try {
         localStorage.removeItem('welove_lang');
+        localStorage.removeItem('welove_user');
+        localStorage.removeItem('welove_user_async');
+        localStorage.removeItem('romety_user_email');
+        localStorage.removeItem('romety_last_email');
+        localStorage.removeItem('romety_registered_username');
+        localStorage.removeItem('romety_pending_verification');
+        sessionStorage.clear();
         sessionStorage.setItem('romety_splash_shown', 'true');
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'global' });
       } catch (err) {}
       toast.dismiss(toastId);
       toast.success('Je account is verwijderd.');
-      window.location.replace('/Language');
+      window.location.replace('/Login');
     } finally {
       setDeleting(false);
     }
@@ -1457,8 +1541,9 @@ export default function Account() {
 
           {/* Feedback Button */}
           <button 
+            type="button"
             onClick={() => setShowFeedbackModal(true)} 
-            className="w-full rounded-2xl p-3.5 flex items-center justify-between transition-all active:scale-[0.99]" 
+            className="w-full rounded-2xl p-3.5 flex items-center justify-between transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer" 
             style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
           >
             <div className="flex items-center gap-3">
@@ -1472,8 +1557,9 @@ export default function Account() {
           
           {/* Logout Button */}
           <button 
+            type="button"
             onClick={() => setShowLogoutConfirm(true)} 
-            className="w-full rounded-2xl p-3.5 flex items-center justify-between transition-all active:scale-[0.99]" 
+            className="w-full rounded-2xl p-3.5 flex items-center justify-between transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer" 
             style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
           >
             <div className="flex items-center gap-3">
@@ -1487,9 +1573,10 @@ export default function Account() {
 
           {/* Delete Account Button */}
           <button 
+            type="button"
             onClick={() => setShowDeleteConfirm(true)} 
             disabled={deleting} 
-            className="w-full rounded-2xl p-3.5 flex items-center justify-between border border-red-500/30 transition-all active:scale-[0.99] bg-red-500/5" 
+            className="w-full rounded-2xl p-3.5 flex items-center justify-between border border-red-500/30 transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer bg-red-500/5" 
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-red-500/20 text-red-500">
@@ -1513,7 +1600,7 @@ export default function Account() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className={`fixed inset-0 z-[200] ${activeSheet ? 'overflow-hidden pointer-events-none' : 'overflow-y-auto pointer-events-auto'} max-w-md mx-auto flex flex-col overscroll-contain`}
+            className="fixed inset-0 z-[200] overflow-y-auto pointer-events-auto max-w-md mx-auto flex flex-col overscroll-contain"
             style={{ background: bg }}
           >
             {/* Header */}
@@ -1809,29 +1896,25 @@ export default function Account() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.24, ease: "easeOut" }}
-            className="fixed inset-0 z-[250] pointer-events-auto flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md select-none"
+            className={`fixed inset-0 z-[250] pointer-events-auto flex justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md select-none ${
+              activeSheet === 'username' || activeSheet === 'bio'
+                ? 'items-start pt-20 sm:pt-24'
+                : 'items-center'
+            }`}
             onTouchMove={(e) => {
               if (e.target === e.currentTarget) e.preventDefault();
             }}
             onClick={handleCloseSubSheet}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              initial={{ opacity: 0, scale: 0.94, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 10 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{
-                type: "spring",
-                damping: 28,
-                stiffness: 340,
-                mass: 0.85
+                duration: 0.22,
+                ease: [0.16, 1, 0.3, 1]
               }}
-              className={`relative w-full max-w-sm sm:max-w-md rounded-[28px] sm:rounded-[32px] overflow-hidden p-5 sm:p-6 flex flex-col max-h-[82vh] ${
-                activeSheet === 'username'
-                  ? '-translate-y-22 sm:-translate-y-24'
-                  : activeSheet === 'bio'
-                    ? '-translate-y-28 sm:-translate-y-32'
-                    : '-translate-y-6 sm:-translate-y-8'
-              }`}
+              className="relative w-full max-w-sm sm:max-w-md rounded-[28px] sm:rounded-[32px] overflow-hidden p-5 sm:p-6 flex flex-col max-h-[82vh]"
               style={{ background: cardBg, border: cardBorder, boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
               onClick={e => e.stopPropagation()}
               onTouchMove={e => e.stopPropagation()}
@@ -2401,20 +2484,23 @@ export default function Account() {
       {/* ── MODAL: MINIMUM 3 ITEMS WARNING (TRAITS & INTERESTS) ── */}
       <AnimatePresence>
         {minItemsWarningModal && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.2 }} 
-            className="fixed inset-0 z-[350] pointer-events-auto flex items-center justify-center bg-black/70 backdrop-blur-sm px-6 select-none" 
-            onClick={handleCancelMinItemsLeave}
-          >
+          <div className="fixed inset-0 z-[350] flex items-center justify-center px-6 pointer-events-auto select-none">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              key="min-items-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.16, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/75" 
+              onClick={handleCancelMinItemsLeave}
+            />
+            <motion.div 
+              key="min-items-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className={`rounded-[28px] w-full max-w-xs p-5 text-center shadow-2xl border ${
+              exit={{ opacity: 0, scale: 0.95, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className={`relative z-10 rounded-[28px] w-full max-w-xs p-5 text-center shadow-2xl border ${
                 isDark ? 'bg-[#141521] border-red-500/30 text-white' : 'bg-white border-red-200 text-gray-900'
               }`}
               style={{
@@ -2452,27 +2538,30 @@ export default function Account() {
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ── MODAL: SAVE CONFIRMATION (WARNING MATCHES COULD BE LOST) ── */}
       <AnimatePresence>
         {showSaveConfirm && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
-            onClick={() => setShowSaveConfirm(false)}
-          >
+          <div className="fixed inset-0 z-[300] flex items-center justify-center px-6 pointer-events-auto">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              key="save-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.16, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/75" 
+              onClick={() => setShowSaveConfirm(false)}
+            />
+            <motion.div 
+              key="save-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-2xl border border-gray-100 dark:border-white/10" 
+              exit={{ opacity: 0, scale: 0.95, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-2xl border border-gray-100 dark:border-white/10" 
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-center gap-2 mb-2">
@@ -2499,27 +2588,30 @@ export default function Account() {
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ── MODAL: DISCARD CONFIRMATION (WHEN RETURNING WITH UNSAVED CHANGES) ── */}
       <AnimatePresence>
         {showDiscardConfirm && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
-            onClick={handleCancelDiscard}
-          >
+          <div className="fixed inset-0 z-[300] flex items-center justify-center px-6 pointer-events-auto">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              key="discard-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.16, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/75" 
+              onClick={handleCancelDiscard}
+            />
+            <motion.div 
+              key="discard-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10" 
+              exit={{ opacity: 0, scale: 0.95, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10" 
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-center gap-2 mb-2">
@@ -2546,27 +2638,30 @@ export default function Account() {
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ── MODAL: PROFILE PREVIEW (MATCHES PAGE SWIPER CARD STYLE) ── */}
       <AnimatePresence>
         {showPreview && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.24 }} 
-            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" 
-            onClick={() => setShowPreview(false)}
-          >
+          <div className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-4">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.90, y: 16 }}
+              key="preview-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.18, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/80" 
+              onClick={() => setShowPreview(false)}
+            />
+            <motion.div 
+              key="preview-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className="w-full max-w-sm h-[560px] rounded-[32px] overflow-hidden relative shadow-2xl flex flex-col justify-end" 
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 w-full max-w-sm h-[560px] rounded-[32px] overflow-hidden shadow-2xl flex flex-col justify-end" 
               onClick={e => e.stopPropagation()}
             >
               
@@ -2628,27 +2723,30 @@ export default function Account() {
               </div>
 
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ── MODAL: LOGOUT CONFIRM (NORMAL NOTIFICATION STYLE) ── */}
       <AnimatePresence>
         {showLogoutConfirm && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
-            onClick={() => setShowLogoutConfirm(false)}
-          >
+          <div className="fixed inset-0 z-[300] flex items-center justify-center px-6 pointer-events-auto">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              key="logout-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.16, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/75" 
+              onClick={() => setShowLogoutConfirm(false)}
+            />
+            <motion.div 
+              key="logout-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10" 
+              exit={{ opacity: 0, scale: 0.95, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-2xl border border-gray-100 dark:border-white/10" 
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-center gap-2 mb-2">
@@ -2660,12 +2758,14 @@ export default function Account() {
               </p>
               <div className="flex gap-2">
                 <button 
+                  type="button"
                   onClick={() => setShowLogoutConfirm(false)} 
                   className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
                 >
                   Nee
                 </button>
                 <button 
+                  type="button"
                   onClick={handlePerformLogout} 
                   className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
                 >
@@ -2673,27 +2773,30 @@ export default function Account() {
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ── MODAL: DELETE CONFIRM (NORMAL NOTIFICATION STYLE) ── */}
       <AnimatePresence>
         {showDeleteConfirm && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs px-6" 
-            onClick={() => setShowDeleteConfirm(false)}
-          >
+          <div className="fixed inset-0 z-[300] flex items-center justify-center px-6 pointer-events-auto">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              key="delete-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.16, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/75" 
+              onClick={() => setShowDeleteConfirm(false)}
+            />
+            <motion.div 
+              key="delete-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className="bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-xl border border-gray-100 dark:border-white/10" 
+              exit={{ opacity: 0, scale: 0.95, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 bg-white dark:bg-[#141521] rounded-2xl w-full max-w-xs p-4 text-center shadow-2xl border border-gray-100 dark:border-white/10" 
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-center gap-2 mb-2">
@@ -2705,12 +2808,14 @@ export default function Account() {
               </p>
               <div className="flex gap-2">
                 <button 
+                  type="button"
                   onClick={() => setShowDeleteConfirm(false)} 
                   className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
                 >
                   Nee
                 </button>
                 <button 
+                  type="button"
                   onClick={() => { 
                     setShowDeleteConfirm(false); 
                     setDeleteAnswers({ selectedOption: 'Ik heb iemand gevonden ❤️', customText: '' });
@@ -2722,27 +2827,30 @@ export default function Account() {
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ── MODAL: DELETE SURVEY (BEFORE DEFINITIVE DELETION) ── */}
       <AnimatePresence>
         {showDeleteSurvey && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-            onClick={() => setShowDeleteSurvey(false)}
-          >
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 pointer-events-auto">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              key="survey-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.16, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/75" 
+              onClick={() => setShowDeleteSurvey(false)}
+            />
+            <motion.div 
+              key="survey-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className={`w-full max-w-sm p-6 rounded-[28px] shadow-2xl border ${
+              exit={{ opacity: 0, scale: 0.95, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className={`relative z-10 w-full max-w-sm p-6 rounded-[28px] shadow-2xl border ${
                 isDark ? 'bg-[#141521] border-white/10 text-white' : 'bg-white border-gray-100 text-gray-900'
               }`}
               onClick={e => e.stopPropagation()}
@@ -2835,28 +2943,30 @@ export default function Account() {
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ── Country Change Warning Modal ── */}
       <AnimatePresence>
         {showCountryWarning && (
-          <motion.div
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-6"
-            style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', overflowY: 'hidden' }}
-            onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
-          >
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 pointer-events-auto">
             <motion.div
-              initial={{ opacity: 0, scale: 0.90, y: 14 }}
+              key="country-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.16, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/75"
+              onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
+            />
+            <motion.div
+              key="country-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className="w-full max-w-xs rounded-[28px] overflow-hidden"
+              exit={{ opacity: 0, scale: 0.95, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 w-full max-w-xs rounded-[28px] overflow-hidden"
               style={{
                 background: isDark ? '#141521' : '#FFFFFF',
                 border: isDark ? '1.5px solid rgba(255,75,114,0.3)' : '1px solid rgba(0,0,0,0.08)',
@@ -2930,27 +3040,30 @@ export default function Account() {
                 </div>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ── MODAL: FEEDBACK ── */}
       <AnimatePresence>
         {showFeedbackModal && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            transition={{ duration: 0.22 }} 
-            className="fixed inset-0 z-[300] pointer-events-auto flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-            onClick={() => setShowFeedbackModal(false)}
-          >
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 pointer-events-auto">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              key="feedback-backdrop"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.16, ease: "easeOut" }} 
+              className="fixed inset-0 bg-black/75"
+              onClick={() => setShowFeedbackModal(false)}
+            />
+            <motion.div 
+              key="feedback-dialog"
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 10 }}
-              transition={{ type: "spring", damping: 28, stiffness: 340, mass: 0.85 }}
-              className={`relative w-full max-w-xs sm:max-w-sm p-4 sm:p-5 rounded-[24px] shadow-2xl border -translate-y-22 sm:-translate-y-26 ${
+              exit={{ opacity: 0, scale: 0.95, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className={`relative z-10 w-full max-w-xs sm:max-w-sm p-4 sm:p-5 rounded-[24px] shadow-2xl border ${
                 isDark ? 'bg-[#141521] border-white/10 text-white' : 'bg-white border-gray-100 text-gray-900'
               }`}
               onClick={e => e.stopPropagation()}
@@ -2980,7 +3093,6 @@ export default function Account() {
               <div className="mb-3.5">
                 <textarea
                   rows={3}
-                  autoFocus
                   className={`w-full rounded-xl border p-3 text-xs resize-none outline-none transition-all ${
                     isDark 
                       ? 'border-white/15 bg-white/5 text-white placeholder-white/40 focus:border-pink-500' 
@@ -3020,7 +3132,7 @@ export default function Account() {
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

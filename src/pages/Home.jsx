@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { supabase } from '@/api/supabaseClient';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
-import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame, Loader2, Camera } from 'lucide-react';
+import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame, Loader2, Camera, MapPin, Clock } from 'lucide-react';
 import { usePullToRefresh } from '@/components/welove/usePullToRefresh';
 import { InstagramSpinner } from '@/components/welove/PullToRefreshSpinner';
 import { useLang } from '@/lib/LanguageContext';
@@ -74,6 +74,8 @@ export default function Home() {
   const [matches, setMatches] = useState([]);
   const [myCheckIn, setMyCheckIn] = useState(null);
   const [loading, setLoading] = useState(true);
+  const initialLoadedRef = useRef(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [superMatchCount, setSuperMatchCount] = useState(0);
   const [superMatchProfiles, setSuperMatchProfiles] = useState([]);
   const [allDestinations, setAllDestinations] = useState([]);
@@ -95,6 +97,49 @@ export default function Home() {
   const [reportState, setReportState] = useState(null);
   const [hintingProfile, setHintingProfile] = useState(null);
   const [matchAnim, setMatchAnim] = useState(null);
+  const [venueActiveToast, setVenueActiveToast] = useState(null);
+
+  // 5-second smooth venue activation popup (triggers only once when arriving from Pinpoint)
+  useEffect(() => {
+    let timeoutId = null;
+
+    const showToast = (data) => {
+      if (!data || !data.venueName) return;
+      if (data.expiresAt && new Date(data.expiresAt).getTime() <= Date.now()) {
+        return;
+      }
+      setVenueActiveToast(data);
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setVenueActiveToast(null);
+      }, 5000);
+    };
+
+    try {
+      const stored = localStorage.getItem('romety_pending_venue_toast');
+      if (stored) {
+        // Remove immediately so it never shows again on reload or subsequent visits
+        localStorage.removeItem('romety_pending_venue_toast');
+        const parsed = JSON.parse(stored);
+        showToast(parsed);
+      }
+    } catch (e) {
+      console.error('Error reading pending venue toast:', e);
+    }
+
+    const handleActivated = (e) => {
+      if (e.detail) {
+        localStorage.removeItem('romety_pending_venue_toast');
+        showToast(e.detail);
+      }
+    };
+    window.addEventListener('romety_venue_activated', handleActivated);
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      window.removeEventListener('romety_venue_activated', handleActivated);
+    };
+  }, []);
 
   // Hints related states
   const [hints, setHints] = useState([]);
@@ -155,12 +200,20 @@ export default function Home() {
 
   // Stories storage sync
 
-  useEffect(() => { if (user !== undefined) loadData(); }, [user]); // undefined = still loading auth
+  const userEmail = user?.email || (user ? 'logged_in' : null);
+  useEffect(() => {
+    if (user !== undefined) loadData(initialLoadedRef.current);
+  }, [userEmail, user === undefined]);
 
   const loadData = async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!initialLoadedRef.current && !silent) setLoading(true);
     const u = user;
-    if (!u) { setLoading(false); return; }
+    if (!u) {
+      setLoading(false);
+      initialLoadedRef.current = true;
+      setInitialLoaded(true);
+      return;
+    }
 
     try {
       const now = new Date().toISOString();
@@ -477,6 +530,8 @@ export default function Home() {
       console.error("[Home] Error loading dashboard data:", err);
     } finally {
       setLoading(false);
+      initialLoadedRef.current = true;
+      setInitialLoaded(true);
     }
   };
 
@@ -515,12 +570,12 @@ export default function Home() {
   }, [unmatchedLikes, allProfiles]);
 
   const handleRevealLikeClick = useCallback(() => {
-    if (unmatchedLikes.length === 0) {
-      alert("Je hebt nog geen likes ontvangen.");
-      return;
-    }
     setShowRevealModal(true);
-  }, [unmatchedLikes.length]);
+  }, []);
+
+  const handleSuperMatchClick = useCallback(() => {
+    setShowSuperMatchSheet(true);
+  }, []);
 
   const handleOpenReport = useCallback((e, profile) => {
     e.stopPropagation();
@@ -617,9 +672,9 @@ export default function Home() {
         background: bg, 
         fontFamily: "'Inter', sans-serif", 
         paddingBottom: 'calc(84px + env(safe-area-inset-bottom, 16px))',
-        overflow: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'hidden' : undefined,
-        height: showSheet || showSuperMatchSheet || selectedStoryGroup ? '100vh' : undefined,
-        position: showSheet || showSuperMatchSheet || selectedStoryGroup ? 'relative' : 'static'
+        overflow: selectedStoryGroup ? 'hidden' : undefined,
+        height: selectedStoryGroup ? '100vh' : undefined,
+        position: selectedStoryGroup ? 'relative' : 'static'
       }}
       {...containerProps}
     >
@@ -655,7 +710,94 @@ export default function Home() {
 
           {/* Actions on the right */}
           <div className="flex items-center gap-2 z-10">
-            <VenueBanner checkIn={myCheckIn} onRemoved={() => loadData(true)} />
+            <div className="relative" onClick={() => setVenueActiveToast(null)}>
+              <VenueBanner checkIn={myCheckIn} onRemoved={() => loadData(true)} />
+
+              {/* Smooth 5-second Venue Activation Popup */}
+              <AnimatePresence>
+                {venueActiveToast && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.94 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.94 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute right-0 top-full mt-2.5 w-64 rounded-2xl shadow-2xl z-50 overflow-hidden pointer-events-auto select-none"
+                    style={{
+                      background: isDark 
+                        ? 'linear-gradient(145deg, #1A1320 0%, #120A16 100%)' 
+                        : '#FFFFFF',
+                      border: isDark 
+                        ? '1px solid rgba(255, 75, 114, 0.35)' 
+                        : '1px solid rgba(255, 75, 114, 0.25)',
+                      boxShadow: isDark 
+                        ? '0 16px 36px rgba(0,0,0,0.6), 0 0 20px rgba(255,75,114,0.15)' 
+                        : '0 16px 36px rgba(0,0,0,0.12), 0 0 20px rgba(255,75,114,0.12)',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(createPageUrl('Pinpoint'));
+                      setVenueActiveToast(null);
+                    }}
+                  >
+                    {/* Arrow pointing directly to Pinpoint icon button above */}
+                    <div 
+                      className="absolute -top-1.5 right-3.5 w-3 h-3 rotate-45 pointer-events-none"
+                      style={{
+                        background: isDark ? '#1A1320' : '#FFFFFF',
+                        borderLeft: isDark ? '1px solid rgba(255, 75, 114, 0.35)' : '1px solid rgba(255, 75, 114, 0.25)',
+                        borderTop: isDark ? '1px solid rgba(255, 75, 114, 0.35)' : '1px solid rgba(255, 75, 114, 0.25)',
+                      }}
+                    />
+
+                    <div className="relative p-3 flex items-start gap-2.5 cursor-pointer">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#FF4B72] to-[#FF7597] flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                        <MapPin className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0 pr-1 text-left">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
+                            Locatie actief
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                          {venueActiveToast.venueName}
+                        </p>
+                        <p className="text-[11px] text-gray-600 dark:text-gray-300 font-medium mt-0.5 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-gray-400 shrink-0" />
+                          <span>
+                            {venueActiveToast.expiresAt 
+                              ? `Staat voor ${Math.max(1, Math.round((new Date(venueActiveToast.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)))} uur actief` 
+                              : `Staat voor ${venueActiveToast.hours || 8} uur actief`}
+                          </span>
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setVenueActiveToast(null);
+                        }}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-0.5 -mr-1 -mt-1 rounded-full"
+                        aria-label="Sluiten"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* 5-second linear countdown progress bar */}
+                    <div className="h-0.5 w-full bg-black/5 dark:bg-white/10 overflow-hidden">
+                      <motion.div
+                        initial={{ width: '100%' }}
+                        animate={{ width: '0%' }}
+                        transition={{ duration: 5, ease: 'linear' }}
+                        className="h-full bg-gradient-to-r from-[#FF4B72] to-[#FF7597]"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <NotificationBell isDark={isDark} />
           </div>
         </div>
@@ -818,7 +960,7 @@ export default function Home() {
             {/* Super match */}
             <div
               className="flex flex-col items-center justify-center relative transition-transform active:scale-95 cursor-pointer py-1.5 px-0.5 sm:px-1 min-w-0"
-              onClick={() => setShowSuperMatchSheet(true)}
+              onClick={handleSuperMatchClick}
             >
               <div className="h-9 flex items-center justify-center w-full min-w-0">
                 <span className={`${getStatFontSize(formattedSuperCount)} font-black leading-none tabular-nums truncate max-w-full text-center ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -895,7 +1037,7 @@ export default function Home() {
 
             {/* 2. Super matches (#F9488A - Fade stap 1) */}
             <button
-              onClick={() => setShowSuperMatchSheet(true)}
+              onClick={handleSuperMatchClick}
               className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: isDark
@@ -1125,7 +1267,7 @@ export default function Home() {
           </div>
 
           {/* Location Not Set Blur Overlay */}
-          {!myCheckIn && (
+          {!myCheckIn && initialLoaded && !loading && (
             <div className="absolute inset-0 z-40 flex flex-col items-center justify-start pt-14 p-3">
               <div 
                 className="w-full max-w-sm p-6 rounded-[28px] text-center flex flex-col items-center border shadow-2xl transition-all"

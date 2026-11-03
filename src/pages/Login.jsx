@@ -5,7 +5,7 @@ import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { 
   Mail, Loader2, UserPlus, User, CheckCircle2, Sparkles, 
-  Clock, ArrowLeft, RefreshCw, ExternalLink, Heart 
+  Clock, ArrowLeft, RefreshCw, ExternalLink, Heart, ClipboardPaste, KeyRound, Check 
 } from 'lucide-react';
 import { authStorage } from '@/lib/authStorage';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -25,6 +25,12 @@ export default function Login() {
   const [waitingForVerification, setWaitingForVerification] = useState(false);
   const [authSuccess, setAuthSuccess] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // 8-digit OTP verification state
+  const [otpCode, setOtpCode] = useState('');
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [pastedSuccess, setPastedSuccess] = useState(false);
+  const otpInputRef = useRef(null);
 
   const t = {
     nl: {
@@ -141,14 +147,14 @@ export default function Login() {
       // Clean up pending verification state
       sessionStorage.removeItem('romety_pending_verification');
 
-      // Wait 2.2 seconds so user clearly sees the grand celebration before redirecting to Onboarding
+      // Wait 2.2 seconds so user clearly sees the grand celebration before redirecting to Language selection
       setTimeout(() => {
-        window.location.replace('/Onboarding');
+        window.location.replace('/Language');
       }, 2200);
     } catch (e) {
       console.error('Error in handleAuthSuccess:', e);
       setTimeout(() => {
-        window.location.replace('/Onboarding');
+        window.location.replace('/Language');
       }, 2200);
     }
   };
@@ -260,6 +266,73 @@ export default function Login() {
       window.removeEventListener('storage', handleStorage);
     };
   }, [waitingForVerification]);
+
+  const handleVerifyOtp = async (codeOverride) => {
+    const code = (codeOverride || otpCode).replace(/\D/g, '').trim();
+    if (code.length < 6) {
+      setMessage({
+        type: 'error',
+        text: lang === 'nl' ? 'Vul de verificatiecode in.' : 'Please enter the verification code.'
+      });
+      return;
+    }
+    setVerifyingOtp(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const emailLower = email.trim().toLowerCase();
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: emailLower,
+        token: code,
+        type: 'email'
+      });
+      if (error) throw error;
+      if (data?.user) {
+        const pendingRaw = sessionStorage.getItem('romety_pending_verification');
+        const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
+        handleAuthSuccess(data.user, pending?.username);
+      }
+    } catch (err) {
+      console.warn('verifyOtp error:', err);
+      setMessage({
+        type: 'error',
+        text: err.message || (lang === 'nl' ? 'De verificatiecode is onjuist of verlopen.' : 'The verification code is incorrect or expired.')
+      });
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleOtpChange = (val) => {
+    const digitsOnly = val.replace(/\D/g, '').slice(0, 8);
+    setOtpCode(digitsOnly);
+    if (digitsOnly.length === 8) {
+      handleVerifyOtp(digitsOnly);
+    }
+  };
+
+  const handlePasteCode = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const cleanDigits = (text || '').replace(/\D/g, '').slice(0, 8);
+      if (cleanDigits.length >= 6) {
+        setOtpCode(cleanDigits);
+        setPastedSuccess(true);
+        setTimeout(() => setPastedSuccess(false), 2000);
+        handleVerifyOtp(cleanDigits);
+      } else if (cleanDigits.length > 0) {
+        setOtpCode(cleanDigits);
+        otpInputRef.current?.focus();
+      } else {
+        setMessage({
+          type: 'error',
+          text: lang === 'nl' ? 'Geen code gevonden op het klembord. Kopieer eerst de code uit je e-mail.' : 'No code found on clipboard.'
+        });
+      }
+    } catch (err) {
+      console.warn('Clipboard read error:', err);
+      otpInputRef.current?.focus();
+    }
+  };
 
   const handleResendEmail = async () => {
     if (resendCooldown > 0 || !email) return;
@@ -393,7 +466,7 @@ export default function Login() {
         });
 
         setTimeout(() => {
-          const destination = profile.onboarding_complete ? '/' : '/Onboarding';
+          const destination = profile.onboarding_complete ? '/' : '/Language';
           window.location.replace(destination);
         }, 800);
       }
@@ -438,45 +511,119 @@ export default function Login() {
             background: cardBg,
             borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
           }}
-        >
-          {waitingForVerification ? (
-            /* ── WAITING FOR EMAIL VERIFICATION STATE ── */
+        >          {waitingForVerification ? (
+            /* ── WAITING FOR EMAIL VERIFICATION STATE (CALM, 8-DIGIT, ZERO-LAG) ── */
             <div>
-              {/* Animated Envelope Icon with radar ping */}
-              <div className="relative mx-auto w-20 h-20 mb-5 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 opacity-20 animate-ping" />
-                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500/20 to-rose-500/10 border border-pink-500/30 flex items-center justify-center backdrop-blur-sm">
-                  <Mail className="w-9 h-9 text-pink-500" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-white shadow-md border-2 border-white dark:border-[#141521]">
-                  <Clock className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '6s' }} />
-                </div>
+              <div className="w-13 h-13 rounded-2xl mx-auto mb-3 bg-gradient-to-tr from-pink-500/20 to-purple-500/10 border border-pink-500/30 flex items-center justify-center text-pink-500">
+                <Mail className="w-6 h-6" />
               </div>
 
-              <h2 className={`text-xl font-black text-center mb-1.5 ${textMain}`}>
+              <h2 className={`text-xl font-black text-center mb-1 ${textMain}`}>
                 Check je e-mail
               </h2>
-              <p className={`text-xs text-center mb-5 leading-relaxed ${textSub}`}>
-                We hebben een verificatielink gestuurd naar{' '}
-                <span className="font-bold text-pink-500 break-all">{email}</span>.
-                Klik op de link in je mail om je account te activeren.
+              <p className={`text-xs text-center mb-6 leading-relaxed ${textSub}`}>
+                Code gestuurd naar <span className="font-bold text-pink-500 break-all">{email}</span>
               </p>
 
-              {/* Waiting status pill */}
-              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-5 flex items-center gap-3">
-                <div className="relative flex-shrink-0">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 block" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 absolute inset-0 animate-ping" />
+              {/* ── 8-DIGIT OTP FIELD (ONE NATIVE INPUT = ZERO STUTTER) ── */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2 px-0.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider opacity-60">
+                    8-cijferige code
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handlePasteCode}
+                    className={`text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all active:scale-95 cursor-pointer ${
+                      pastedSuccess
+                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-500 dark:text-emerald-400'
+                        : isDark
+                          ? 'bg-pink-500/10 border-pink-500/30 text-pink-400 hover:bg-pink-500/20'
+                          : 'bg-pink-50 border-pink-200 text-pink-600 hover:bg-pink-100'
+                    }`}
+                  >
+                    {pastedSuccess ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Geplakt!</span>
+                      </>
+                    ) : (
+                      <>
+                        <ClipboardPaste className="w-3.5 h-3.5" />
+                        <span>Plakken</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-300 leading-snug">
-                  {lang === 'nl' ? 'Check je mail om je account te activeren!' : 'Check your email to activate your account!'}
-                </p>
+
+                {/* Visual 8 slots */}
+                <div 
+                  className="relative w-full cursor-text"
+                  onClick={() => otpInputRef.current?.focus()}
+                >
+                  <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
+                    {Array.from({ length: 8 }, (_, idx) => {
+                      const char = otpCode[idx] || '';
+                      const isCurrent = otpCode.length === idx;
+                      return (
+                        <div
+                          key={idx}
+                          className={`h-12 sm:h-13 rounded-xl border flex items-center justify-center text-lg sm:text-xl font-black transition-all ${
+                            char
+                              ? 'border-pink-500 bg-pink-500/10 text-pink-500 shadow-xs'
+                              : isCurrent
+                                ? 'border-pink-500 bg-pink-500/5 ring-2 ring-pink-500/25'
+                                : isDark
+                                  ? 'border-white/10 bg-white/5 text-white'
+                                  : 'border-gray-200 bg-gray-50 text-gray-900'
+                          }`}
+                        >
+                          {char || (isCurrent ? <span className="w-0.5 h-5 bg-pink-500 animate-pulse rounded-full" /> : '')}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Real hidden input covering entire area: smooth native typing on iOS */}
+                  <input
+                    ref={otpInputRef}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={8}
+                    autoComplete="one-time-code"
+                    value={otpCode}
+                    onChange={e => handleOtpChange(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-text w-full h-full text-transparent selection:bg-transparent"
+                    autoFocus
+                  />
+                </div>
               </div>
+
+              {/* Verify Button */}
+              <button
+                type="button"
+                disabled={verifyingOtp || otpCode.length < 6}
+                onClick={() => handleVerifyOtp()}
+                className="w-full mb-3 py-3.5 px-4 rounded-2xl text-xs font-bold text-white bg-gradient-to-r from-[#FF4B72] to-[#EA3FD3] shadow-md hover:opacity-90 active:scale-98 transition-all disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {verifyingOtp ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verifiëren...</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Code bevestigen</span>
+                  </>
+                )}
+              </button>
 
               {/* Alert message if any */}
               {message.text && (
                 <div
-                  className={`p-3.5 rounded-2xl text-xs font-medium border mb-4 ${
+                  className={`p-3 rounded-2xl text-xs font-medium border mb-3 text-center ${
                     message.type === 'success'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                       : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
@@ -486,44 +633,35 @@ export default function Login() {
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="space-y-2.5">
-                <a
-                  href="mailto:"
-                  className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent text-xs font-bold rounded-2xl text-white bg-gradient-to-r from-[#FF4B72] to-[#EA3FD3] hover:opacity-90 active:scale-98 transition-all shadow-md cursor-pointer"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Open e-mail app
-                </a>
-
+              {/* Clean secondary links (no heavy extra buttons) */}
+              <div className="pt-2 flex flex-col items-center gap-2.5 text-xs">
                 <button
                   type="button"
                   disabled={loading || resendCooldown > 0}
                   onClick={handleResendEmail}
-                  className={`w-full py-3 px-4 rounded-2xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 active:scale-98 cursor-pointer ${
-                    isDark 
-                      ? 'border-white/10 bg-white/5 text-white/80 hover:bg-white/10 disabled:opacity-40' 
-                      : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 disabled:opacity-40'
-                  }`}
+                  className={`font-semibold transition-colors cursor-pointer ${textSub} hover:text-pink-500 disabled:opacity-40 flex items-center gap-1.5`}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                  {resendCooldown > 0 
-                    ? `Opnieuw versturen over ${resendCooldown}s` 
-                    : 'Geen mail ontvangen? Opnieuw versturen'
-                  }
+                  <span>
+                    {resendCooldown > 0 
+                      ? `Nieuwe code over ${resendCooldown}s` 
+                      : 'Geen code ontvangen? Opnieuw versturen'
+                    }
+                  </span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
                     setWaitingForVerification(false);
+                    setOtpCode('');
                     sessionStorage.removeItem('romety_pending_verification');
                     setMessage({ type: '', text: '' });
                   }}
-                  className={`w-full py-2.5 text-[11px] font-semibold text-center transition-colors cursor-pointer ${textSub} hover:text-pink-500 flex items-center justify-center gap-1`}
+                  className={`text-[11px] font-semibold transition-colors cursor-pointer opacity-60 hover:opacity-100 ${textSub} hover:text-pink-500 flex items-center gap-1`}
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  Ander e-mailadres gebruiken
+                  <span>Ander e-mailadres gebruiken</span>
                 </button>
               </div>
             </div>
@@ -722,7 +860,7 @@ export default function Login() {
 
               <div className="flex items-center justify-center gap-2 text-[11px] font-semibold text-pink-500 dark:text-pink-400">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Doorsturen naar Onboarding...</span>
+                <span>{lang === 'nl' ? 'Doorsturen naar taalkeuze...' : 'Redirecting to language selection...'}</span>
               </div>
             </motion.div>
           </motion.div>

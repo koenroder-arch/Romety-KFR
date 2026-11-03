@@ -116,8 +116,8 @@ export default function Onboarding() {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [form, setForm] = useState({
     display_name: '', contact_email: '', age: '', gender: '', height_cm: '',
-    relationship_status: '', looking_for: '', min_age_pref: 18, max_age_pref: 19,
-    min_height_pref: 140, max_height_pref: 141,
+    relationship_status: '', looking_for: '', min_age_pref: 18, max_age_pref: 90,
+    min_height_pref: 140, max_height_pref: 260,
     traits: [], interests: [], photo_url: '', bio: '', agreed_to_terms: false,
     avatar: '', country: '',
   });
@@ -165,10 +165,18 @@ export default function Onboarding() {
             height_cm: profile.height_cm ? String(profile.height_cm) : '',
             relationship_status: profile.relationship_status || '',
             looking_for: profile.looking_for || '',
-            min_age_pref: profile.min_age_pref !== undefined ? profile.min_age_pref : 18,
-            max_age_pref: profile.max_age_pref !== undefined ? profile.max_age_pref : 19,
-            min_height_pref: profile.min_height_pref !== undefined ? profile.min_height_pref : 140,
-            max_height_pref: profile.max_height_pref !== undefined ? profile.max_height_pref : 141,
+            min_age_pref: (profile.min_age_pref !== undefined && profile.min_age_pref !== null && Number(profile.min_age_pref) >= 18)
+              ? Number(profile.min_age_pref)
+              : 18,
+            max_age_pref: (profile.max_age_pref !== undefined && profile.max_age_pref !== null && Number(profile.max_age_pref) <= 90 && Number(profile.max_age_pref) >= 18)
+              ? Number(profile.max_age_pref)
+              : 90,
+            min_height_pref: (profile.min_height_pref !== undefined && profile.min_height_pref !== null && Number(profile.min_height_pref) >= 140)
+              ? Number(profile.min_height_pref)
+              : 140,
+            max_height_pref: (profile.max_height_pref !== undefined && profile.max_height_pref !== null && Number(profile.max_height_pref) <= 260 && Number(profile.max_height_pref) >= 140)
+              ? Number(profile.max_height_pref)
+              : 260,
             traits: profile.traits || [],
             interests: profile.interests || [],
             photo_url: profile.photo_url || '',
@@ -254,6 +262,10 @@ export default function Onboarding() {
       ...cleanedForm, 
       age: Number(form.age), 
       height_cm: Number(form.height_cm), 
+      min_age_pref: Number(form.min_age_pref) || 18,
+      max_age_pref: Number(form.max_age_pref) || 90,
+      min_height_pref: Number(form.min_height_pref) || 140,
+      max_height_pref: Number(form.max_height_pref) || 260,
       user_email: user.email, 
       onboarding_complete: true 
     };
@@ -534,32 +546,80 @@ export default function Onboarding() {
               </div>
             </div>
             <div>
-              <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{t.agePref(form.min_age_pref, form.max_age_pref)}</label>
+              <label className="text-xs font-bold text-white/40 uppercase tracking-wider">
+                {t.agePref(form.min_age_pref ?? 18, form.max_age_pref ?? 90)}
+              </label>
               <div className="space-y-3 mt-3 bg-white/5 border border-white/10 rounded-[16px] p-4" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.max}</span>
-                  <input type="range" min="18" max="90" value={form.max_age_pref} onChange={e => setForm(f => ({ ...f, max_age_pref: Math.max(Number(e.target.value), f.min_age_pref + 1) }))} className="flex-1 accent-[#FF4B72]" />
-                  <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.max_age_pref}</span>
+                  <input 
+                    type="range" 
+                    min="18" 
+                    max="90" 
+                    value={form.max_age_pref ?? 90} 
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      const currentMin = Number(form.min_age_pref) || 18;
+                      setForm(f => ({ ...f, max_age_pref: Math.max(val, (Number(f.min_age_pref) || currentMin) + 1) }));
+                    }} 
+                    className="flex-1 accent-[#FF4B72] cursor-pointer" 
+                  />
+                  <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.max_age_pref ?? 90}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.min}</span>
-                  <input type="range" min="18" max="90" value={form.min_age_pref} onChange={e => setForm(f => ({ ...f, min_age_pref: Math.min(Number(e.target.value), f.max_age_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
-                  <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.min_age_pref}</span>
+                  <input 
+                    type="range" 
+                    min="18" 
+                    max="90" 
+                    value={form.min_age_pref ?? 18} 
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      const currentMax = Number(form.max_age_pref) || 90;
+                      setForm(f => ({ ...f, min_age_pref: Math.min(val, (Number(f.max_age_pref) || currentMax) - 1) }));
+                    }} 
+                    className="flex-1 accent-[#FF4B72] cursor-pointer" 
+                  />
+                  <span className="text-sm font-black text-[#FF4B72] w-8 text-right">{form.min_age_pref ?? 18}</span>
                 </div>
               </div>
             </div>
             <div>
-              <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{t.heightPref(form.min_height_pref, form.max_height_pref)}</label>
+              <label className="text-xs font-bold text-white/40 uppercase tracking-wider">
+                {t.heightPref(form.min_height_pref ?? 140, form.max_height_pref ?? 260)}
+              </label>
               <div className="space-y-3 mt-3 bg-white/5 border border-white/10 rounded-[16px] p-4" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.max}</span>
-                  <input type="range" min="140" max="260" value={form.max_height_pref} onChange={e => setForm(f => ({ ...f, max_height_pref: Math.max(Number(e.target.value), f.min_height_pref + 1) }))} className="flex-1 accent-[#FF4B72]" />
-                  <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.max_height_pref}</span>
+                  <input 
+                    type="range" 
+                    min="140" 
+                    max="260" 
+                    value={form.max_height_pref ?? 260} 
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      const currentMin = Number(form.min_height_pref) || 140;
+                      setForm(f => ({ ...f, max_height_pref: Math.max(val, (Number(f.min_height_pref) || currentMin) + 1) }));
+                    }} 
+                    className="flex-1 accent-[#FF4B72] cursor-pointer" 
+                  />
+                  <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.max_height_pref ?? 260}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-white/40 w-8">{t.min}</span>
-                  <input type="range" min="140" max="260" value={form.min_height_pref} onChange={e => setForm(f => ({ ...f, min_height_pref: Math.min(Number(e.target.value), f.max_height_pref - 1) }))} className="flex-1 accent-[#FF4B72]" />
-                  <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.min_height_pref}</span>
+                  <input 
+                    type="range" 
+                    min="140" 
+                    max="260" 
+                    value={form.min_height_pref ?? 140} 
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      const currentMax = Number(form.max_height_pref) || 260;
+                      setForm(f => ({ ...f, min_height_pref: Math.min(val, (Number(f.max_height_pref) || currentMax) - 1) }));
+                    }} 
+                    className="flex-1 accent-[#FF4B72] cursor-pointer" 
+                  />
+                  <span className="text-sm font-black text-[#FF4B72] w-10 text-right">{form.min_height_pref ?? 140}</span>
                 </div>
               </div>
             </div>

@@ -50,6 +50,7 @@ export default function Pinpoint() {
   const [allDestinations, setAllDestinations] = useState([]);
   const [allProfiles, setAllProfiles] = useState([]);
   const [highMatches, setHighMatches] = useState([]);
+  const initialLoadedRef = useRef(false);
   const watchIdRef = useRef(null);
   const mapRef = useRef(null);
   const searchDebounceRef = useRef(null);
@@ -216,13 +217,18 @@ export default function Pinpoint() {
     if (watchIdRef.current) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
   };
 
+  const userEmail = user?.email || (user ? 'logged_in' : null);
   useEffect(() => {
-    if (user !== undefined) loadData(); // undefined = still loading auth
+    if (user !== undefined) {
+      loadData(initialLoadedRef.current);
+    }
     return stopGPS;
-  }, [user]);
+  }, [userEmail, user === undefined]);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!initialLoadedRef.current && !silent) {
+      setLoading(true);
+    }
     try {
       const u = user;
       if (!u) { setLoading(false); return; }
@@ -394,6 +400,7 @@ export default function Pinpoint() {
       console.error('Error loading Pinpoint data:', err);
     } finally {
       setLoading(false);
+      initialLoadedRef.current = true;
     }
   };
 
@@ -592,6 +599,21 @@ export default function Pinpoint() {
       const all = await base44.entities.UserDestination.list();
       const refreshNow = new Date().toISOString();
       setAllDestinations(all.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > refreshNow)));
+
+      // Queue the one-time 5s notification for the Home page
+      try {
+        const toastData = {
+          venueId: venue.id,
+          venueName: venue.name,
+          hours: 8,
+          expiresAt: newDest.expires_at,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('romety_pending_venue_toast', JSON.stringify(toastData));
+        window.dispatchEvent(new CustomEvent('romety_venue_activated', { detail: toastData }));
+      } catch (e) {
+        console.error('Error saving pending venue toast:', e);
+      }
     } catch (err) {
       console.error('Error creating destination:', err);
     }
@@ -599,6 +621,10 @@ export default function Pinpoint() {
 
   const handleCancelGoing = async () => {
     if (!user) return;
+
+    try {
+      localStorage.removeItem('romety_pending_venue_toast');
+    } catch (e) {}
 
     // Clear any active VenueCheckIn as well
     try {
@@ -941,7 +967,7 @@ export default function Pinpoint() {
                     e.stopPropagation();
                     setFilterModalOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 select-none cursor-pointer transition-transform active:scale-95 shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0 select-none cursor-pointer transition-colors duration-150 hover:brightness-105 active:opacity-85 shadow-sm"
                   style={{
                     background: GRAD,
                     color: '#FFFFFF',
@@ -1015,8 +1041,9 @@ export default function Pinpoint() {
 
             {/* Filter button next to search bar */}
             <button
+              type="button"
               onClick={toggleNearbyFilter}
-              className="w-[52px] h-[52px] rounded-[20px] flex items-center justify-center flex-shrink-0 transition-all duration-300 hover:scale-105 active:scale-90 cursor-pointer"
+              className="w-[52px] h-[52px] rounded-[20px] flex items-center justify-center flex-shrink-0 transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer"
               style={{
                 background: useNearbyFilter ? GRAD : searchBarBg,
                 border: useNearbyFilter ? '1.5px solid rgba(255,255,255,0.35)' : `1.5px solid ${searchBarBorder(false)}`,
