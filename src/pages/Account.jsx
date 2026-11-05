@@ -1905,11 +1905,12 @@ export default function Account() {
       <AnimatePresence>
         {activeSheet && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.24, ease: "easeOut" }}
-            className={`fixed inset-0 z-[250] pointer-events-auto flex justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md select-none ${
+            // Alleen de achtergrondkleur vervaagt: opacity + backdrop-blur samen gaf een korte flikkering
+            initial={{ backgroundColor: 'rgba(0,0,0,0)' }}
+            animate={{ backgroundColor: 'rgba(0,0,0,0.75)' }}
+            exit={{ backgroundColor: 'rgba(0,0,0,0)' }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className={`fixed inset-0 z-[250] pointer-events-auto flex justify-center p-4 sm:p-6 select-none ${
               activeSheet === 'username' || activeSheet === 'bio'
                 ? 'items-start pt-20 sm:pt-24'
                 : 'items-center'

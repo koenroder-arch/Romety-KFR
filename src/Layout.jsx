@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { MapPin, Heart, User, Home } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
+import { countVenueMatches } from '@/lib/venueMatches';
 import { useNotifications } from '@/components/welove/useNotifications';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
@@ -54,7 +55,8 @@ export default function Layout({ children, currentPageName }) {
   }, [currentPageName, isDark]);
 
   // Rood bolletje op het hartje (Matches): verschijnt als je op "Ik ga hierheen" tikt en blijft
-  // 1 minuut staan. Verdwijnt eerder als de venue in die minuut wordt verwijderd of verloopt.
+  // 1 minuut staan, maar alleen als er bij die venue matches zijn. Verdwijnt eerder als de venue
+  // in die minuut wordt verwijderd of verloopt.
   const VENUE_DOT_MS = 60 * 1000;
   const VENUE_DOT_KEY = 'romety_venue_dot_until';
   const [hasActiveVenue, setHasActiveVenue] = React.useState(false);
@@ -76,23 +78,19 @@ export default function Layout({ children, currentPageName }) {
           if (isMounted) setHasActiveVenue(false);
           return;
         }
-        const now = new Date().toISOString();
-        const [dests = [], checkIns = []] = await Promise.all([
-          base44.entities.UserDestination.filter({ user_email: email, status: 'active' }).catch(() => []),
-          base44.entities.VenueCheckIn.filter({ user_email: email }).catch(() => []),
-        ]);
-        const active = [...dests, ...checkIns].filter((v) => v && (!v.expires_at || v.expires_at > now));
+        // Alleen een bolletje als er bij jouw venue echt matches zijn (zelfde regels als de Matches-pagina)
+        const matchCount = await countVenueMatches(email).catch(() => 0);
         if (!isMounted) return;
-        setHasActiveVenue(active.length > 0);
+        setHasActiveVenue(matchCount > 0);
         // Na de minuut automatisch weghalen
-        if (active.length > 0) hideTimer = setTimeout(checkVenue, Math.max(0, readDotUntil() - Date.now()) + 50);
+        if (matchCount > 0) hideTimer = setTimeout(checkVenue, Math.max(0, readDotUntil() - Date.now()) + 50);
       } catch (e) {}
     };
 
     // "Ik ga hierheen" aangeklikt: bolletje 1 minuut tonen
     const handleActivated = () => {
       try { localStorage.setItem(VENUE_DOT_KEY, String(Date.now() + VENUE_DOT_MS)); } catch (e) {}
-      if (isMounted) setHasActiveVenue(true);
+      // Niet meteen tonen: eerst controleren of er bij deze venue matches zijn
       checkVenue();
     };
 

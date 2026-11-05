@@ -1141,19 +1141,11 @@ export default function Home() {
               onClick={onHintClick}
               className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
-                background: hasSentToday
-                  ? (isDark
-                    ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)'
-                    : 'linear-gradient(135deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.01) 100%), #FFFFFF')
-                  : (isDark
+                background: (isDark
                     ? 'linear-gradient(135deg, rgba(244, 69, 163, 0.22) 0%, rgba(244, 69, 163, 0.08) 100%)'
                     : 'linear-gradient(135deg, rgba(244, 69, 163, 0.10) 0%, rgba(244, 69, 163, 0.02) 100%), #FFFFFF'),
-                border: hasSentToday
-                  ? (isDark ? '1.5px solid rgba(255, 255, 255, 0.14)' : '1.5px solid rgba(0, 0, 0, 0.09)')
-                  : (isDark ? '1.5px solid rgba(244, 69, 163, 0.48)' : '1.5px solid rgba(244, 69, 163, 0.30)'),
-                boxShadow: hasSentToday
-                  ? 'none'
-                  : (isDark ? '0 8px 28px rgba(244, 69, 163, 0.14)' : '0 4px 20px rgba(244, 69, 163, 0.08)'),
+                border: (isDark ? '1.5px solid rgba(244, 69, 163, 0.48)' : '1.5px solid rgba(244, 69, 163, 0.30)'),
+                boxShadow: (isDark ? '0 8px 28px rgba(244, 69, 163, 0.14)' : '0 4px 20px rgba(244, 69, 163, 0.08)'),
               }}
             >
               <div className="flex items-center justify-between w-full">
@@ -1162,22 +1154,16 @@ export default function Home() {
                   style={{ 
                     width: '52px', 
                     height: '52px',
-                    background: hasSentToday
-                      ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)')
-                      : (isDark ? 'rgba(244, 69, 163, 0.25)' : 'rgba(244, 69, 163, 0.12)') 
+                    background: (isDark ? 'rgba(244, 69, 163, 0.25)' : 'rgba(244, 69, 163, 0.12)') 
                   }}
                 >
                   <Lightbulb className={`w-7 h-7 ${
-                    hasSentToday 
-                      ? (isDark ? 'text-white/60' : 'text-gray-500') 
-                      : (isDark ? 'text-white' : 'text-[#F445A3]')
+                    (isDark ? 'text-white' : 'text-[#F445A3]')
                   }`} />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={`min-w-[28px] h-7 px-2 rounded-full text-xs font-black flex items-center justify-center shadow-md ${
-                    hasSentToday 
-                      ? (isDark ? 'bg-white/15 text-white/80' : 'bg-gray-200 text-gray-700') 
-                      : 'bg-[#F445A3] text-white'
+                    'bg-[#F445A3] text-white'
                   }`}>
                     {hints.length + superMatchHints.length}
                   </div>
@@ -1188,9 +1174,7 @@ export default function Home() {
               </div>
               <div className="mt-4 min-w-0">
                 <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${
-                  hasSentToday 
-                    ? (isDark ? 'text-white/45' : 'text-gray-400') 
-                    : (isDark ? 'text-white/60' : 'text-[#F445A3]')
+                  (isDark ? 'text-white/60' : 'text-[#F445A3]')
                 }`}>
                   HINTS
                 </p>
@@ -1301,11 +1285,6 @@ export default function Home() {
                   <Camera className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {stories.length > 0 && (
-                    <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#FF4B72] text-white text-xs font-black flex items-center justify-center shadow-md">
-                      {stories.length}
-                    </div>
-                  )}
                   <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
                     <ChevronRight className="w-4 h-4" />
                   </div>
