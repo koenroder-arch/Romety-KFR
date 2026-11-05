@@ -15,7 +15,11 @@ import StoriesViewer from '@/components/welove/StoriesViewer';
 import SuperMatchesSheet from '@/components/welove/SuperMatchesSheet';
 import RevealedLikesSheet from '@/components/welove/RevealedLikesSheet';
 import MatchAnimation from '@/components/welove/MatchAnimation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+
+// Venue-melding rechtsboven: duur van het uitklappen en hoe lang hij daarna zichtbaar blijft
+const VENUE_TOAST_OPEN_MS = 550;
+const VENUE_TOAST_VISIBLE_MS = 5000;
 import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
@@ -100,6 +104,7 @@ export default function Home() {
   const [hintingProfile, setHintingProfile] = useState(null);
   const [matchAnim, setMatchAnim] = useState(null);
   const [venueActiveToast, setVenueActiveToast] = useState(null);
+  const reduceMotion = useReducedMotion();
 
   // 5-second smooth venue activation popup (triggers only once when arriving from Pinpoint)
   useEffect(() => {
@@ -112,9 +117,10 @@ export default function Home() {
       }
       setVenueActiveToast(data);
       if (timeoutId) clearTimeout(timeoutId);
+      // Eerst uitklappen, daarna precies 5 seconden volledig zichtbaar, dan weer inklappen
       timeoutId = setTimeout(() => {
         setVenueActiveToast(null);
-      }, 5000);
+      }, VENUE_TOAST_OPEN_MS + VENUE_TOAST_VISIBLE_MS);
     };
 
     try {
@@ -713,43 +719,81 @@ export default function Home() {
             <div className="relative" onClick={() => setVenueActiveToast(null)}>
               <VenueBanner checkIn={myCheckIn} onRemoved={() => loadData(true)} />
 
-              {/* Smooth 5-second Venue Activation Popup */}
+              {/* Pulserende ring rond het Pinpoint-icoon op het moment dat de melding uitklapt */}
+              <AnimatePresence>
+                {venueActiveToast && !reduceMotion && (
+                  <motion.span
+                    key="venue-toast-ring"
+                    className="absolute top-0 right-0 w-9 h-9 rounded-full pointer-events-none"
+                    style={{ border: '2px solid #FF4B72' }}
+                    initial={{ scale: 1, opacity: 0.7 }}
+                    animate={{ scale: 1.9, opacity: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.7, ease: 'easeOut' }}
+                  />
+                )}
+              </AnimatePresence>
+
+              {/* Melding die vanuit het Pinpoint-icoon (rechtsboven) openklapt en 5 seconden blijft staan */}
               <AnimatePresence>
                 {venueActiveToast && (
                   <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.94 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.94 }}
-                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute right-0 top-full mt-2.5 w-64 rounded-2xl shadow-2xl z-50 overflow-hidden pointer-events-auto select-none"
-                    style={{
-                      background: isDark 
-                        ? 'linear-gradient(145deg, #1A1320 0%, #120A16 100%)' 
-                        : '#FFFFFF',
-                      border: isDark 
-                        ? '1px solid rgba(255, 75, 114, 0.35)' 
-                        : '1px solid rgba(255, 75, 114, 0.25)',
-                      boxShadow: isDark 
-                        ? '0 16px 36px rgba(0,0,0,0.6), 0 0 20px rgba(255,75,114,0.15)' 
-                        : '0 16px 36px rgba(0,0,0,0.12), 0 0 20px rgba(255,75,114,0.12)',
-                    }}
+                    key="venue-toast"
+                    className="absolute right-0 top-full mt-2.5 w-64 z-50 pointer-events-auto select-none"
+                    // Het icoon (36px) staat recht boven de rechterkant: middelpunt 18px van rechts, 28px boven de kaart
+                    style={{ transformOrigin: 'calc(100% - 18px) -28px' }}
+                    initial={reduceMotion ? { opacity: 0 } : { scale: 0.35, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={reduceMotion ? { opacity: 0 } : { scale: 0.35, opacity: 0 }}
+                    transition={
+                      reduceMotion
+                        ? { duration: 0.2 }
+                        : { type: 'spring', stiffness: 380, damping: 30, mass: 0.9, opacity: { duration: 0.2 } }
+                    }
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(createPageUrl('Pinpoint'));
                       setVenueActiveToast(null);
                     }}
                   >
-                    {/* Arrow pointing directly to Pinpoint icon button above */}
-                    <div 
-                      className="absolute -top-1.5 right-3.5 w-3 h-3 rotate-45 pointer-events-none"
+                    {/* Pijltje naar het Pinpoint-icoon */}
+                    <motion.div
+                      className="absolute -top-1.5 right-3.5 w-3 h-3 rotate-45 pointer-events-none z-10"
                       style={{
                         background: isDark ? '#1A1320' : '#FFFFFF',
                         borderLeft: isDark ? '1px solid rgba(255, 75, 114, 0.35)' : '1px solid rgba(255, 75, 114, 0.25)',
                         borderTop: isDark ? '1px solid rgba(255, 75, 114, 0.35)' : '1px solid rgba(255, 75, 114, 0.25)',
                       }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: reduceMotion ? 0 : 0.12, duration: 0.2 }}
                     />
 
-                    <div className="relative p-3 flex items-start gap-2.5 cursor-pointer">
+                    {/* De kaart zelf: groeit als een cirkel vanuit het icoon naar beneden open */}
+                    <motion.div
+                      className="relative rounded-2xl overflow-hidden"
+                      style={{
+                        background: isDark
+                          ? 'linear-gradient(145deg, #1A1320 0%, #120A16 100%)'
+                          : '#FFFFFF',
+                        border: isDark
+                          ? '1px solid rgba(255, 75, 114, 0.35)'
+                          : '1px solid rgba(255, 75, 114, 0.25)',
+                        boxShadow: isDark
+                          ? '0 16px 36px rgba(0,0,0,0.6), 0 0 20px rgba(255,75,114,0.15)'
+                          : '0 16px 36px rgba(0,0,0,0.12), 0 0 20px rgba(255,75,114,0.12)',
+                      }}
+                      initial={reduceMotion ? false : { clipPath: 'circle(18px at calc(100% - 18px) -28px)' }}
+                      animate={{ clipPath: 'circle(420px at calc(100% - 18px) -28px)' }}
+                      exit={reduceMotion ? undefined : { clipPath: 'circle(18px at calc(100% - 18px) -28px)' }}
+                      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                    <motion.div
+                      className="relative p-3 flex items-start gap-2.5 cursor-pointer"
+                      initial={reduceMotion ? false : { opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: reduceMotion ? 0 : 0.18, duration: 0.3, ease: 'easeOut' }}
+                    >
                       <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#FF4B72] to-[#FF7597] flex items-center justify-center shrink-0 shadow-sm mt-0.5">
                         <MapPin className="w-4 h-4 text-white" />
                       </div>
@@ -783,17 +827,19 @@ export default function Home() {
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
-                    </div>
+                    </motion.div>
 
-                    {/* 5-second linear countdown progress bar */}
+                    {/* Aftelbalk: loopt precies 5 seconden, vanaf het moment dat de melding helemaal open is */}
                     <div className="h-0.5 w-full bg-black/5 dark:bg-white/10 overflow-hidden">
                       <motion.div
-                        initial={{ width: '100%' }}
-                        animate={{ width: '0%' }}
-                        transition={{ duration: 5, ease: 'linear' }}
-                        className="h-full bg-gradient-to-r from-[#FF4B72] to-[#FF7597]"
+                        initial={{ scaleX: 1 }}
+                        animate={{ scaleX: 0 }}
+                        transition={{ delay: VENUE_TOAST_OPEN_MS / 1000, duration: VENUE_TOAST_VISIBLE_MS / 1000, ease: 'linear' }}
+                        style={{ transformOrigin: 'left' }}
+                        className="h-full w-full bg-gradient-to-r from-[#FF4B72] to-[#FF7597]"
                       />
                     </div>
+                    </motion.div>
                   </motion.div>
                 )}
               </AnimatePresence>
