@@ -5,7 +5,8 @@ import { useTheme } from '@/lib/ThemeContext';
 import { ChevronLeft, Send, Camera, X, Clock, MoreVertical, AlertTriangle, Trash2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
-import { deleteChatRoomAndMedia, syncChatReadState } from '@/lib/chatUtils';
+import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { countUnread, markRoomRead } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
 import { dt } from '@/lib/displayText';
 
@@ -78,6 +79,8 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const [extensionLoading, setExtensionLoading] = useState(false);
   const hasAutoOpenedPromptRef = useRef(false);
   const isInitialScrollDoneRef = useRef(false);
+  // Blijft onderaan "plakken" (laatste berichten) zolang je niet zelf omhoog scrolt
+  const stickToBottomRef = useRef(true);
   const prevMsgCountRef = useRef(0);
   const bottomRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -207,7 +210,9 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     const rId = room?.id;
     if (!rId) return;
     try {
-      const msgs = await base44.entities.ChatMessage.filter({ room_id: rId }, 'created_at', 200);
+      // De LAATSTE 200 berichten ophalen (nieuwste eerst) en daarna op volgorde zetten (oudste boven)
+      const newest = await base44.entities.ChatMessage.filter({ room_id: rId }, '-created_at', 200);
+      const msgs = [...(newest || [])].reverse();
       setMessages(prev => {
         // Prevent state update if message list has not changed (prevents re-render and scroll jumps)
         if (prev.length === (msgs || []).length && prev.length > 0) {
@@ -331,6 +336,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     const isMyMessage = lastMsg?.sender_email === currentUserEmail;
 
     if (isInitial || isMyMessage || (hasNewMessages && isNearBottom)) {
+      stickToBottomRef.current = true;
       if (container) {
         container.scrollTop = container.scrollHeight;
       }
@@ -340,18 +346,46 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         if (container) container.scrollTop = container.scrollHeight;
         setIsReadyToShow(true);
       });
+      // Bij het openen: nog twee keer naar beneden na het inladen van foto's e.d.
+      // (alleen als je intussen niet zelf omhoog bent gescrold)
+      if (isInitial) {
+        [300, 1000].forEach((ms) => setTimeout(() => {
+          const el = messagesContainerRef.current;
+          if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
+        }, ms));
+      }
     } else {
       setIsReadyToShow(true);
     }
 
     prevMsgCountRef.current = messages.length;
 
-    if (localRoom.id) {
-      const partnerMsgs = messages.filter(m => !m.is_system && m.sender_email !== currentUserEmail);
-      localStorage.setItem(`chat_read_count_${localRoom.id}`, String(partnerMsgs.length));
-      syncChatReadState(currentUserEmail, localRoom.id, partnerMsgs.length);
+    // Chat staat open: alles wat er nu is, is gelezen (alleen opslaan als er iets ongelezens was)
+    if (localRoom.id && countUnread(localRoom, messages, currentUserEmail) > 0) {
+      markRoomRead(localRoom, currentUserEmail).then((patch) => {
+        if (patch) setLocalRoom((prev) => ({ ...prev, ...patch }));
+      });
     }
   }, [loading, messages, localRoom.id, currentUserEmail]);
+
+  // Foto's laden later in en het scherm kan van hoogte veranderen (toetsenbord, adresbalk).
+  // Zolang je onderaan zat, blijven we onderaan bij de laatste berichten.
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const keepAtBottom = () => {
+      if (stickToBottomRef.current) container.scrollTop = container.scrollHeight;
+    };
+    const ro = new ResizeObserver(keepAtBottom);
+    ro.observe(container);
+    Array.from(container.children).forEach((child) => ro.observe(child));
+    // Afbeeldingen die later laden (load-event bubbelt niet, dus capture)
+    container.addEventListener('load', keepAtBottom, true);
+    return () => {
+      ro.disconnect();
+      container.removeEventListener('load', keepAtBottom, true);
+    };
+  }, [loading, messages.length]);
 
   const notifyPartner = async (messagePreview) => {
     try {
@@ -843,7 +877,13 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       {/* Messages area */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 select-text" 
+        // min-h-0: zonder dit groeit het vak mee met de berichten en scrollt het niet zelf,
+        // waardoor je bovenaan (bij de eerste berichten) bleef staan.
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+        }}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 select-text"
         style={{ 
           scrollbarWidth: 'none',
           WebkitOverflowScrolling: 'touch',

@@ -10,7 +10,8 @@ import ChatRoomView from '@/components/welove/ChatRoomView';
 import { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { createPageUrl } from '@/utils';
-import { deleteChatRoomAndMedia, getSyncedChatReadCounts } from '@/lib/chatUtils';
+import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { countUnread, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
 import { dt } from '@/lib/displayText';
 
@@ -198,17 +199,29 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
             ) : null}
           </div>
         </div>
-        <p className="text-[11px] font-semibold truncate" style={{ color: isSentPending ? '#F59E0B' : isWaitingExt ? '#EA3FD3' : phaseInfo.color }}>
-          {isSentPending
-            ? trNow('Uitnodiging verstuurd • Wachten op antwoord...', 'Invite sent • Waiting for reply...')
-            : isWaitingExt
-            ? trNow('⏳ Wachten op de ander...', '⏳ Waiting for the other person...')
-            : isPending && isUserB
-            ? trNow('💬 Uitnodiging — Accepteer of weiger', '💬 Invite — Accept or decline')
-            : room.status === 'archived'
-            ? trNow('📁 Gearchiveerd', '📁 Archived')
-            : phaseInfo.label}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold truncate" style={{ color: isSentPending ? '#F59E0B' : isWaitingExt ? '#EA3FD3' : phaseInfo.color }}>
+            {isSentPending
+              ? trNow('Uitnodiging verstuurd • Wachten op antwoord...', 'Invite sent • Waiting for reply...')
+              : isWaitingExt
+              ? trNow('⏳ Wachten op de ander...', '⏳ Waiting for the other person...')
+              : isPending && isUserB
+              ? trNow('💬 Uitnodiging — Accepteer of weiger', '💬 Invite — Accept or decline')
+              : room.status === 'archived'
+              ? trNow('📁 Gearchiveerd', '📁 Archived')
+              : phaseInfo.label}
+          </p>
+          {/* Aantal ongelezen berichten in deze chat (zoals bij WhatsApp) */}
+          {messageCount > 0 && (
+            <span
+              className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full text-white text-[11px] font-black flex items-center justify-center"
+              style={{ background: '#FF4B72', boxShadow: '0 2px 8px rgba(255,75,114,0.45)' }}
+              aria-label={trNow(`${messageCount} ongelezen berichten`, `${messageCount} unread messages`)}
+            >
+              {messageCount > 99 ? '99+' : messageCount}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Chevron Arrow */}
@@ -270,17 +283,14 @@ export default function Chat() {
       }
 
       // Load message counts & latest message timestamp for active rooms
-      await getSyncedChatReadCounts(user.email);
       const counts = {};
       const latestActivity = {};
       await Promise.all(
         visible.map(async (r) => {
           try {
             const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
-            const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== user.email);
-            const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
-            const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
-            counts[r.id] = unreadInRoom;
+            // Ongelezen = berichten van de ander, nieuwer dan jouw laatste keer lezen (staat in de database)
+            counts[r.id] = r.status === 'pending' ? 0 : countUnread(r, msgs, user.email);
 
             // Determine latest message time
             if (msgs && msgs.length > 0) {
@@ -372,6 +382,14 @@ export default function Chat() {
       }
     }, 6000);
     return () => clearInterval(interval);
+  }, [userEmail, activeRoom, loadData]);
+
+  // Nieuw bericht binnen of chat gelezen: tellers direct bijwerken (zonder op de poll te wachten)
+  useEffect(() => {
+    if (!user || activeRoom) return;
+    const refresh = () => loadData();
+    window.addEventListener(CHAT_UNREAD_EVENT, refresh);
+    return () => window.removeEventListener(CHAT_UNREAD_EVENT, refresh);
   }, [userEmail, activeRoom, loadData]);
 
   // Save email to localStorage for Layout badge polling

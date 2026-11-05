@@ -9,7 +9,8 @@ import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
 
 import { base44 } from '@/api/base44Client';
-import { getSyncedChatReadCounts, deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { countUnread, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
 
 const NAV_CONFIG = [
   { key: 'navHome', icon: Home, page: 'Home' },
@@ -120,7 +121,6 @@ export default function Layout({ children, currentPageName }) {
       try {
         const email = localStorage.getItem('romety_user_email');
         if (!email) return;
-        await getSyncedChatReadCounts(email);
         const [rooms = [], rooms2 = []] = await Promise.all([
           base44.entities.ChatRoom.filter({ user_a_email: email }).catch(() => []),
           base44.entities.ChatRoom.filter({ user_b_email: email }).catch(() => [])
@@ -155,10 +155,8 @@ export default function Layout({ children, currentPageName }) {
                   return;
                 }
 
-                const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== email);
-                const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
-                const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
-                if (unreadInRoom > 0) totalBadge += unreadInRoom;
+                // Telt per chat: aantal chats met ongelezen berichten
+                if (countUnread(r, msgs, email) > 0) totalBadge += 1;
               } catch (e) {}
             })
           );
@@ -170,6 +168,17 @@ export default function Layout({ children, currentPageName }) {
 
     checkChats();
     const interval = setInterval(checkChats, 60000);
+    // Direct bijwerken bij een nieuw bericht (Realtime) of als een chat is gelezen
+    window.addEventListener(CHAT_UNREAD_EVENT, checkChats);
+    const myEmail = (localStorage.getItem('romety_user_email') || '').toLowerCase();
+    const unsubscribeMessages = myEmail
+      ? base44.entities.ChatMessage.subscribe((event) => {
+          // Realtime levert alleen berichten uit je eigen chats (RLS)
+          if (event.type === 'create' && (event.data?.sender_email || '').toLowerCase() !== myEmail) {
+            try { window.dispatchEvent(new CustomEvent(CHAT_UNREAD_EVENT)); } catch (e) {}
+          }
+        })
+      : null;
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') checkChats();
     };
@@ -178,6 +187,8 @@ export default function Layout({ children, currentPageName }) {
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener(CHAT_UNREAD_EVENT, checkChats);
+      if (unsubscribeMessages) unsubscribeMessages();
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [currentPageName]);

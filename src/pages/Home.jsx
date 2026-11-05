@@ -25,7 +25,8 @@ import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
-import { getSyncedChatReadCounts, deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { countUnread, fetchChatUnreadSummary, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
 import { dt } from '@/lib/displayText';
 
@@ -89,6 +90,16 @@ export default function Home() {
   const [showSuperMatchSheet, setShowSuperMatchSheet] = useState(false);
   const [activeLocationCount, setActiveLocationCount] = useState(0);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  // Chatknop direct bijwerken als er een bericht binnenkomt of een chat gelezen is
+  useEffect(() => {
+    const refresh = () => {
+      const email = (user?.email || '').toLowerCase();
+      if (!email) return;
+      fetchChatUnreadSummary(email).then((s) => setChatUnreadCount(s.total)).catch(() => {});
+    };
+    window.addEventListener(CHAT_UNREAD_EVENT, refresh);
+    return () => window.removeEventListener(CHAT_UNREAD_EVENT, refresh);
+  }, [user?.email]);
   const [unmatchedLikes, setUnmatchedLikes] = useState([]);
   const [revealedProfile, setRevealedProfile] = useState(null);
 
@@ -360,7 +371,6 @@ export default function Home() {
 
       // Chat unread count calculation (incoming invites + unread partner messages)
       try {
-        await getSyncedChatReadCounts(u.email);
         const uniqueRooms = uniqueAllRooms.filter(r => r && r.status !== 'deleted' && !r.deleted_at);
 
         let totalBadge = 0;
@@ -387,11 +397,9 @@ export default function Home() {
                 return;
               }
 
-              const partnerMsgs = (msgs || []).filter(m => !m.is_system && m.sender_email !== u.email);
-              const readCount = parseInt(localStorage.getItem(`chat_read_count_${r.id}`) || '0', 10);
-              const unreadInRoom = Math.max(0, partnerMsgs.length - readCount);
-              if (unreadInRoom > 0) {
-                totalBadge += unreadInRoom;
+              // Telt per CHAT (niet per bericht): 5 chats waarvan 3 met ongelezen berichten = 3
+              if (countUnread(r, msgs, u.email) > 0) {
+                totalBadge += 1;
               }
             } catch (e) {}
           })
