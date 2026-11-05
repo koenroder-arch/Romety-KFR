@@ -24,6 +24,8 @@ export default function VenueBanner({ checkIn, onRemoved }) {
     } catch (e) {
       // ignore
     }
+    // Laat de navigatiebalk weten dat de venue weg is (rood bolletje op Matches weg)
+    try { window.dispatchEvent(new CustomEvent('romety_venue_changed')); } catch (e) {}
     onRemoved();
   };
 

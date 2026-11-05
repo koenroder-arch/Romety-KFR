@@ -641,6 +641,8 @@ export default function Pinpoint() {
       await base44.entities.UserDestination.update(myDestination.id, { status: 'expired' });
       setMyDestination(null);
     }
+    // Laat de navigatiebalk weten dat er geen venue meer is (rood bolletje op Matches weg)
+    try { window.dispatchEvent(new CustomEvent('romety_venue_changed')); } catch (e) {}
     const all = await base44.entities.UserDestination.list();
     const refreshNow = new Date().toISOString();
     setAllDestinations(all.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > refreshNow)));

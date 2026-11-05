@@ -30,7 +30,7 @@ export default function Layout({ children, currentPageName }) {
   }, []);
 
   const showNav = !['Onboarding', 'Language', 'Login', 'Hints'].includes(currentPageName);
-  const { unreadCount, markAllRead } = useNotifications();
+  const { markAllRead } = useNotifications();
   const { lang } = useLang();
   const { theme } = useTheme();
   const isDark = theme !== 'light';
@@ -51,6 +51,66 @@ export default function Layout({ children, currentPageName }) {
       metaTheme.setAttribute('content', topColor);
     }
   }, [currentPageName, isDark]);
+
+  // Rood bolletje op het hartje (Matches): verschijnt als je op "Ik ga hierheen" tikt en blijft
+  // 1 minuut staan. Verdwijnt eerder als de venue in die minuut wordt verwijderd of verloopt.
+  const VENUE_DOT_MS = 60 * 1000;
+  const VENUE_DOT_KEY = 'romety_venue_dot_until';
+  const [hasActiveVenue, setHasActiveVenue] = React.useState(false);
+  React.useEffect(() => {
+    let isMounted = true;
+    let hideTimer = null;
+
+    const readDotUntil = () => {
+      try { return Number(localStorage.getItem(VENUE_DOT_KEY)) || 0; } catch (e) { return 0; }
+    };
+
+    const checkVenue = async () => {
+      try {
+        if (hideTimer) clearTimeout(hideTimer);
+        const dotUntil = readDotUntil();
+        const msLeft = dotUntil - Date.now();
+        const email = localStorage.getItem('romety_user_email');
+        if (!email || msLeft <= 0) {
+          if (isMounted) setHasActiveVenue(false);
+          return;
+        }
+        const now = new Date().toISOString();
+        const [dests = [], checkIns = []] = await Promise.all([
+          base44.entities.UserDestination.filter({ user_email: email, status: 'active' }).catch(() => []),
+          base44.entities.VenueCheckIn.filter({ user_email: email }).catch(() => []),
+        ]);
+        const active = [...dests, ...checkIns].filter((v) => v && (!v.expires_at || v.expires_at > now));
+        if (!isMounted) return;
+        setHasActiveVenue(active.length > 0);
+        // Na de minuut automatisch weghalen
+        if (active.length > 0) hideTimer = setTimeout(checkVenue, Math.max(0, readDotUntil() - Date.now()) + 50);
+      } catch (e) {}
+    };
+
+    // "Ik ga hierheen" aangeklikt: bolletje 1 minuut tonen
+    const handleActivated = () => {
+      try { localStorage.setItem(VENUE_DOT_KEY, String(Date.now() + VENUE_DOT_MS)); } catch (e) {}
+      if (isMounted) setHasActiveVenue(true);
+      checkVenue();
+    };
+
+    checkVenue();
+    window.addEventListener('romety_venue_changed', checkVenue);
+    window.addEventListener('romety_venue_activated', handleActivated);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') checkVenue();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      isMounted = false;
+      if (hideTimer) clearTimeout(hideTimer);
+      window.removeEventListener('romety_venue_changed', checkVenue);
+      window.removeEventListener('romety_venue_activated', handleActivated);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [currentPageName]);
 
   // Poll for unread chat messages efficiently (only when tab is visible)
   React.useEffect(() => {
@@ -234,10 +294,16 @@ export default function Layout({ children, currentPageName }) {
                       style={isActive ? { color: '#FF4B72', filter: 'drop-shadow(0 0 8px rgba(255,75,114,0.8))' } : { color: inactiveColor }}
                     />
 
-                    {page === 'Matches' && unreadCount > 0 && (
-                      <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </div>
+                    {page === 'Matches' && hasActiveVenue && (
+                      <span
+                        className="absolute top-0 right-0 w-2 h-2 rounded-full"
+                        style={{
+                          // Zelfde roze als het actieve hartje op de Matches-pagina
+                          background: '#FF4B72',
+                          boxShadow: `0 0 0 1.5px ${isDark ? '#08090E' : '#FFFFFF'}, 0 0 5px rgba(255,75,114,0.6)`,
+                        }}
+                        aria-label={lang === 'en' ? 'Venue active' : 'Venue actief'}
+                      />
                     )}
                     {page === 'Chat' && unreadChatCount > 0 && (
                       <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>

@@ -16,6 +16,7 @@ import SuperMatchesSheet from '@/components/welove/SuperMatchesSheet';
 import RevealedLikesSheet from '@/components/welove/RevealedLikesSheet';
 import MatchAnimation from '@/components/welove/MatchAnimation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 
 // Venue-melding rechtsboven: duur van het uitklappen en hoe lang hij daarna zichtbaar blijft
 const VENUE_TOAST_OPEN_MS = 550;
@@ -162,6 +163,7 @@ export default function Home() {
 
   // Stories related states
   const [stories, setStories] = useState([]);
+  const [brokenStoryPhotos, setBrokenStoryPhotos] = useState({});
   const [selectedStoryGroup, setSelectedStoryGroup] = useState(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
   const [seenStoryIds, setSeenStoryIds] = useState([]);
@@ -481,35 +483,40 @@ export default function Home() {
       }, 1000);
 
       if (myCI) {
+        // Eigen verhalen altijd tonen (ook als ze bij een andere venue zijn geplaatst);
+        // verhalen van matches alleen als ze bij dezelfde venue zijn als jij.
         const activeStories = allStories.filter(story => {
           if (!story) return false;
           const isRecent = story.created_date >= nineHoursAgo;
           const isSameVenue = story.venue_name === myCI.venue_name;
           const isMe = story.user_email === u.email;
-          const creatorProfile = allProfiles.find(p => p && p.user_email === story.user_email);
+          const creatorProfile = (story.user_email === u.email ? myProf : safeProfiles.find(p => p && p.user_email === story.user_email));
           const isAMatch = creatorProfile && isMatch(myProf, creatorProfile);
-          return isRecent && isSameVenue && (isMe || isAMatch);
+          return isRecent && (isMe || (isSameVenue && isAMatch));
         }).map(story => {
-          const creatorProfile = allProfiles.find(p => p && p.user_email === story.user_email);
+          const creatorProfile = (story.user_email === u.email ? myProf : safeProfiles.find(p => p && p.user_email === story.user_email));
           return {
             ...story,
-            user_avatar: creatorProfile?.avatar || null
+            user_avatar: creatorProfile?.avatar || null,
+            // Huidige eerste profielfoto van de maker (de link in het verhaal kan verouderd zijn)
+            user_current_photo: getProfilePhotos(creatorProfile)[0] || null
           };
         });
         setStories(activeStories);
       } else {
+        // Geen venue gekozen: alleen je eigen verhalen (van welke venue dan ook)
         const activeStories = allStories.filter(story => {
           if (!story) return false;
           const isRecent = story.created_date >= nineHoursAgo;
           const isMe = story.user_email === u.email;
-          const creatorProfile = allProfiles.find(p => p && p.user_email === story.user_email);
-          const isAMatch = creatorProfile && isMatch(myProf, creatorProfile);
-          return isRecent && (isMe || isAMatch);
+          return isRecent && isMe;
         }).map(story => {
-          const creatorProfile = allProfiles.find(p => p && p.user_email === story.user_email);
+          const creatorProfile = (story.user_email === u.email ? myProf : safeProfiles.find(p => p && p.user_email === story.user_email));
           return {
             ...story,
-            user_avatar: creatorProfile?.avatar || null
+            user_avatar: creatorProfile?.avatar || null,
+            // Huidige eerste profielfoto van de maker (de link in het verhaal kan verouderd zijn)
+            user_current_photo: getProfilePhotos(creatorProfile)[0] || null
           };
         });
         setStories(activeStories);
@@ -625,7 +632,7 @@ export default function Home() {
         byUser[s.user_email] = {
           user_email: s.user_email,
           user_name: s.user_name || s.user_email.split('@')[0],
-          user_photo_url: s.user_photo_url,
+          user_photo_url: s.user_current_photo || s.user_photo_url,
           user_avatar: s.user_avatar || null,
           items: []
         };
@@ -877,18 +884,12 @@ export default function Home() {
       {/* ── Stories (Verhalen) ── */}
       <div 
         className="pt-2 pb-2.5 border-b border-t mt-0 mb-1 relative" 
-        style={{ 
+        style={{
           borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-          opacity: myCheckIn ? 1 : 0.55
         }}
       >
-        {!myCheckIn && (
-          <div 
-            className="absolute inset-0 z-20 cursor-pointer" 
-            onClick={() => alert(trNow('Stel eerst een locatie in om de verhalen te kunnen bekijken.', 'Set a location first to view the stories.'))}
-          />
-        )}
-
+        {/* Je eigen verhalen blijven altijd zichtbaar en klikbaar, ook zonder gekozen venue.
+            Verhalen van matches verschijnen pas als je een venue hebt gekozen. */}
         <div className="flex gap-4 overflow-x-auto px-5 pb-1" style={{ scrollbarWidth: 'none' }}>
           {/* User's own story addition bubble if they don't have stories */}
           {!hasMyStories && (
@@ -937,8 +938,14 @@ export default function Home() {
                 >
                   <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-[#08090E] p-[2px]">
                     <div className="w-full h-full rounded-full overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                      {group.user_photo_url ? (
-                        <img src={group.user_photo_url} alt="" className="w-full h-full object-cover" />
+                      {group.user_photo_url && !brokenStoryPhotos[group.user_email] ? (
+                        <img
+                          src={group.user_photo_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          // Kan de foto niet laden? Toon dan de avatar-emoji in plaats van een kapot plaatje
+                          onError={() => setBrokenStoryPhotos((prev) => ({ ...prev, [group.user_email]: true }))}
+                        />
                       ) : (
                         <span className="text-2xl">{group.user_avatar ? group.user_avatar.split(' ')[0] : '👤'}</span>
                       )}
