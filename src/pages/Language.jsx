@@ -66,14 +66,13 @@ export default function Language() {
             <button
               key={l.code}
               onClick={() => handleLangSelect(l.code)}
-              className="w-full flex items-center gap-4 px-5 py-4 rounded-full transition-all active:scale-95"
+              className="w-full flex items-center justify-center px-5 py-4 rounded-full transition-all active:scale-95"
               style={
                 selectedLang === l.code
                   ? { background: GRAD, boxShadow: '0 8px 24px rgba(255,75,114,0.4)' }
                   : { background: '#141521', border: '1.5px solid #FF4B72', boxShadow: '0 0 12px rgba(255,75,114,0.2)' }
               }
             >
-              <span className="text-2xl">{l.flag}</span>
               <span className="text-white font-bold text-base">{l.label}</span>
             </button>
           ))}

@@ -1189,19 +1189,10 @@ export default function Home() {
                 boxShadow: isDark ? '0 8px 28px rgba(234, 63, 211, 0.16)' : '0 4px 20px rgba(234, 63, 211, 0.09)',
               }}
             >
-              {/* Rustig van links naar rechts pulserend lichtgoud randje in een vloeiende loop */}
-              <div 
-                className="absolute inset-0 rounded-[24px] pointer-events-none p-[1.5px] animate-gold-sweep"
-                style={{
-                  background: isDark
-                    ? 'linear-gradient(90deg, transparent 0%, rgba(255, 245, 205, 0.2) 20%, rgba(255, 235, 160, 0.95) 50%, rgba(255, 245, 205, 0.2) 80%, transparent 100%)'
-                    : 'linear-gradient(90deg, transparent 0%, rgba(235, 205, 120, 0.2) 20%, rgba(245, 215, 125, 0.95) 50%, rgba(235, 205, 120, 0.2) 80%, transparent 100%)',
-                  backgroundSize: '300% 100%',
-                  WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                  WebkitMaskComposite: 'xor',
-                  maskComposite: 'exclude',
-                }}
-              />
+              {/* Lichtgoud randje dat in een soepele, naadloze loop rond de kaart draait */}
+              <div className="gold-ring rounded-[24px]">
+                <div className="gold-ring__spin" />
+              </div>
               <div className="flex items-center justify-between w-full relative z-10">
                 <div 
                   className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"

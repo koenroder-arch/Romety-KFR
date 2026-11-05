@@ -137,22 +137,54 @@ html.dark body {
   animation: shimmer 3s infinite linear;
 }
 
-@keyframes goldSweep {
-  0% {
-    background-position: -250% 0;
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    background-position: 250% 0;
-    opacity: 0.35;
+/* ── Goudrand die soepel rond een kaart draait (VIP kortingen) ──
+   .gold-ring is de rand zelf (alleen de 1.5px rand blijft zichtbaar via de mask),
+   .gold-ring__spin is een draaiende conic-gradient erachter. Omdat hij in een cirkel
+   draait (0° → 360°) sluit het einde naadloos aan op het begin: geen sprong. */
+.gold-ring {
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.gold-ring__spin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 250%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 200deg,
+    rgba(255, 236, 170, 0.15) 250deg,
+    rgba(255, 228, 140, 0.65) 300deg,
+    rgba(255, 246, 210, 1) 335deg,
+    rgba(255, 228, 140, 0.65) 350deg,
+    transparent 360deg
+  );
+  animation: goldRingSpin 4.5s linear infinite;
+  will-change: transform;
+}
+
+@keyframes goldRingSpin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
   }
 }
 
-.animate-gold-sweep {
-  animation: goldSweep 8s ease-in-out infinite;
+@media (prefers-reduced-motion: reduce) {
+  .gold-ring__spin {
+    animation: none;
+    background: rgba(255, 228, 140, 0.55);
+  }
 }
 
 /* ── Safe-area header utility ──
