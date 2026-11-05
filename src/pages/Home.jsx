@@ -25,6 +25,7 @@ import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
+import { BLOCK_EVENT } from '@/lib/blockUtils';
 import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 import { countUnread, fetchChatUnreadSummary, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
@@ -342,8 +343,8 @@ export default function Home() {
         // Wanneer een chat met deze partner verwijderd is (voor welke reden dan ook) en er is geen actieve/pending chat,
         // gaat de supermatch ook weg en worden eventuele likes in de database opgeruimd.
         if (deletedPartnerEmails.has(e) && !activePartnerEmails.has(e)) {
-          supabase.from('Like').delete().match({ from_email: u.email, to_email: e }).catch(() => {});
-          supabase.from('Like').delete().match({ from_email: e, to_email: u.email }).catch(() => {});
+          Promise.resolve(supabase.from('Like').delete().match({ from_email: u.email, to_email: e })).catch(() => {});
+          Promise.resolve(supabase.from('Like').delete().match({ from_email: e, to_email: u.email })).catch(() => {});
           return false;
         }
         return true;
@@ -610,6 +611,13 @@ export default function Home() {
 
   const handleSelectReason = useCallback((reason) => {
     setReportState(prev => ({ ...prev, step: 'detail', reason }));
+  }, []);
+
+  // Na een blokkade verdwijnen die persoon en zijn verhalen meteen uit beeld
+  useEffect(() => {
+    const onBlockChanged = () => loadData(true);
+    window.addEventListener(BLOCK_EVENT, onBlockChanged);
+    return () => window.removeEventListener(BLOCK_EVENT, onBlockChanged);
   }, []);
 
   const handleSubmitReport = useCallback(async () => {

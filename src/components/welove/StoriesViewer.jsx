@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MoreHorizontal, Download, Trash2, AlertTriangle, User } from 'lucide-react';
+import { X, MoreHorizontal, Download, Trash2, AlertTriangle, Ban, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
 import { trNow } from '@/lib/LanguageContext';
+import BlockUserDialog from './BlockUserDialog';
 import { dt } from '@/lib/displayText';
 
 const REPORT_REASONS = [
@@ -38,6 +39,7 @@ export default function StoriesViewer({
   // Overlay states
   const [showMenu, setShowMenu] = useState(false);
   const [showBio, setShowBio] = useState(false);
+  const [blockTarget, setBlockTarget] = useState(null);
   const [reportState, setReportState] = useState(null);
   const [creatorProfile, setCreatorProfile] = useState(null);
   const [isLoadingAction, setIsLoadingAction] = useState(false);
@@ -554,6 +556,18 @@ export default function StoriesViewer({
                       <AlertTriangle className="w-5 h-5" />
                       {trNow('Rapporteren', 'Report')}
                     </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setIsPaused(true);
+                        setBlockTarget({ email: activeStory.user_email, name: activeStory.user_name });
+                      }}
+                      className="w-full py-4 px-5 rounded-2xl flex items-center gap-3 text-red-400 text-sm font-bold active:scale-[0.98] transition-transform hover:bg-red-500/10"
+                      style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
+                    >
+                      <Ban className="w-5 h-5" />
+                      {trNow('Blokkeren', 'Block')}
+                    </button>
                   </>
                 )}
                 <button
@@ -646,7 +660,16 @@ export default function StoriesViewer({
       </AnimatePresence>
 
       {/* ── Report Overlay ── */}
-      <AnimatePresence>
+      <BlockUserDialog
+          target={blockTarget}
+          isDark={isDark}
+          onClose={() => {
+            setBlockTarget(null);
+            if (!reportState) setIsPaused(false);
+          }}
+          onBlocked={() => onClose?.()}
+        />
+        <AnimatePresence>
         {reportState && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -766,6 +789,13 @@ export default function StoriesViewer({
                   <p className="text-white/60 text-sm mb-6 leading-relaxed">
                     {trNow('We nemen dit zeer serieus en zullen dit profiel en verhaal zo spoedig mogelijk controleren.', 'We take this very seriously and will review this profile and story as soon as possible.')}
                   </p>
+                  <button
+                    onClick={() => setBlockTarget({ email: activeStory.user_email, name: activeStory.user_name })}
+                    className="w-full py-3.5 mb-2 rounded-2xl text-red-400 font-bold text-sm active:scale-95 transition-all"
+                    style={{ background: 'rgba(239,68,68,0.12)' }}
+                  >
+                    {trNow('Ook blokkeren', 'Block as well')}
+                  </button>
                   <button
                     onClick={() => {
                       setReportState(null);

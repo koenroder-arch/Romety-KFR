@@ -46,6 +46,7 @@ export function useNotifications() {
         let toastIcon = '👤';
         let toastBorderColor = 'rgba(255, 255, 255, 0.08)';
         let toastBadgeIcon = '💜';
+        let routePage = 'Home';
         let targetUrl = createPageUrl(routePage);
 
         let parsedRoomId = null;
@@ -119,6 +120,20 @@ export function useNotifications() {
           toastBadgeIcon = '💬';
           routePage = 'Home';
           targetUrl = createPageUrl('Home');
+        } else if (event.data.type === 'report') {
+          titleText = trNow('🚩 Nieuwe melding', '🚩 New report');
+          bodyText = trNow('Er is een gebruiker gemeld. Tik om te behandelen.', 'A user was reported. Tap to handle it.');
+          toastIcon = '🚩';
+          toastBorderColor = '#F97316';
+          toastBadgeIcon = '🚩';
+          routePage = 'Account';
+          targetUrl = `${createPageUrl('Account')}?moderation=1`;
+        } else if (event.data.type === 'warning') {
+          titleText = trNow('⚠️ Waarschuwing', '⚠️ Warning');
+          bodyText = trNow('Je gedrag is gemeld. Houd je aan de regels van Romety.', 'Your behaviour was reported. Please follow the Romety rules.');
+          toastIcon = '⚠️';
+          toastBorderColor = '#F97316';
+          toastBadgeIcon = '⚠️';
         }
 
         toast.custom((t) => (

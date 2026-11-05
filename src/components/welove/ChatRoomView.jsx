@@ -2,12 +2,13 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
 import { useTheme } from '@/lib/ThemeContext';
-import { ChevronLeft, Send, Camera, X, Clock, MoreVertical, AlertTriangle, Trash2, Check } from 'lucide-react';
+import { ChevronLeft, Send, Camera, X, Clock, MoreVertical, AlertTriangle, Ban, Trash2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 import { countUnread, markRoomRead } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
+import BlockUserDialog from './BlockUserDialog';
 import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -72,6 +73,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
+  const [blockTarget, setBlockTarget] = useState(null);
   const [reportState, setReportState] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [contactInput, setContactInput] = useState('');
@@ -642,7 +644,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     if (!reportState || !reportState.reason) return;
     setReportLoading(true);
     try {
-      const targetEmail = otherProfile?.user_email || otherEmail;
+      const targetEmail = otherProfile?.user_email || (isUserA ? localRoom.user_b_email : localRoom.user_a_email);
       await base44.entities.Report.create({
         reporter_email: currentUserEmail,
         reported_email: targetEmail,
@@ -821,6 +823,21 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   >
                     <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-500" />
                     {trNow('Rapporteer gebruiker', 'Report user')}
+                  </button>
+
+                  <div className="h-px mx-3" style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }} />
+
+                  {/* Option: Blokkeren */}
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      setBlockTarget({ email: otherProfile?.user_email || (isUserA ? localRoom.user_b_email : localRoom.user_a_email), name: otherProfile?.display_name || otherProfile?.full_name });
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold hover:bg-white/10 active:bg-white/15 transition-colors text-left"
+                    style={{ color: '#FF6B6B' }}
+                  >
+                    <Ban className="w-4 h-4 flex-shrink-0 text-red-500" />
+                    {trNow('Blokkeer gebruiker', 'Block user')}
                   </button>
 
                   <div className="h-px mx-3" style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }} />
@@ -1595,7 +1612,16 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       </AnimatePresence>
 
       {/* ── Report Modal ── */}
-      <AnimatePresence>
+      <BlockUserDialog
+          target={blockTarget}
+          isDark={isDark}
+          onClose={() => setBlockTarget(null)}
+          onBlocked={() => {
+            setReportState(null);
+            onBack?.();
+          }}
+        />
+        <AnimatePresence>
         {reportState && (
           <div className="fixed inset-0 z-[350] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
             <div
@@ -1717,6 +1743,13 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   <p className="text-xs mb-4 font-medium" style={{ color: textSub }}>
                     {trNow('We zullen deze melding zo snel mogelijk beoordelen. De chat is verwijderd.', 'We will review this report as soon as possible. The chat has been deleted.')}
                   </p>
+                  <button
+                    onClick={() => setBlockTarget({ email: otherProfile?.user_email || (isUserA ? localRoom.user_b_email : localRoom.user_a_email), name: otherProfile?.display_name || otherProfile?.full_name })}
+                    className="w-full py-2.5 mb-2 rounded-xl font-black text-xs text-red-500 active:scale-95 transition-all"
+                    style={{ background: 'rgba(239,68,68,0.12)' }}
+                  >
+                    {trNow('Ook blokkeren', 'Block as well')}
+                  </button>
                   <button
                     onClick={() => {
                       setReportState(null);

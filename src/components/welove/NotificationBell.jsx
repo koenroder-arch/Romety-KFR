@@ -98,6 +98,8 @@ export default function NotificationBell({ isDark = true }) {
       navigate(createPageUrl('Games'));
     } else if (n.type === 'hint') {
       navigate(createPageUrl('Home'));
+    } else if (n.type === 'report') {
+      navigate(`${createPageUrl('Account')}?moderation=1`);
     }
   };
 
@@ -346,6 +348,12 @@ export default function NotificationBell({ isDark = true }) {
                                     } else if (isHint) {
                                       titleText = tr('Hint ontvangen', 'Hint received');
                                       descText = tr('Je hebt een nieuwe hint gekregen van een match!', 'You received a new hint from a match!');
+                                    } else if (n.type === 'report') {
+                                      titleText = tr('🚩 Nieuwe melding', '🚩 New report');
+                                      descText = tr('Er is een gebruiker gemeld. Tik om te behandelen.', 'A user was reported. Tap to handle it.');
+                                    } else if (n.type === 'warning') {
+                                      titleText = tr('⚠️ Waarschuwing', '⚠️ Warning');
+                                      descText = tr('Je gedrag is gemeld. Houd je aan de regels van Romety, anders kan je account worden verwijderd.', 'Your behaviour was reported. Please follow the Romety rules, or your account may be removed.');
                                     } else if (n.type === 'like') {
                                       titleText = tr('Nieuwe like', 'New like');
                                       descText = tr('Iemand vindt je leuk! 💜', 'Someone likes you! 💜');

@@ -2,11 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import MatchAnimation from './MatchAnimation';
-import { Heart, MessageCircle, MoreVertical, AlertTriangle, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Heart, MessageCircle, MoreVertical, AlertTriangle, Ban, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfilePhotoCarousel from './ProfilePhotoCarousel';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
 import { trNow } from '@/lib/LanguageContext';
+import BlockUserDialog from './BlockUserDialog';
 import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -34,6 +35,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
   const [expandedBioId, setExpandedBioId] = useState(null);
 
   // Report modal state
+  const [blockTarget, setBlockTarget] = useState(null);
   const [reportState, setReportState] = useState(null); // null | { profile, step: 'choose'|'detail'|'done', reason: null|string, details: '' }
   const [reportLoading, setReportLoading] = useState(false);
 
@@ -319,6 +321,22 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                       {trNow('Rapporteren', 'Report')}
                     </button>
+
+                    <div className="h-px mx-3" style={{ background: 'rgba(255,255,255,0.1)' }} />
+
+                    {/* Blokkeren */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuProfileId(null);
+                        setBlockTarget({ email: profile.user_email, name: profile.display_name });
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold hover:bg-white/10 active:bg-white/15 transition-colors text-left"
+                      style={{ color: '#FF6B6B' }}
+                    >
+                      <Ban className="w-4 h-4 flex-shrink-0" />
+                      {trNow('Blokkeren', 'Block')}
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -426,7 +444,16 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
       })}
 
       {/* ── Report Modal ── */}
-      <AnimatePresence>
+      <BlockUserDialog
+          target={blockTarget}
+          isDark={isDark}
+          onClose={() => setBlockTarget(null)}
+          onBlocked={(t) => {
+            setReportedEmails((prev) => new Set(prev).add(t.email));
+            setReportState(null);
+          }}
+        />
+        <AnimatePresence>
         {/* Report Modal */}
         {reportState && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
@@ -519,6 +546,13 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                   </div>
                   <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>{trNow('Bedankt voor je melding', 'Thanks for your report')}</h3>
                   <p className="text-xs mb-4 font-medium" style={{ color: textSub }}>{trNow('We zullen dit profiel zo snel mogelijk beoordelen.', 'We will review this profile as soon as possible.')}</p>
+                  <button
+                    onClick={() => setBlockTarget({ email: reportState.profile.user_email, name: reportState.profile.display_name })}
+                    className="w-full py-2.5 mb-2 rounded-xl font-black text-xs text-red-500 active:scale-95 transition-all"
+                    style={{ background: 'rgba(239,68,68,0.12)' }}
+                  >
+                    {trNow('Ook blokkeren', 'Block as well')}
+                  </button>
                   <button onClick={() => setReportState(null)} className="w-full py-2.5 rounded-xl font-black text-xs text-white active:scale-95 transition-all" style={{ background: GRAD }}>
                     {trNow('Sluiten', 'Close')}
                   </button>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { createPageUrl } from '@/utils';
 import { Camera, ArrowLeft, X, Globe, ChevronRight, Check } from 'lucide-react';
 import { compressImage } from '@/utils/imageUtils';
@@ -294,7 +295,10 @@ export default function Onboarding() {
         window.location.replace(createPageUrl('Pinpoint'));
       } catch (err) {
         console.error('Error saving onboarding data:', err);
-        toast.error(tr('Er is iets misgegaan bij het opslaan. Probeer het opnieuw.', 'Something went wrong while saving. Please try again.'));
+        const { data: isBanned } = await supabase.rpc('am_banned');
+        toast.error(isBanned
+          ? tr('Dit e-mailadres kan geen profiel meer aanmaken, omdat het is verwijderd wegens een overtreding.', 'This email address can no longer create a profile, because it was removed for a violation.')
+          : tr('Er is iets misgegaan bij het opslaan. Probeer het opnieuw.', 'Something went wrong while saving. Please try again.'));
       }
     }
   };

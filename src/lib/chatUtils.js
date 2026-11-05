@@ -54,13 +54,13 @@ export async function deleteChatRoomAndMedia(roomId, { hardDelete = false, delet
     }
 
     // 3. Verwijder daarna de berichten uit de database
-    await client.from('ChatMessage').delete().eq('room_id', roomId).catch(() => {});
+    await client.from('ChatMessage').delete().eq('room_id', roomId);
 
     // 4. Update of verwijder de chatroom
     if (hardDelete) {
-      await client.from('ChatRoom').delete().eq('id', roomId).catch(() => {});
+      await client.from('ChatRoom').delete().eq('id', roomId);
       await base44.entities.ChatRoom.delete(roomId).catch(() => {});
-      await client.from('Notification').delete().like('venue_name', `%"roomId":"${roomId}"%`).catch(() => {});
+      await client.from('Notification').delete().like('venue_name', `%"roomId":"${roomId}"%`);
     } else {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 uur zichtbaar voor de ander (of voor beiden bij inactiviteit)
@@ -88,7 +88,7 @@ export async function deleteChatRoomAndMedia(roomId, { hardDelete = false, delet
         }
       }
 
-      await client.from('ChatRoom').update(updateData).eq('id', roomId).catch(() => {});
+      await client.from('ChatRoom').update(updateData).eq('id', roomId);
       await base44.entities.ChatRoom.update(roomId, updateData).catch(() => {});
     }
 

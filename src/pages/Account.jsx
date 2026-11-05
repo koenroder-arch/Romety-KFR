@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
-import { supabase, supabaseAdmin } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { authStorage } from '@/lib/authStorage';
-import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { isAppAdmin } from '@/lib/moderation';
 import { useUser } from '@/lib/useUser';
+import BlockedUsersSheet from '@/components/welove/BlockedUsersSheet';
+import ModerationSheet from '@/components/welove/ModerationSheet';
 import { createPageUrl } from '@/utils';
 import { 
-  LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart, Gamepad2,
+  Ban, Flag, LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart, Gamepad2,
   Bell, HelpCircle, MessageCircle, MessageSquare, ArrowRightLeft, AlertTriangle, Globe, ArrowLeft,
   User, Calendar, Ruler, FileText, Sparkles, Target, Compass, Users, Smile, Send, Loader2, MapPin
 } from 'lucide-react';
@@ -135,6 +137,24 @@ export default function Account() {
   const [myProfile, setMyProfile] = useState(null);
   const [editing, setEditing] = useState(false);
   const [activeSheet, setActiveSheet] = useState(null);
+  const [showBlockedUsers, setShowBlockedUsers] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showModeration, setShowModeration] = useState(false);
+  const routerLocation = useLocation();
+
+  // Beheerders zien "Meldingen behandelen"; een seintje over een melding opent dit scherm direct
+  useEffect(() => {
+    let active = true;
+    isAppAdmin().then((ok) => {
+      if (!active) return;
+      setIsAdmin(ok);
+      if (ok && new URLSearchParams(routerLocation.search).get('moderation') === '1') {
+        setShowModeration(true);
+        navigate(createPageUrl('Account'), { replace: true });
+      }
+    });
+    return () => { active = false; };
+  }, [routerLocation.search]);
   const [showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState({});
   const [initialForm, setInitialForm] = useState({});
@@ -694,199 +714,38 @@ export default function Account() {
         ''
       ).toLowerCase().trim();
 
-      if (email) {
-        const client = supabaseAdmin || supabase;
-        const fallbackClient = supabase;
+      if (!email) throw new Error('Geen e-mailadres gevonden voor dit account');
 
-        // 0. Save exit feedback to Supabase if provided
-        try {
-          if (deleteAnswers?.selectedOption) {
-            await client.from('AccountDeletionSurvey').insert([
-              {
-                reason: deleteAnswers.selectedOption,
-                custom_feedback: deleteAnswers.customText?.trim() || null,
-                user_email: email,
-                created_at: new Date().toISOString()
-              }
-            ]).catch(() => {});
+      // 0. Vertrekreden opslaan (de database haalt het e-mailadres eraf bij het verwijderen)
+      if (deleteAnswers?.selectedOption) {
+        const { error: surveyError } = await supabase.from('AccountDeletionSurvey').insert([
+          {
+            reason: deleteAnswers.selectedOption,
+            custom_feedback: deleteAnswers.customText?.trim() || null,
+            user_email: email,
+            created_at: new Date().toISOString()
           }
-        } catch (e) {
-          console.warn('[handleDeleteAccount] Error saving deletion feedback:', e);
-        }
-
-        // 1. Delete user photos & story media from storage
-        try {
-          const { data: userProfiles } = await client.from('UserProfile').select('photo_url, photos').ilike('user_email', email);
-          if (userProfiles && userProfiles.length > 0) {
-            for (const p of userProfiles) {
-              if (p.photo_url) await base44.integrations.Core.DeleteFile({ file_url: p.photo_url }).catch(() => {});
-              if (Array.isArray(p.photos)) {
-                for (const photo of p.photos) {
-                  const url = typeof photo === 'string' ? photo : photo?.url;
-                  if (url) await base44.integrations.Core.DeleteFile({ file_url: url }).catch(() => {});
-                }
-              }
-            }
-          }
-          if (myProfile?.photo_url) {
-            await base44.integrations.Core.DeleteFile({ file_url: myProfile.photo_url }).catch(() => {});
-          }
-          if (Array.isArray(myProfile?.photos)) {
-            for (const photo of myProfile.photos) {
-              const url = typeof photo === 'string' ? photo : photo?.url;
-              if (url) await base44.integrations.Core.DeleteFile({ file_url: url }).catch(() => {});
-            }
-          }
-        } catch (e) {
-          console.warn('[handleDeleteAccount] Error deleting profile photos:', e);
-        }
-
-        try {
-          const { data: userStories } = await client.from('Story').select('media_url').ilike('user_email', email);
-          if (userStories && userStories.length > 0) {
-            for (const s of userStories) {
-              if (s.media_url) await base44.integrations.Core.DeleteFile({ file_url: s.media_url }).catch(() => {});
-            }
-          }
-        } catch (e) {
-          console.warn('[handleDeleteAccount] Error deleting story media:', e);
-        }
-
-        // 2. Delete ALL chats and invitations (both received and sent invitations, and active chats)
-        try {
-          // Haal alle chatrooms op waarin deze gebruiker zit
-          const [roomsA, roomsB] = await Promise.all([
-            client.from('ChatRoom').select('id, user_a_email, user_b_email').ilike('user_a_email', email),
-            client.from('ChatRoom').select('id, user_a_email, user_b_email').ilike('user_b_email', email),
-          ]);
-          
-          const combinedRooms = [...(roomsA?.data || []), ...(roomsB?.data || [])];
-          const uniqueRoomMap = new Map();
-          combinedRooms.forEach(r => {
-            if (r && r.id) uniqueRoomMap.set(r.id, r);
-          });
-          const allUserRooms = Array.from(uniqueRoomMap.values());
-          const allRoomIds = allUserRooms.map(r => r.id);
-
-          // Verwijder mediabestanden en berichten voor alle chatrooms via deleteChatRoomAndMedia
-          for (const room of allUserRooms) {
-            await deleteChatRoomAndMedia(room.id, { hardDelete: true }).catch(err => {
-              console.warn(`[handleDeleteAccount] deleteChatRoomAndMedia mislukt voor room ${room.id}:`, err);
-            });
-          }
-
-          // Verwijder mediabestanden uit berichten van de gebruiker (als die buiten de kamers vielen)
-          const { data: userChatMsgs } = await client.from('ChatMessage').select('media_url').ilike('sender_email', email);
-          if (userChatMsgs && userChatMsgs.length > 0) {
-            for (const m of userChatMsgs) {
-              if (m.media_url) await base44.integrations.Core.DeleteFile({ file_url: m.media_url, bucket: 'chat-uploads' }).catch(() => {});
-            }
-          }
-
-          // Schoon eventuele overgebleven chatberichten op
-          if (allRoomIds.length > 0) {
-            await client.from('ChatMessage').delete().in('room_id', allRoomIds).catch(() => {});
-            await fallbackClient.from('ChatMessage').delete().in('room_id', allRoomIds).catch(() => {});
-          }
-          await client.from('ChatMessage').delete().ilike('sender_email', email).catch(() => {});
-          await fallbackClient.from('ChatMessage').delete().ilike('sender_email', email).catch(() => {});
-
-          // Schoon definitief alle chatrooms op via meerdere queries voor gegarandeerde verwijdering
-          if (allRoomIds.length > 0) {
-            await client.from('ChatRoom').delete().in('id', allRoomIds).catch(() => {});
-            await fallbackClient.from('ChatRoom').delete().in('id', allRoomIds).catch(() => {});
-          }
-          await client.from('ChatRoom').delete().ilike('user_a_email', email).catch(() => {});
-          await client.from('ChatRoom').delete().ilike('user_b_email', email).catch(() => {});
-          await fallbackClient.from('ChatRoom').delete().ilike('user_a_email', email).catch(() => {});
-          await fallbackClient.from('ChatRoom').delete().ilike('user_b_email', email).catch(() => {});
-
-          // Verwijder ook via base44 client voor consistentie
-          await Promise.allSettled(
-            allUserRooms.map(r => base44.entities.ChatRoom.delete(r.id).catch(() => {}))
-          );
-
-          // Schoon specifieke localStorage keys op voor deze rooms
-          allRoomIds.forEach(id => {
-            try {
-              localStorage.removeItem(`chat_read_count_${id}`);
-              localStorage.removeItem(`deleted_chat_hidden_${id}`);
-            } catch (e) {}
-          });
-        } catch (e) {
-          console.warn('[handleDeleteAccount] Error deleting chats and invitations:', e);
-        }
-
-        // 3. Delete all records across all Supabase tables in parallel safely
-        const deleteTasks = [
-          client.from('UserProfile').delete().ilike('user_email', email),
-          client.from('UserProfile').delete().ilike('contact_email', email),
-          fallbackClient.from('UserProfile').delete().ilike('user_email', email),
-          fallbackClient.from('UserProfile').delete().ilike('contact_email', email),
-          myProfile?.id ? client.from('UserProfile').delete().eq('id', myProfile.id) : null,
-          myProfile?.id ? fallbackClient.from('UserProfile').delete().eq('id', myProfile.id) : null,
-          myProfile?.id ? base44.entities.UserProfile.delete(myProfile.id).catch(() => {}) : null,
-          client.from('UserDestination').delete().ilike('user_email', email),
-          fallbackClient.from('UserDestination').delete().ilike('user_email', email),
-          client.from('VenueCheckIn').delete().ilike('user_email', email),
-          fallbackClient.from('VenueCheckIn').delete().ilike('user_email', email),
-          client.from('Like').delete().ilike('from_email', email),
-          client.from('Like').delete().ilike('to_email', email),
-          fallbackClient.from('Like').delete().ilike('from_email', email),
-          fallbackClient.from('Like').delete().ilike('to_email', email),
-          client.from('Hint').delete().ilike('from_email', email),
-          client.from('Hint').delete().ilike('to_email', email),
-          fallbackClient.from('Hint').delete().ilike('from_email', email),
-          fallbackClient.from('Hint').delete().ilike('to_email', email),
-          client.from('GameSession').delete().ilike('player1_email', email),
-          client.from('GameSession').delete().ilike('player2_email', email),
-          fallbackClient.from('GameSession').delete().ilike('player1_email', email),
-          fallbackClient.from('GameSession').delete().ilike('player2_email', email),
-          client.from('CardGameRound').delete().ilike('asker_email', email),
-          fallbackClient.from('CardGameRound').delete().ilike('asker_email', email),
-          client.from('NumberGameState').delete().ilike('player_email', email),
-          fallbackClient.from('NumberGameState').delete().ilike('player_email', email),
-          client.from('Notification').delete().ilike('from_email', email),
-          client.from('Notification').delete().ilike('to_email', email),
-          fallbackClient.from('Notification').delete().ilike('from_email', email),
-          fallbackClient.from('Notification').delete().ilike('to_email', email),
-          client.from('Story').delete().ilike('user_email', email),
-          fallbackClient.from('Story').delete().ilike('user_email', email),
-          client.from('SearchHistory').delete().ilike('user_email', email),
-          fallbackClient.from('SearchHistory').delete().ilike('user_email', email),
-          client.from('ChatRoom').delete().ilike('user_a_email', email),
-          client.from('ChatRoom').delete().ilike('user_b_email', email),
-          fallbackClient.from('ChatRoom').delete().ilike('user_a_email', email),
-          fallbackClient.from('ChatRoom').delete().ilike('user_b_email', email),
-          client.from('ChatMessage').delete().ilike('sender_email', email),
-          fallbackClient.from('ChatMessage').delete().ilike('sender_email', email),
-          client.from('SeenProfiles').delete().ilike('user_email', email),
-          client.from('SeenProfiles').delete().ilike('seen_user_email', email),
-          fallbackClient.from('SeenProfiles').delete().ilike('user_email', email),
-          fallbackClient.from('SeenProfiles').delete().ilike('seen_user_email', email),
-          client.from('PremiumSubscription').delete().ilike('user_email', email),
-          fallbackClient.from('PremiumSubscription').delete().ilike('user_email', email),
-          client.from('Report').delete().ilike('reporter_email', email),
-          client.from('Report').delete().ilike('reported_email', email),
-          fallbackClient.from('Report').delete().ilike('reporter_email', email),
-          fallbackClient.from('Report').delete().ilike('reported_email', email),
-          client.from('Feedback').delete().ilike('user_email', email),
-          fallbackClient.from('Feedback').delete().ilike('user_email', email),
-          client.from('AccountDeletionSurvey').delete().ilike('user_email', email),
-          fallbackClient.from('AccountDeletionSurvey').delete().ilike('user_email', email),
-        ].filter(Boolean);
-
-        await Promise.allSettled(deleteTasks);
-
-        // 4. Delete user completely from Supabase Auth via secure RPC (or fallback)
-        try {
-          await supabase.rpc('delete_user_account').catch((rpcErr) => {
-            console.warn('[handleDeleteAccount] RPC delete_user_account note:', rpcErr);
-          });
-        } catch (authDelErr) {
-          console.warn('[handleDeleteAccount] Error calling delete_user_account RPC:', authDelErr);
-        }
+        ]);
+        if (surveyError) console.warn('[handleDeleteAccount] Vertrekreden niet opgeslagen:', surveyError);
       }
+
+      // 1. Eigen bestanden uit de opslag verwijderen (dit kan alleen zolang je nog ingelogd bent)
+      const isMine = (value) => (value || '').toLowerCase() === email;
+      const [{ data: stories }, { data: chatMessages }] = await Promise.all([
+        supabase.from('Story').select('media_url, user_email').ilike('user_email', email),
+        supabase.from('ChatMessage').select('media_url, sender_email').ilike('sender_email', email),
+      ]);
+      const fileUrls = new Set([
+        myProfile?.photo_url,
+        ...(Array.isArray(myProfile?.photos) ? myProfile.photos.map((p) => (typeof p === 'string' ? p : p?.url)) : []),
+        ...(stories || []).filter((x) => isMine(x.user_email)).map((x) => x.media_url),
+        ...(chatMessages || []).filter((x) => isMine(x.sender_email)).map((x) => x.media_url),
+      ].filter(Boolean));
+      await Promise.allSettled([...fileUrls].map((file_url) => base44.integrations.Core.DeleteFile({ file_url })));
+
+      // 2. Login en alle gegevens verwijderen. Lukt dit niet, dan melden we dat eerlijk (zie catch).
+      const { error: deleteError } = await supabase.rpc('delete_user_account');
+      if (deleteError) throw deleteError;
 
       // 5. Clear all local auth storage and chat caches (localStorage, sessionStorage, IndexedDB, cookies)
       authStorage.clearUser();
@@ -918,7 +777,8 @@ export default function Account() {
 
       // 6. Sign out globally from Supabase Auth
       try {
-        await supabase.auth.signOut({ scope: 'global' });
+        // De login bestaat niet meer, dus alleen de sessie op dit apparaat opruimen
+        await supabase.auth.signOut({ scope: 'local' });
       } catch (e) {
         console.warn('[handleDeleteAccount] signOut error:', e);
       }
@@ -933,22 +793,11 @@ export default function Account() {
 
     } catch (e) {
       console.error('Error deleting user account:', e);
-      authStorage.clearUser();
-      try {
-        localStorage.removeItem('welove_lang');
-        localStorage.removeItem('welove_user');
-        localStorage.removeItem('welove_user_async');
-        localStorage.removeItem('romety_user_email');
-        localStorage.removeItem('romety_last_email');
-        localStorage.removeItem('romety_registered_username');
-        localStorage.removeItem('romety_pending_verification');
-        sessionStorage.clear();
-        sessionStorage.setItem('romety_splash_shown', 'true');
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch (err) {}
       toast.dismiss(toastId);
-      toast.success(trNow('Je account is verwijderd.', 'Your account has been deleted.'));
-      window.location.replace('/Login');
+      toast.error(trNow(
+        'Je account kon niet worden verwijderd. Je bent nog ingelogd; probeer het opnieuw.',
+        'Your account could not be deleted. You are still logged in; please try again.'
+      ));
     } finally {
       setDeleting(false);
     }
@@ -1499,6 +1348,42 @@ export default function Account() {
             </button>
           </div>
 
+          {/* Alleen voor beheerders: meldingen behandelen */}
+          {isAdmin && (
+            <button
+              onClick={() => setShowModeration(true)}
+              className="w-full flex items-center justify-between p-4 text-left active:opacity-70 transition-opacity"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-orange-500/15 text-orange-500">
+                  <Flag className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${textMain}`}>{trNow('Meldingen behandelen', 'Handle reports')}</p>
+                  <p className="text-[11px] font-medium" style={{ color: textSub }}>{trNow('Alleen zichtbaar voor beheerders', 'Only visible to admins')}</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4" style={{ color: textSub }} />
+            </button>
+          )}
+
+          {/* Geblokkeerde gebruikers */}
+          <button
+            onClick={() => setShowBlockedUsers(true)}
+            className="w-full flex items-center justify-between p-4 text-left active:opacity-70 transition-opacity"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-red-500/15 text-red-500">
+                <Ban className="w-4 h-4" />
+              </div>
+              <div>
+                <p className={`text-sm font-bold ${textMain}`}>{trNow('Geblokkeerde gebruikers', 'Blocked users')}</p>
+                <p className="text-[11px] font-medium" style={{ color: textSub }}>{trNow('Bekijken en deblokkeren', 'View and unblock')}</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4" style={{ color: textSub }} />
+          </button>
+
           {/* Notifications Toggle */}
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
@@ -1604,6 +1489,9 @@ export default function Account() {
         </div>
 
       </div>
+
+      {showModeration && <ModerationSheet isDark={isDark} onClose={() => setShowModeration(false)} />}
+      {showBlockedUsers && <BlockedUsersSheet isDark={isDark} onClose={() => setShowBlockedUsers(false)} />}
 
       {/* ── SLIDE-IN EDIT PROFILE SCREEN (APPLE SETTINGS STYLE) ── */}
       <AnimatePresence>
