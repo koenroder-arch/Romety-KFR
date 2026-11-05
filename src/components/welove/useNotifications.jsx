@@ -5,6 +5,8 @@ import { useAuth } from '@/lib/AuthContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 export function useNotifications() {
   const navigate = useNavigate();
@@ -39,8 +41,8 @@ export function useNotifications() {
           }
         }
 
-        let titleText = 'Nieuwe update';
-        let bodyText = `Iemand vindt je leuk! 💜`;
+        let titleText = trNow('Nieuwe update', 'New update');
+        let bodyText = trNow('Iemand vindt je leuk! 💜', 'Someone likes you! 💜');
         let toastIcon = '👤';
         let toastBorderColor = 'rgba(255, 255, 255, 0.08)';
         let toastBadgeIcon = '💜';
@@ -70,8 +72,8 @@ export function useNotifications() {
           if (parsedRoomId && window.location.href.includes(parsedRoomId) && window.location.pathname.toLowerCase().includes('/chat')) {
             return;
           }
-          titleText = event.data.from_name ? `${event.data.from_name} 💬` : 'Nieuw bericht 💬';
-          bodyText = parsedMessageText || event.data.message || 'Heeft je een bericht gestuurd!';
+          titleText = event.data.from_name ? `${dt(event.data.from_name)} 💬` : trNow('Nieuw bericht 💬', 'New message 💬');
+          bodyText = dt(parsedMessageText) || dt(event.data.message) || trNow('Heeft je een bericht gestuurd!', 'Sent you a message!');
           toastIcon = '💬';
           toastBorderColor = '#EE42BC';
           toastBadgeIcon = '💬';
@@ -79,39 +81,39 @@ export function useNotifications() {
             ? `${createPageUrl('Chat')}?roomId=${encodeURIComponent(parsedRoomId)}`
             : createPageUrl('Chat');
         } else if (isMatch) {
-          titleText = `Nieuwe match! 🎉`;
-          bodyText = `Jij en je match hebben elkaar geliked! 💖`;
+          titleText = trNow('Nieuwe match! 🎉', 'New match! 🎉');
+          bodyText = trNow('Jij en je match hebben elkaar geliked! 💖', 'You and your match liked each other! 💖');
           toastIcon = '💖';
           toastBorderColor = '#FF4B72';
           toastBadgeIcon = '💖';
           targetUrl = createPageUrl('Matches');
         } else if (event.data.type === 'game_invite') {
-          titleText = `🎮 Speluitnodiging`;
-          bodyText = `Je match heeft je uitgenodigd voor een game!`;
+          titleText = trNow('🎮 Speluitnodiging', '🎮 Game invite');
+          bodyText = trNow('Je match heeft je uitgenodigd voor een game!', 'Your match invited you to a game!');
           toastIcon = '🎮';
           toastBorderColor = '#8B5CF6';
           toastBadgeIcon = '🎮';
           routePage = 'Games';
           targetUrl = createPageUrl('Games');
         } else if (event.data.type === 'game_accepted') {
-          titleText = `🎮 Uitnodiging geaccepteerd`;
-          bodyText = `Je match heeft je uitnodiging geaccepteerd! 🚀`;
+          titleText = trNow('🎮 Uitnodiging geaccepteerd', '🎮 Invite accepted');
+          bodyText = trNow('Je match heeft je uitnodiging geaccepteerd! 🚀', 'Your match accepted your invite! 🚀');
           toastIcon = '🎮';
           toastBorderColor = '#10B981';
           toastBadgeIcon = '🎮';
           routePage = 'Games';
           targetUrl = createPageUrl('Games');
         } else if (event.data.type === 'game') {
-          titleText = `🎮 Spel-update`;
-          bodyText = `Het is jouw beurt in het spel met je match! 🎲`;
+          titleText = trNow('🎮 Spel-update', '🎮 Game update');
+          bodyText = trNow('Het is jouw beurt in het spel met je match! 🎲', 'It is your turn in the game with your match! 🎲');
           toastIcon = '🎮';
           toastBorderColor = '#8B5CF6';
           toastBadgeIcon = '🎮';
           routePage = 'Games';
           targetUrl = createPageUrl('Games');
         } else if (event.data.type === 'hint') {
-          titleText = `💬 Hint ontvangen`;
-          bodyText = `Je hebt een hint gekregen van een match! 💜`;
+          titleText = trNow('💬 Hint ontvangen', '💬 Hint received');
+          bodyText = trNow('Je hebt een hint gekregen van een match! 💜', 'You received a hint from a match! 💜');
           toastIcon = '💬';
           toastBorderColor = '#EA3FD3';
           toastBadgeIcon = '💬';
@@ -184,7 +186,7 @@ export function useNotifications() {
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                   Romety
                 </span>
-                <span className="text-[10px]" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }}>nu</span>
+                <span className="text-[10px]" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }}>{trNow('nu', 'now')}</span>
               </div>
               <p className="text-sm font-extrabold mt-0.5 truncate" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
                 {titleText}

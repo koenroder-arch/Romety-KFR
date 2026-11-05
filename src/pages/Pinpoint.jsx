@@ -17,7 +17,7 @@ import { getCountryByName, venueInCountry, DEFAULT_COUNTRY } from '@/lib/countri
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
 export default function Pinpoint() {
-  const { lang } = useLang();
+  const { lang, tr } = useLang();
   const t = T[lang] || T.nl;
   const { theme } = useTheme();
   const isDark = theme !== 'light';
@@ -126,7 +126,7 @@ export default function Pinpoint() {
       return {
         lat: userPosition[0],
         lng: userPosition[1],
-        label: selectedCity || 'Huidige locatie',
+        label: selectedCity || tr('Huidige locatie', 'Current location'),
       };
     }
     return null;
@@ -657,7 +657,7 @@ export default function Pinpoint() {
 
     // If we already have a cached position, react immediately
     if (userPosition && userPosition[0] && userPosition[1]) {
-      setSearchPin({ lat: userPosition[0], lng: userPosition[1], label: selectedCity || 'Huidige locatie' });
+      setSearchPin({ lat: userPosition[0], lng: userPosition[1], label: selectedCity || tr('Huidige locatie', 'Current location') });
       if (mapRef.current) {
         mapRef.current.flyTo(userPosition[0], userPosition[1], 10);
       }
@@ -675,7 +675,7 @@ export default function Pinpoint() {
           const lng = pos.coords.longitude;
           setUserPosition([lat, lng]);
           setUseNearbyFilter(true);
-          setSearchPin({ lat, lng, label: selectedCity || 'Huidige locatie' });
+          setSearchPin({ lat, lng, label: selectedCity || tr('Huidige locatie', 'Current location') });
           if (mapRef.current) {
             mapRef.current.flyTo(lat, lng, 10);
           }
@@ -973,7 +973,7 @@ export default function Pinpoint() {
                     color: '#FFFFFF',
                     boxShadow: '0 2px 8px rgba(255,75,114,0.35)',
                   }}
-                  title="Klik om filter aan te passen"
+                  title={tr('Klik om filter aan te passen', 'Click to adjust filter')}
                 >
                   {selectedCity ? (
                     <MapPin className="w-3 h-3 text-white flex-shrink-0" />
@@ -981,7 +981,7 @@ export default function Pinpoint() {
                     <Crosshair className="w-3 h-3 text-white flex-shrink-0" />
                   )}
                   <span className="max-w-[90px] sm:max-w-[120px] truncate leading-none font-bold">
-                    {selectedCity || 'Huidige locatie'}
+                    {selectedCity || tr('Huidige locatie', 'Current location')}
                   </span>
                   <button
                     type="button"
@@ -990,7 +990,7 @@ export default function Pinpoint() {
                       handleClearFilter();
                     }}
                     className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-black/20 transition-colors ml-0.5 cursor-pointer flex-shrink-0"
-                    title="Filter verwijderen"
+                    title={tr('Filter verwijderen', 'Remove filter')}
                   >
                     <X className="w-3 h-3 text-white/90 hover:text-white" />
                   </button>
@@ -1053,7 +1053,7 @@ export default function Pinpoint() {
                 backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
               }}
-              title={useNearbyFilter ? 'Locatiefilter uitschakelen (toont heel Nederland)' : 'Filter op jouw huidige locatie'}
+              title={useNearbyFilter ? tr('Locatiefilter uitschakelen (toont heel Nederland)', 'Turn off location filter (shows all of the Netherlands)') : tr('Filter op jouw huidige locatie', 'Filter on your current location')}
             >
               <SlidersHorizontal
                 className="w-5 h-5 transition-transform duration-300"
@@ -1179,13 +1179,13 @@ export default function Pinpoint() {
               {searchLoading && searchSuggestions.length === 0 && searchQuery.trim().length >= 2 && (
                 <div className="px-4 py-5 flex items-center justify-center gap-2 text-sm" style={{ color: subColor }}>
                   <div className="w-4 h-4 rounded-full border-2 border-pink-300 border-t-pink-600 animate-spin" />
-                  <span>Zoeken...</span>
+                  <span>{tr('Zoeken...', 'Searching...')}</span>
                 </div>
               )}
 
               {/* Empty state (only when search has completed and no results exist) */}
               {searchQuery.trim().length >= 3 && !searchLoading && searchSuggestions.length === 0 && (
-                <div className="px-4 py-5 text-center text-sm" style={{ color: subColor }}>Geen resultaten gevonden</div>
+                <div className="px-4 py-5 text-center text-sm" style={{ color: subColor }}>{tr('Geen resultaten gevonden', 'No results found')}</div>
               )}
             </div>
           )}
@@ -1300,7 +1300,7 @@ export default function Pinpoint() {
                 setSnapState('peek');
                 setTimeout(() => { mapRef.current?.flyTo(target.lat, target.lng, 16); }, 300);
               } else {
-                const fallbackName = hotspot.venue_name || 'Locatie';
+                const fallbackName = hotspot.venue_name || tr('Locatie', 'Location');
                 const fallback = { name: fallbackName, city: hotspot.city || '', id: hotspot.venue_id };
                 setSearchQuery(fallbackName);
                 setSelectedVenue(fallback);
@@ -1332,7 +1332,7 @@ export default function Pinpoint() {
         onClose={() => setFilterModalOpen(false)}
         isDark={isDark}
         useNearbyFilter={useNearbyFilter}
-        activeLocationLabel={selectedCity || (userPosition ? 'Huidige locatie' : null)}
+        activeLocationLabel={selectedCity || (userPosition ? tr('Huidige locatie', 'Current location') : null)}
         isGpsActive={useNearbyFilter && !selectedCity && !!userPosition}
         onSelectGps={handleEnableLocation}
         onSelectCity={handleSelectCity}

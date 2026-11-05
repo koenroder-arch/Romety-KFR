@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Crown, X, Check, CreditCard } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { trNow } from '@/lib/LanguageContext';
 
 const IDEAL_BANKS = ['ABN AMRO', 'Rabobank', 'ING', 'SNS Bank', 'ASN Bank', 'Bunq', 'Knab', 'Triodos'];
 const GRAD = 'linear-gradient(135deg, #FF6B4A 0%, #FF9A3C 100%)';
 
 const FEATURES = [
-  'Zie alle profielfoto\'s ongeblurd',
-  'Prioriteit in de matchlijst',
-  'Volledige Pinpoint kaart toegang',
-  'Zie wie je profiel heeft geliked',
+  ['Zie alle profielfoto\'s ongeblurd', 'See all profile photos unblurred'],
+  ['Prioriteit in de matchlijst', 'Priority in the match list'],
+  ['Volledige Pinpoint kaart toegang', 'Full Pinpoint map access'],
+  ['Zie wie je profiel heeft geliked', 'See who liked your profile'],
 ];
 
 export default function PremiumModal({ onClose, onUpgrade, userProfile }) {
@@ -58,21 +59,21 @@ export default function PremiumModal({ onClose, onUpgrade, userProfile }) {
             </div>
             <div className="rounded-[24px] p-5 mb-5 text-center" style={{ background: GRAD }}>
               <Crown className="w-10 h-10 text-yellow-200 mx-auto mb-2" />
-              <p className="text-white text-4xl font-black">€4,99<span className="text-lg font-normal opacity-80">/mnd</span></p>
-              <p className="text-white/70 text-sm mt-1">Op elk moment opzegbaar · Direct toegang</p>
+              <p className="text-white text-4xl font-black">€4,99<span className="text-lg font-normal opacity-80">{trNow('/mnd', '/mo')}</span></p>
+              <p className="text-white/70 text-sm mt-1">{trNow('Op elk moment opzegbaar · Direct toegang', 'Cancel anytime · Instant access')}</p>
             </div>
             <div className="space-y-3 mb-6">
               {FEATURES.map(f => (
-                <div key={f} className="flex items-center gap-3">
+                <div key={f[0]} className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,107,74,0.12)' }}>
                     <Check className="w-3.5 h-3.5" style={{ color: '#FF6B4A' }} />
                   </div>
-                  <span className="text-gray-700 text-sm">{f}</span>
+                  <span className="text-gray-700 text-sm">{trNow(f[0], f[1])}</span>
                 </div>
               ))}
             </div>
             <button onClick={() => setStep('payment')} className="w-full text-white py-4 rounded-[18px] font-black text-base" style={{ background: GRAD, boxShadow: '0 8px 24px rgba(142,84,233,0.4)' }}>
-              Doorgaan naar betaling →
+              {trNow('Doorgaan naar betaling →', 'Continue to payment →')}
             </button>
           </>
         )}
@@ -81,14 +82,14 @@ export default function PremiumModal({ onClose, onUpgrade, userProfile }) {
           <>
             <div className="flex items-center gap-3 mb-5">
               <button onClick={() => setStep('overview')} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-lg leading-none">←</button>
-              <h2 className="text-xl font-black text-gray-900">Betalen via iDEAL</h2>
+              <h2 className="text-xl font-black text-gray-900">{trNow('Betalen via iDEAL', 'Pay with iDEAL')}</h2>
               <button onClick={onClose} className="ml-auto w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><X className="w-4 h-4 text-gray-400" /></button>
             </div>
             <div className="bg-gray-50 rounded-2xl p-4 mb-5 flex justify-between items-center border border-gray-100">
-              <span className="text-gray-600 text-sm">Welove Premium · 1 maand</span>
+              <span className="text-gray-600 text-sm">Welove Premium · {trNow('1 maand', '1 month')}</span>
               <span className="font-black text-gray-900">€4,99</span>
             </div>
-            <p className="text-sm font-bold text-gray-700 mb-2">Selecteer je bank</p>
+            <p className="text-sm font-bold text-gray-700 mb-2">{trNow('Selecteer je bank', 'Select your bank')}</p>
             <div className="grid grid-cols-2 gap-2 mb-5">
               {IDEAL_BANKS.map(bank => (
                 <button
@@ -106,7 +107,7 @@ export default function PremiumModal({ onClose, onUpgrade, userProfile }) {
               className="w-full py-4 rounded-[18px] font-black text-base transition-all"
               style={selectedBank ? { background: GRAD, color: 'white', boxShadow: '0 8px 24px rgba(142,84,233,0.4)' } : { background: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }}
             >
-              Betaal €4,99 via iDEAL
+              {trNow('Betaal €4,99 via iDEAL', 'Pay €4.99 with iDEAL')}
             </button>
           </>
         )}
@@ -116,8 +117,8 @@ export default function PremiumModal({ onClose, onUpgrade, userProfile }) {
             <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: GRAD }}>
               <CreditCard className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-xl font-black text-gray-900 mb-2">Betaling verwerken</h3>
-            <p className="text-gray-500 text-sm">Verbinden met {selectedBank}{'.'.repeat(dots)}</p>
+            <h3 className="text-xl font-black text-gray-900 mb-2">{trNow('Betaling verwerken', 'Processing payment')}</h3>
+            <p className="text-gray-500 text-sm">{trNow('Verbinden met', 'Connecting to')} {selectedBank}{'.'.repeat(dots)}</p>
           </div>
         )}
 
@@ -126,10 +127,10 @@ export default function PremiumModal({ onClose, onUpgrade, userProfile }) {
             <div className="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center">
               <Check className="w-8 h-8 text-green-600" />
             </div>
-            <h3 className="text-xl font-black text-gray-900 mb-2">Welkom bij Premium! 🎉</h3>
-            <p className="text-gray-500 text-sm mb-6">Alle profielfoto's zijn nu ontgrendeld. Vind jouw match!</p>
+            <h3 className="text-xl font-black text-gray-900 mb-2">{trNow('Welkom bij Premium! 🎉', 'Welcome to Premium! 🎉')}</h3>
+            <p className="text-gray-500 text-sm mb-6">{trNow('Alle profielfoto\'s zijn nu ontgrendeld. Vind jouw match!', 'All profile photos are now unlocked. Find your match!')}</p>
             <button onClick={onUpgrade} className="w-full text-white py-4 rounded-[18px] font-black" style={{ background: GRAD }}>
-              Begin met verkennen ✨
+              {trNow('Begin met verkennen ✨', 'Start exploring ✨')}
             </button>
           </div>
         )}

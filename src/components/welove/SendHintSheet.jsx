@@ -6,6 +6,8 @@ import HintCard from '@/components/welove/HintCard';
 import ProfilePhotoCarousel from '@/components/welove/ProfilePhotoCarousel';
 import { authStorage } from '@/lib/authStorage';
 import { toast } from 'sonner';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const MAX_CHARS = 40;
 
@@ -139,9 +141,9 @@ export default function SendHintSheet({
   const filteredMutualMatches = myCheckIn ? mutualMatches.filter(p => isAtSameVenue(p.user_email)) : mutualMatches;
 
   const options = [
-    { type: 'supermatch', icon: Heart, label: 'Stuur een hint naar je supermatch', color: '#EA3FD3', count: mutualMatches.length },
-    { type: 'matches', icon: Users, label: 'Stuur een hint naar je matches', color: '#FF6B4A', count: filteredMatches.length },
-    { type: 'single', icon: User, label: 'Stuur een hint naar een match', color: '#60A5FA', count: null },
+    { type: 'supermatch', icon: Heart, label: trNow('Stuur een hint naar je supermatch', 'Send a hint to your supermatch'), color: '#EA3FD3', count: mutualMatches.length },
+    { type: 'matches', icon: Users, label: trNow('Stuur een hint naar je matches', 'Send a hint to your matches'), color: '#FF6B4A', count: filteredMatches.length },
+    { type: 'single', icon: User, label: trNow('Stuur een hint naar een match', 'Send a hint to a match'), color: '#60A5FA', count: null },
   ];
 
   const handleChoose = (type) => {
@@ -173,7 +175,7 @@ export default function SendHintSheet({
     try {
       const senderEmail = user?.email || myProfile?.user_email || authStorage.getUserEmail();
       if (!senderEmail) {
-        toast.error('Je moet ingelogd zijn om een hint te sturen.');
+        toast.error(trNow('Je moet ingelogd zijn om een hint te sturen.', 'You need to be logged in to send a hint.'));
         setSending(false);
         return;
       }
@@ -215,7 +217,7 @@ export default function SendHintSheet({
         ));
       }
 
-      toast.success('Hint succesvol verstuurd!');
+      toast.success(trNow('Hint succesvol verstuurd!', 'Hint sent successfully!'));
       setMessage('');
       setCurrentInitialProfile(null);
       setSelectedProfile(null);
@@ -226,7 +228,7 @@ export default function SendHintSheet({
       if (loadData) loadData();
     } catch (err) {
       console.error("Failed to send hint:", err);
-      toast.error('Er is iets misgegaan bij het versturen van je hint.');
+      toast.error(trNow('Er is iets misgegaan bij het versturen van je hint.', 'Something went wrong while sending your hint.'));
     } finally {
       setSending(false);
     }
@@ -268,14 +270,14 @@ export default function SendHintSheet({
                 onClick={onClose}
                 className="w-10 h-10 -ml-1 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform"
                 style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
-                title="Sluiten"
+                title={trNow('Sluiten', 'Close')}
               >
                 <ChevronLeft className="w-6 h-6" style={{ color: textMain }} />
               </button>
               {currentInitialProfile ? (
                 <div className="ml-1">
                   <h2 className="text-base font-black text-[#FF4B72]">
-                    Hints sturen
+                    {trNow('Hints sturen', 'Send hints')}
                   </h2>
                 </div>
               ) : (
@@ -290,7 +292,7 @@ export default function SendHintSheet({
                     onClick={() => setActiveTab('compose')}
                     className={`pb-1 text-base font-black transition-colors border-b-[3px] ${activeTab === 'compose' ? 'text-[#FF4B72] border-[#FF4B72]' : 'text-gray-400 border-transparent'}`}
                   >
-                    Hints sturen
+                    {trNow('Hints sturen', 'Send hints')}
                   </button>
                 </div>
               )}
@@ -311,7 +313,7 @@ export default function SendHintSheet({
                 className="text-sm font-semibold"
                 style={{ color: '#FF6B4A' }}
               >
-                ← Terug
+                ← {trNow('Terug', 'Back')}
               </button>
             </div>
           )}
@@ -327,7 +329,7 @@ export default function SendHintSheet({
             {loadingLocations ? (
               <div className="flex flex-col items-center justify-center py-20">
                 <div className="w-8 h-8 rounded-full border-4 border-orange-200 border-t-[#FF6B4A] animate-spin mb-3" />
-                <p className="text-xs font-semibold" style={{ color: textSub }}>Matches filteren op locatie...</p>
+                <p className="text-xs font-semibold" style={{ color: textSub }}>{trNow('Matches filteren op locatie...', 'Filtering matches by location...')}</p>
               </div>
             ) : (
               <>
@@ -336,7 +338,7 @@ export default function SendHintSheet({
                     {/* Mijn hint van vandaag */}
                     {myTodayHint && (
                       <div>
-                        <p className="text-xs font-bold mb-2 text-left" style={{ color: textSub }}>JOUW HINT VAN VANDAAG</p>
+                        <p className="text-xs font-bold mb-2 text-left" style={{ color: textSub }}>{trNow('JOUW HINT VAN VANDAAG', 'YOUR HINT OF TODAY')}</p>
                         <div
                           className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl"
                           style={{
@@ -397,9 +399,9 @@ export default function SendHintSheet({
                         <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.1)' }}>
                           <Lock className="w-9 h-9 text-[#FF4B72]" />
                         </div>
-                        <h2 className={`font-black text-lg mb-2 ${textMain}`}>Geen bestemming ingesteld</h2>
+                        <h2 className={`font-black text-lg mb-2 ${textMain}`}>{trNow('Geen bestemming ingesteld', 'No destination set')}</h2>
                         <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: textSub }}>
-                          Ga naar Pinpoint en stel je bestemming in om hints te zien en te sturen.
+                          {trNow('Ga naar Pinpoint en stel je bestemming in om hints te zien en te sturen.', 'Go to Pinpoint and set your destination to see and send hints.')}
                         </p>
                       </div>
                     ) : (
@@ -445,9 +447,9 @@ export default function SendHintSheet({
                             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.1)' }}>
                               <MessageCircle className="w-9 h-9 text-[#FF4B72]" />
                             </div>
-                            <h2 className={`font-black text-lg mb-2 ${textMain}`}>Nog geen hints</h2>
+                            <h2 className={`font-black text-lg mb-2 ${textMain}`}>{trNow('Nog geen hints', 'No hints yet')}</h2>
                             <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: textSub }}>
-                              Wees de eerste die een hint stuurt!
+                              {trNow('Wees de eerste die een hint stuurt!', 'Be the first to send a hint!')}
                             </p>
                           </div>
                         )}
@@ -469,9 +471,9 @@ export default function SendHintSheet({
                         <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 bg-pink-500/15 text-pink-500 shadow-inner">
                           <MessageCircle className="w-8 h-8" />
                         </div>
-                        <h3 className={`text-lg font-black mb-1.5 ${textMain}`}>Je hint is actief!</h3>
+                        <h3 className={`text-lg font-black mb-1.5 ${textMain}`}>{trNow('Je hint is actief!', 'Your hint is active!')}</h3>
                         <p className="text-xs mb-5 leading-relaxed font-medium" style={{ color: textSub }}>
-                          Je kunt 1 hint per ronde (9 uur) versturen. Zodra je huidige hint verloopt, kun je weer een nieuwe sturen.
+                          {trNow('Je kunt 1 hint per ronde (9 uur) versturen. Zodra je huidige hint verloopt, kun je weer een nieuwe sturen.', 'You can send 1 hint per round (9 hours). As soon as your current hint expires, you can send a new one.')}
                         </p>
                         
                         {/* Current hint summary card */}
@@ -483,7 +485,7 @@ export default function SendHintSheet({
                           }}
                         >
                           <div className="flex items-center justify-between mb-1.5">
-                            <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest">JOUW ACTIEVE HINT</p>
+                            <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest">{trNow('JOUW ACTIEVE HINT', 'YOUR ACTIVE HINT')}</p>
                             <span className="text-[10px] font-bold text-pink-400">⏳ {timeLeft || '9u'}</span>
                           </div>
                           <p className={`text-sm font-black ${textMain}`}>"{myTodayHint.message}"</p>
@@ -497,7 +499,7 @@ export default function SendHintSheet({
                           className="w-full py-4 rounded-2xl text-white font-black text-sm active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2"
                           style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
                         >
-                          <span>Bekijk hints overzicht</span>
+                          <span>{trNow('Bekijk hints overzicht', 'View hints overview')}</span>
                           <span>→</span>
                         </button>
                       </div>
@@ -536,7 +538,7 @@ export default function SendHintSheet({
                               Kies een profiel bij <span style={{ color: '#FF6B4A', fontWeight: 700 }}>{myCheckIn?.venue_name}</span>
                             </p>
                             {allMatchProfiles.length === 0 && (
-                              <p className="text-sm text-center py-6" style={{ color: textSub }}>Geen matches gevonden bij deze venue</p>
+                              <p className="text-sm text-center py-6" style={{ color: textSub }}>{trNow('Geen matches gevonden bij deze venue', 'No matches found at this venue')}</p>
                             )}
                             {allMatchProfiles.map((profile, idx) => {
                               const email = profile.user_email || profile.profile?.user_email;
@@ -581,9 +583,9 @@ export default function SendHintSheet({
                                     className="flex-1 min-w-0 text-left"
                                   >
                                     <p className="text-sm font-black" style={{ color: textSub }}>
-                                      Match #{idx + 1} {avatarStr ? `(${avatarStr})` : ''}
+                                      Match #{idx + 1} {avatarStr ? `(${dt(avatarStr)})` : ''}
                                     </p>
-                                    {age && <p className="text-xs" style={{ color: textSub }}>{age} jaar</p>}
+                                    {age && <p className="text-xs" style={{ color: textSub }}>{age} {trNow('jaar', 'yrs')}</p>}
                                   </button>
 
                                   {/* Info button */}
@@ -609,7 +611,7 @@ export default function SendHintSheet({
                               className="w-full py-3.5 rounded-2xl text-white font-black text-sm mt-2 disabled:opacity-40"
                               style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
                             >
-                              Stuur een hint →
+                              {trNow('Stuur een hint →', 'Send a hint →')}
                             </button>
                           </div>
                         )}
@@ -617,18 +619,18 @@ export default function SendHintSheet({
                         {step === 'compose' && (
                           <div>
                             <p className="text-xs mb-4 text-center" style={{ color: textSub }}>
-                              Max {MAX_CHARS} tekens • 1x per dag • Wordt verstuurd naar{' '}
+                              Max {MAX_CHARS} {trNow('tekens • 1x per dag • Wordt verstuurd naar', 'characters • once a day • Will be sent to')}{' '}
                               <span style={{ color: '#FF4B72', fontWeight: 700 }}>
-                                {targetType === 'supermatch' ? 'je supermatches' : targetType === 'matches' ? 'je matches' : 'je match'}
+                                {targetType === 'supermatch' ? trNow('je supermatches', 'your supermatches') : targetType === 'matches' ? trNow('je matches', 'your matches') : trNow('je match', 'your match')}
                               </span>{' '}
-                              bij <span style={{ color: '#FF4B72', fontWeight: 700 }}>{myCheckIn?.venue_name}</span>
+                              {trNow('bij', 'at')} <span style={{ color: '#FF4B72', fontWeight: 700 }}>{myCheckIn?.venue_name}</span>
                             </p>
 
                             <div className="relative mb-4">
                               <textarea
                                 value={message}
                                 onChange={e => setMessage(e.target.value.slice(0, MAX_CHARS))}
-                                placeholder='Type bijvoorbeeld "Ik sta aan de bar!"'
+                                placeholder={trNow('Type bijvoorbeeld "Ik sta aan de bar!"', 'For example: "I\'m at the bar!"')}
                                 className="w-full rounded-2xl px-4 py-3 text-sm resize-none outline-none"
                                 style={{
                                   background: inputBg,
@@ -652,7 +654,7 @@ export default function SendHintSheet({
                               className="w-full py-3.5 rounded-2xl text-white font-black text-sm disabled:opacity-50"
                               style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
                             >
-                              {sending ? 'Versturen...' : 'Verstuur hint'}
+                              {sending ? trNow('Versturen...', 'Sending...') : trNow('Verstuur hint', 'Send hint')}
                             </button>
                           </div>
                         )}
@@ -770,7 +772,7 @@ export default function SendHintSheet({
                   className="w-full py-3 rounded-2xl text-white font-black text-sm"
                   style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
                 >
-                  Kies dit profiel
+                  {trNow('Kies dit profiel', 'Choose this profile')}
                 </button>
               </div>
             </div>

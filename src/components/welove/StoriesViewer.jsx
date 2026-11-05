@@ -4,13 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const REPORT_REASONS = [
-  { id: 'ongepaste_foto', label: 'Ongepaste foto', emoji: '🖼️' },
-  { id: 'fraude_scam', label: 'Fraude of scam', emoji: '⚠️' },
-  { id: 'ai_foto', label: 'AI foto', emoji: '🤖' },
-  { id: 'bot_account', label: 'Een Bot account', emoji: '👾' },
-  { id: 'stalking', label: 'Stalking', emoji: '🚫' },
+  { id: 'ongepaste_foto', get label() { return trNow('Ongepaste foto', 'Inappropriate photo'); }, emoji: '🖼️' },
+  { id: 'fraude_scam', get label() { return trNow('Fraude of scam', 'Fraud or scam'); }, emoji: '⚠️' },
+  { id: 'ai_foto', get label() { return trNow('AI foto', 'AI photo'); }, emoji: '🤖' },
+  { id: 'bot_account', get label() { return trNow('Een Bot account', 'A bot account'); }, emoji: '👾' },
+  { id: 'stalking', get label() { return trNow('Stalking', 'Stalking'); }, emoji: '🚫' },
 ];
 
 export default function StoriesViewer({ 
@@ -254,11 +256,11 @@ export default function StoriesViewer({
       document.body.removeChild(a);
       window.URL.revokeObjectURL(blobUrl);
       
-      toast.success('Media opgeslagen op je apparaat! 📥');
+      toast.success(trNow('Media opgeslagen op je apparaat! 📥', 'Media saved to your device! 📥'));
       setShowMenu(false);
       setIsPaused(false);
     } catch (e) {
-      toast.error('Downloaden mislukt');
+      toast.error(trNow('Downloaden mislukt', 'Download failed'));
       console.error(e);
     } finally {
       setIsLoadingAction(false);
@@ -267,7 +269,7 @@ export default function StoriesViewer({
 
   const handleDeleteStory = async () => {
     if (!activeStory) return;
-    const confirmDelete = window.confirm('Weet je zeker dat je dit verhaal wilt verwijderen?');
+    const confirmDelete = window.confirm(trNow('Weet je zeker dat je dit verhaal wilt verwijderen?', 'Are you sure you want to delete this story?'));
     if (!confirmDelete) return;
 
     setIsLoadingAction(true);
@@ -280,7 +282,7 @@ export default function StoriesViewer({
       // 2. Verwijder daarna het bijbehorende record uit de database
       await base44.entities.Story.delete(activeStory.id);
       
-      toast.success('Verhaal verwijderd! 🗑️');
+      toast.success(trNow('Verhaal verwijderd! 🗑️', 'Story deleted! 🗑️'));
       
       // 3. Callback to parent
       if (onStoryDeleted) {
@@ -301,7 +303,7 @@ export default function StoriesViewer({
         setIsPaused(false);
       }
     } catch (e) {
-      toast.error('Verwijderen mislukt');
+      toast.error(trNow('Verwijderen mislukt', 'Delete failed'));
       console.error(e);
     } finally {
       setIsLoadingAction(false);
@@ -332,7 +334,7 @@ export default function StoriesViewer({
       setReportState(prev => ({ ...prev, step: 'done' }));
     } catch (err) {
       console.error('Error submitting report:', err);
-      toast.error('Versturen van melding mislukt');
+      toast.error(trNow('Versturen van melding mislukt', 'Sending report failed'));
     } finally {
       setIsLoadingAction(false);
     }
@@ -516,7 +518,7 @@ export default function StoriesViewer({
                       style={{ background: 'rgba(255, 255, 255, 0.05)' }}
                     >
                       <Download className="w-5 h-5 text-green-400" />
-                      Downloaden naar fotobibliotheek
+                      {trNow('Downloaden naar fotobibliotheek', 'Download to photo library')}
                     </button>
                     <button
                       onClick={handleDeleteStory}
@@ -525,7 +527,7 @@ export default function StoriesViewer({
                       style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
                     >
                       <Trash2 className="w-5 h-5" />
-                      Verhaal verwijderen
+                      {trNow('Verhaal verwijderen', 'Delete story')}
                     </button>
                   </>
                 ) : (
@@ -539,7 +541,7 @@ export default function StoriesViewer({
                       style={{ background: 'rgba(255, 255, 255, 0.05)' }}
                     >
                       <User className="w-5 h-5 text-blue-400" />
-                      Bio / profiel zien
+                      {trNow('Bio / profiel zien', 'View bio / profile')}
                     </button>
                     <button
                       onClick={() => {
@@ -550,7 +552,7 @@ export default function StoriesViewer({
                       style={{ background: 'rgba(249, 115, 22, 0.08)', border: '1px solid rgba(249,115,22,0.15)' }}
                     >
                       <AlertTriangle className="w-5 h-5" />
-                      Rapporteren
+                      {trNow('Rapporteren', 'Report')}
                     </button>
                   </>
                 )}
@@ -561,7 +563,7 @@ export default function StoriesViewer({
                   }}
                   className="w-full py-4 px-5 rounded-2xl text-white/50 text-sm font-bold active:scale-[0.98] transition-transform hover:bg-white/5 mt-2"
                 >
-                  Annuleren
+                  {trNow('Annuleren', 'Cancel')}
                 </button>
               </div>
             </motion.div>
@@ -632,9 +634,9 @@ export default function StoriesViewer({
                 </div>
 
                 <div className="w-full bg-white/5 border border-white/8 rounded-2xl p-4 text-left mt-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-pink-400 mb-1.5">Bio / Over mij</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-pink-400 mb-1.5">{trNow('Bio / Over mij', 'Bio / About me')}</p>
                   <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">
-                    {creatorProfile?.bio || "Geen bio beschikbaar."}
+                    {creatorProfile?.bio || trNow('Geen bio beschikbaar.', 'No bio available.')}
                   </p>
                 </div>
               </div>
@@ -678,7 +680,7 @@ export default function StoriesViewer({
                     </div>
                   )}
                   <h3 className="font-black text-base">
-                    {reportState.step === 'done' ? '✅ Melding verstuurd' : `Melding maken van ${activeStory.user_name}`}
+                    {reportState.step === 'done' ? trNow('✅ Melding verstuurd', '✅ Report sent') : trNow(`Melding maken van ${activeStory.user_name}`, `Report ${activeStory.user_name}`)}
                   </h3>
                 </div>
                 <button
@@ -694,7 +696,7 @@ export default function StoriesViewer({
 
               {reportState.step === 'choose' && (
                 <div className="px-6">
-                  <p className="text-white/60 text-sm mb-3">Kies een reden voor je melding:</p>
+                  <p className="text-white/60 text-sm mb-3">{trNow('Kies een reden voor je melding:', 'Choose a reason for your report:')}</p>
                   <div className="flex flex-col gap-2">
                     {REPORT_REASONS.map(r => (
                       <button
@@ -719,7 +721,7 @@ export default function StoriesViewer({
                       onClick={() => setReportState(prev => ({ ...prev, step: 'choose', reason: '', emoji: '' }))}
                       className="text-white/50 text-xs hover:text-white/80 transition-colors"
                     >
-                      ← Terug naar redenen
+                      ← {trNow('Terug naar redenen', 'Back to reasons')}
                     </button>
                   </div>
                   <div
@@ -731,15 +733,15 @@ export default function StoriesViewer({
                   >
                     <span className="text-base">{reportState.emoji || '⚠️'}</span>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-white/50">Gekozen reden</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-white/50">{trNow('Gekozen reden', 'Chosen reason')}</span>
                       <span className="text-xs font-bold text-white truncate">{reportState.reason}</span>
                     </div>
                   </div>
-                  <p className="text-white/60 text-sm mb-2">Toelichting (optioneel):</p>
+                  <p className="text-white/60 text-sm mb-2">{trNow('Toelichting (optioneel):', 'Explanation (optional):')}</p>
                   <textarea
                     value={reportState.details}
                     onChange={e => setReportState(prev => ({ ...prev, details: e.target.value }))}
-                    placeholder="Beschrijf hier wat er aan de hand is..."
+                    placeholder={trNow('Beschrijf hier wat er aan de hand is...', 'Describe what is going on...')}
                     rows={4}
                     className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder-white/30 border border-white/15 resize-none outline-none focus:border-pink-500/60 transition-colors"
                     style={{ background: 'rgba(255,255,255,0.06)' }}
@@ -750,7 +752,7 @@ export default function StoriesViewer({
                     className="mt-4 w-full py-3.5 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2.5 active:scale-[0.97] transition-transform disabled:opacity-60 shadow-lg bg-red-600 hover:bg-red-700"
                     style={{ background: '#EF4444', boxShadow: '0 6px 20px rgba(239,68,68,0.35)' }}
                   >
-                    {isLoadingAction ? '⏳ Rapporteren...' : 'Rapporteren'}
+                    {isLoadingAction ? trNow('⏳ Rapporteren...', '⏳ Reporting...') : trNow('Rapporteren', 'Report')}
                   </button>
                 </div>
               )}
@@ -760,9 +762,9 @@ export default function StoriesViewer({
                   <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
                     <span className="text-3xl">✅</span>
                   </div>
-                  <h4 className="text-white font-black text-lg mb-1">Bedankt voor je melding</h4>
+                  <h4 className="text-white font-black text-lg mb-1">{trNow('Bedankt voor je melding', 'Thanks for your report')}</h4>
                   <p className="text-white/60 text-sm mb-6 leading-relaxed">
-                    We nemen dit zeer serieus en zullen dit profiel en verhaal zo spoedig mogelijk controleren.
+                    {trNow('We nemen dit zeer serieus en zullen dit profiel en verhaal zo spoedig mogelijk controleren.', 'We take this very seriously and will review this profile and story as soon as possible.')}
                   </p>
                   <button
                     onClick={() => {
@@ -771,7 +773,7 @@ export default function StoriesViewer({
                     }}
                     className="w-full py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-sm active:scale-95 transition-all"
                   >
-                    Sluiten
+                    {trNow('Sluiten', 'Close')}
                   </button>
                 </div>
               )}

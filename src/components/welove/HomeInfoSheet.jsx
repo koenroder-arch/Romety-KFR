@@ -6,6 +6,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { isMatch } from '@/lib/matchUtils';
 import { calculateDistanceKm, formatDistance } from '@/lib/geoUtils';
 import HotspotSection from './HotspotSection';
+import { trNow } from '@/lib/LanguageContext';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -283,8 +284,8 @@ export default function HomeInfoSheet({
                     <AlertCircle className="w-4.5 h-4.5 text-orange-400" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className={`font-bold text-xs ${textMain}`}>📍 Vind je match vanavond</h3>
-                    <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: textSub }}>Kies een bestemming om matches te ontdekken</p>
+                    <h3 className={`font-bold text-xs ${textMain}`}>📍 {trNow('Vind je match vanavond', 'Find your match tonight')}</h3>
+                    <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: textSub }}>{trNow('Kies een bestemming om matches te ontdekken', 'Pick a destination to discover matches')}</p>
                   </div>
                 </div>
               </div>
@@ -334,7 +335,7 @@ export default function HomeInfoSheet({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-pink-500 mb-0.5 truncate">
-                      Jouw beste locatie
+                      {trNow('Jouw beste locatie', 'Your best location')}
                     </p>
                     <h3 className={`font-black text-[15px] sm:text-base leading-tight truncate ${textMain}`}>
                       {topMatchVenue.venue_name}
@@ -389,9 +390,9 @@ export default function HomeInfoSheet({
                   <Heart className="w-4 h-4 text-pink-500" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className={`font-bold text-xs ${textMain}`}>Jouw beste locatie</h4>
+                  <h4 className={`font-bold text-xs ${textMain}`}>{trNow('Jouw beste locatie', 'Your best location')}</h4>
                   <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: textSub }}>
-                    Zodra matches kiezen zie je hier direct de populairste venue
+                    {trNow('Zodra matches kiezen zie je hier direct de populairste venue', 'As soon as matches choose, you will see the most popular venue here')}
                   </p>
                 </div>
               </div>

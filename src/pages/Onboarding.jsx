@@ -6,7 +6,8 @@ import { compressImage } from '@/utils/imageUtils';
 import { useLang } from '@/lib/LanguageContext';
 import { T as GlobalT } from '@/lib/translations';
 import { toast } from 'sonner';
-import { COUNTRIES } from '@/lib/countries';
+import { COUNTRIES, countryName } from '@/lib/countries';
+import { dt, dtList } from '@/lib/displayText';
 
 const AVATAR_CATEGORIES = {
   'Zoogdieren': [
@@ -108,9 +109,12 @@ const T = {
 export default function Onboarding() {
   const { lang } = useLang();
   const t = T[lang] || T.nl;
-  const gt = GlobalT[lang] || GlobalT.nl;
-  const TRAITS = gt.onbTraits;
-  const INTERESTS = gt.onbInterests;
+  // Opslaan gebeurt altijd met de Nederlandse waarden (zodat NL- en EN-gebruikers goed matchen);
+  // op het scherm tonen we ze via dt() in de gekozen taal.
+  const TRAITS = GlobalT.nl.onbTraits;
+  const INTERESTS = GlobalT.nl.onbInterests;
+  const REL_VALUES = T.nl.rel;
+  const tr = (nl, en) => (lang === 'en' ? en : nl);
   const [step, setStep] = useState(0);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
@@ -163,7 +167,7 @@ export default function Onboarding() {
             age: profile.age ? String(profile.age) : '',
             gender: profile.gender || '',
             height_cm: profile.height_cm ? String(profile.height_cm) : '',
-            relationship_status: profile.relationship_status || '',
+            relationship_status: dt(profile.relationship_status, 'nl') || '',
             looking_for: profile.looking_for || '',
             min_age_pref: (profile.min_age_pref !== undefined && profile.min_age_pref !== null && Number(profile.min_age_pref) >= 18)
               ? Number(profile.min_age_pref)
@@ -177,8 +181,8 @@ export default function Onboarding() {
             max_height_pref: (profile.max_height_pref !== undefined && profile.max_height_pref !== null && Number(profile.max_height_pref) <= 260 && Number(profile.max_height_pref) >= 140)
               ? Number(profile.max_height_pref)
               : 260,
-            traits: profile.traits || [],
-            interests: profile.interests || [],
+            traits: dtList(profile.traits || [], 'nl'),
+            interests: dtList(profile.interests || [], 'nl'),
             photo_url: profile.photo_url || '',
             bio: profile.bio || '',
             avatar: profile.avatar || '',
@@ -290,7 +294,7 @@ export default function Onboarding() {
         window.location.replace(createPageUrl('Pinpoint'));
       } catch (err) {
         console.error('Error saving onboarding data:', err);
-        toast.error(lang === 'nl' ? 'Er is iets misgegaan bij het opslaan. Probeer het opnieuw.' : 'Something went wrong while saving. Please try again.');
+        toast.error(tr('Er is iets misgegaan bij het opslaan. Probeer het opnieuw.', 'Something went wrong while saving. Please try again.'));
       }
     }
   };
@@ -347,7 +351,7 @@ export default function Onboarding() {
               <input className={inputCls} placeholder={t.firstNamePh} value={form.display_name} onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))} style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
             </div>
             <div>
-              <label className="text-xs font-bold text-white/40 uppercase tracking-wider">Kies jouw Avatar</label>
+              <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{tr('Kies jouw Avatar', 'Choose your Avatar')}</label>
               <button 
                 type="button"
                 onClick={() => setShowAvatarModal(true)}
@@ -357,12 +361,12 @@ export default function Onboarding() {
                 {form.avatar ? (
                   <span className="flex items-center gap-2 font-bold text-white">
                     <span className="text-xl">{form.avatar.split(' ')[0]}</span>
-                    <span>{form.avatar.split(' ').slice(1).join(' ')}</span>
+                    <span>{dt(form.avatar.split(' ').slice(1).join(' '))}</span>
                   </span>
                 ) : (
-                  <span className="text-white/30">Selecteer een avatar...</span>
+                  <span className="text-white/30">{tr('Selecteer een avatar...', 'Select an avatar...')}</span>
                 )}
-                <span className="text-[#FF4B72] font-bold text-xs">Kies</span>
+                <span className="text-[#FF4B72] font-bold text-xs">{tr('Kies', 'Choose')}</span>
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -396,7 +400,7 @@ export default function Onboarding() {
                   style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                 />
                 {form.age && Number(form.age) < 18 && <p className="text-red-400 text-xs mt-1 font-semibold">{t.ageError}</p>}
-                {form.age && Number(form.age) > 90 && <p className="text-red-400 text-xs mt-1 font-semibold">Maximale leeftijd is 90 jaar.</p>}
+                {form.age && Number(form.age) > 90 && <p className="text-red-400 text-xs mt-1 font-semibold">{tr('Maximale leeftijd is 90 jaar.', 'Maximum age is 90.')}</p>}
               </div>
               <div>
                 <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{t.height}</label>
@@ -426,7 +430,7 @@ export default function Onboarding() {
                   }}
                   style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
                 />
-                {form.height_cm && Number(form.height_cm) > 260 && <p className="text-red-400 text-xs mt-1 font-semibold">Maximale lengte is 260 cm.</p>}
+                {form.height_cm && Number(form.height_cm) > 260 && <p className="text-red-400 text-xs mt-1 font-semibold">{tr('Maximale lengte is 260 cm.', 'Maximum height is 260 cm.')}</p>}
               </div>
             </div>
 
@@ -444,9 +448,9 @@ export default function Onboarding() {
             <div>
               <label className="text-xs font-bold text-white/40 uppercase tracking-wider">{t.lookingFor}</label>
               <div className="flex flex-col gap-2 mt-1">
-                {t.rel.map(r => (
+                {REL_VALUES.map((r, relIdx) => (
                   <button key={r} onClick={() => setForm(f => ({ ...f, relationship_status: r }))} className={`py-3.5 px-4 rounded-[14px] text-sm font-semibold text-left transition-all border ${form.relationship_status === r ? 'text-white border-transparent' : 'bg-white/5 border-white/10 text-white/80 hover:border-[#FF4B72]/30'}`} style={form.relationship_status === r ? { ...GRAD, boxShadow: '0 6px 20px rgba(255,75,114,0.35)' } : { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                    {r}
+                    {t.rel[relIdx] || r}
                   </button>
                 ))}
               </div>
@@ -461,7 +465,7 @@ export default function Onboarding() {
                 className="mt-1 w-5 h-5 rounded border-white/10 text-pink-500 bg-white/5 focus:ring-pink-500 cursor-pointer"
               />
               <label htmlFor="terms" className="text-xs text-white/70 leading-relaxed cursor-pointer select-none">
-                Ik bevestig dat ik <strong>18 jaar of ouder</strong> ben en ga akkoord met de <a href="#" onClick={(e) => { e.preventDefault(); alert('Algemene Voorwaarden Placeholder'); }} className="text-[#FF4B72] font-bold underline">Algemene Voorwaarden</a> en het <a href="#" onClick={(e) => { e.preventDefault(); alert('Privacybeleid Placeholder'); }} className="text-[#FF4B72] font-bold underline">Privacybeleid</a>.
+                {tr('Ik bevestig dat ik', 'I confirm that I am')} <strong>{tr('18 jaar of ouder', '18 years or older')}</strong> {tr('ben en ga akkoord met de', 'and agree to the')} <a href="#" onClick={(e) => { e.preventDefault(); alert('Algemene Voorwaarden Placeholder'); }} className="text-[#FF4B72] font-bold underline">{tr('Algemene Voorwaarden', 'Terms and Conditions')}</a> {tr('en het', 'and the')} <a href="#" onClick={(e) => { e.preventDefault(); alert('Privacybeleid Placeholder'); }} className="text-[#FF4B72] font-bold underline">{tr('Privacybeleid', 'Privacy Policy')}</a>.
               </label>
             </div>
           </div>
@@ -471,8 +475,8 @@ export default function Onboarding() {
         {step === 1 && (
           <div className="space-y-5">
             <div>
-              <h2 className="text-xl font-black text-white">In welk land ga jij uit?</h2>
-              <p className="text-white/50 text-sm mt-1">Kies het land waar je wilt daten en matches zoeken.</p>
+              <h2 className="text-xl font-black text-white">{tr('In welk land ga jij uit?', 'Which country do you go out in?')}</h2>
+              <p className="text-white/50 text-sm mt-1">{tr('Kies het land waar je wilt daten en matches zoeken.', 'Choose the country where you want to date and find matches.')}</p>
             </div>
 
             {/* Dropdown trigger */}
@@ -486,12 +490,12 @@ export default function Onboarding() {
                 {form.country ? (
                   <span className="flex items-center gap-2 font-semibold text-white">
                     <Globe className="w-4 h-4 text-[#FF4B72]" />
-                    {form.country}
+                    {countryName(form.country)}
                   </span>
                 ) : (
                   <span className="flex items-center gap-2 text-white/30">
                     <Globe className="w-4 h-4" />
-                    Selecteer je land...
+                    {tr('Selecteer je land...', 'Select your country...')}
                   </span>
                 )}
                 <ChevronRight className={`w-4 h-4 transition-transform text-white/40 ${showCountryDropdown ? 'rotate-90' : ''}`} />
@@ -520,7 +524,7 @@ export default function Onboarding() {
                         style={selected ? { borderLeft: '3px solid #FF4B72', paddingLeft: '13px' } : {}}
                       >
                         <Globe className={`w-3.5 h-3.5 flex-shrink-0 ${selected ? 'text-[#FF4B72]' : 'text-white/30'}`} />
-                        {name}
+                        {countryName(name)}
                         {selected && <Check className="w-3.5 h-3.5 ml-auto text-[#FF4B72]" />}
                       </button>
                     );
@@ -648,7 +652,7 @@ export default function Onboarding() {
                     <button key={label} onClick={() => !maxed && toggleTrait(label)}
                       className={`px-3.5 py-2 rounded-full text-sm font-semibold transition-all border flex items-center gap-1.5 ${sel ? 'text-white border-transparent' : maxed ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-white/5 border border-white/10 text-white/80 hover:border-[#FF4B72]/30 hover:text-white'}`}
                       style={sel ? GRAD : {}}
-                    ><span>{emoji}</span>{label}</button>
+                    ><span>{emoji}</span>{dt(label)}</button>
                   );
                 })}
               </div>
@@ -667,7 +671,7 @@ export default function Onboarding() {
                     <button key={label} onClick={() => !maxed && toggleInterest(label)}
                       className={`px-3.5 py-2 rounded-full text-sm font-semibold transition-all border flex items-center gap-1.5 ${sel ? 'text-white border-transparent' : maxed ? 'bg-white/5 text-white/20 border-white/5 cursor-not-allowed' : 'bg-white/5 border border-white/10 text-white/80 hover:border-[#FF4B72]/30 hover:text-white'}`}
                       style={sel ? GRAD : {}}
-                    ><span>{emoji}</span>{label}</button>
+                    ><span>{emoji}</span>{dt(label)}</button>
                   );
                 })}
               </div>
@@ -739,7 +743,7 @@ export default function Onboarding() {
           >
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-              <h3 className="font-black text-white text-lg">Kies een Avatar</h3>
+              <h3 className="font-black text-white text-lg">{tr('Kies een Avatar', 'Choose an Avatar')}</h3>
               <button 
                 onClick={() => setShowAvatarModal(false)}
                 className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-white/60 hover:text-white transition-all"
@@ -752,7 +756,7 @@ export default function Onboarding() {
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
               {Object.entries(AVATAR_CATEGORIES).map(([category, items]) => (
                 <div key={category}>
-                  <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2.5">{category}</h4>
+                  <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2.5">{dt(category)}</h4>
                   <div className="grid grid-cols-2 gap-2">
                     {items.map(({ name, emoji }) => {
                       const avatarStr = `${emoji} ${name}`;
@@ -768,7 +772,7 @@ export default function Onboarding() {
                           style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
                         >
                           <span className="text-xl">{emoji}</span>
-                          <span className="text-xs">{name}</span>
+                          <span className="text-xs">{dt(name)}</span>
                         </button>
                       );
                     })}

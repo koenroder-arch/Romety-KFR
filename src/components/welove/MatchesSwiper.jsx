@@ -6,15 +6,17 @@ import { Heart, MessageCircle, MoreVertical, AlertTriangle, X, ChevronDown, Chev
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfilePhotoCarousel from './ProfilePhotoCarousel';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
 const REPORT_REASONS = [
-  { id: 'ongepaste_foto', label: 'Ongepaste foto', emoji: '🖼️' },
-  { id: 'fraude_scam', label: 'Fraude of scam', emoji: '⚠️' },
-  { id: 'ai_foto', label: 'AI foto', emoji: '🤖' },
-  { id: 'bot_account', label: 'Een Bot account', emoji: '👾' },
-  { id: 'stalking', label: 'Stalking', emoji: '🚫' },
+  { id: 'ongepaste_foto', get label() { return trNow('Ongepaste foto', 'Inappropriate photo'); }, emoji: '🖼️' },
+  { id: 'fraude_scam', get label() { return trNow('Fraude of scam', 'Fraud or scam'); }, emoji: '⚠️' },
+  { id: 'ai_foto', get label() { return trNow('AI foto', 'AI photo'); }, emoji: '🤖' },
+  { id: 'bot_account', get label() { return trNow('Een Bot account', 'A bot account'); }, emoji: '👾' },
+  { id: 'stalking', get label() { return trNow('Stalking', 'Stalking'); }, emoji: '🚫' },
 ];
 
 export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremium, currentUserEmail, onShowPremium, isMutual = false, isDark = true, onSendHint, hasSentToday }) {
@@ -175,16 +177,16 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
       <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ background: isDark ? 'rgba(255,107,74,0.1)' : 'rgba(255,107,74,0.05)' }}>
         <p className="text-4xl">📭</p>
       </div>
-      <p className={`text-lg font-black mb-2 ${textMain}`}>Nog geen {isMutual ? 'super matches' : 'matches'}</p>
+      <p className={`text-lg font-black mb-2 ${textMain}`}>{trNow('Nog geen', 'No')} {isMutual ? 'super matches' : 'matches'}{trNow('', ' yet')}</p>
       <p className="text-sm max-w-xs mb-6" style={{ color: textSub }}>
-        Er is op dit moment niemand nieuw op jouw locatie die aan je voorkeuren voldoet.
+        {trNow('Er is op dit moment niemand nieuw op jouw locatie die aan je voorkeuren voldoet.', 'There is currently no one new at your location who matches your preferences.')}
       </p>
       <button
         onClick={() => navigate('/Pinpoint')}
         className="px-6 py-3 rounded-full font-black text-sm text-white shadow-lg active:scale-95 transition-transform"
         style={{ background: GRAD, boxShadow: '0 8px 24px rgba(255,107,74,0.3)' }}
       >
-        🗺️ Bekijk andere clubs
+        🗺️ {trNow('Bekijk andere clubs', 'View other clubs')}
       </button>
     </div>
   );
@@ -277,7 +279,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                   setOpenMenuProfileId(prev => prev === profile.id ? null : profile.id);
                 }}
                 className="relative z-50 w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center active:scale-90 transition-transform shadow-lg cursor-pointer"
-                aria-label="Opties"
+                aria-label={trNow('Opties', 'Options')}
               >
                 <MoreVertical className="w-4 h-4 text-white" />
               </button>
@@ -303,7 +305,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                         ? <ChevronUp className="w-4 h-4 text-pink-400 flex-shrink-0" />
                         : <ChevronDown className="w-4 h-4 text-pink-400 flex-shrink-0" />
                       }
-                      Bio zien van profiel
+                      {trNow('Bio zien van profiel', 'View profile bio')}
                     </button>
 
                     <div className="h-px mx-3" style={{ background: 'rgba(255,255,255,0.1)' }} />
@@ -315,7 +317,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                       style={{ color: '#FF6B6B' }}
                     >
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                      Rapporteren
+                      {trNow('Rapporteren', 'Report')}
                     </button>
                   </motion.div>
                 )}
@@ -328,7 +330,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               <div className="mt-auto flex flex-col pointer-events-none">
                 {/* Name/Age/Height */}
                 <h2 className="text-[32px] font-black text-white drop-shadow-md leading-none mb-4 tracking-wide pointer-events-none select-none">
-                  {profile.age} jaar {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
+                  {profile.age} {trNow('jaar', 'yrs')} {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                 </h2>
 
                 {/* Bio expandable section */}
@@ -364,7 +366,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                         style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)' }}
                       >
                         <p className="text-sm text-white/50 font-medium italic pointer-events-none">
-                          Geen bio beschikbaar
+                          {trNow('Geen bio beschikbaar', 'No bio available')}
                         </p>
                       </div>
                     </motion.div>
@@ -432,12 +434,12 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               {reportState.step === 'choose' && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>Rapporteer profiel</h3>
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>{trNow('Rapporteer profiel', 'Report profile')}</h3>
                     <button onClick={() => setReportState(null)} className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400 active:scale-90 transition-transform">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-xs mb-3 font-medium" style={{ color: textSub }}>Kies de reden waarom je dit profiel wilt rapporteren:</p>
+                  <p className="text-xs mb-3 font-medium" style={{ color: textSub }}>{trNow('Kies de reden waarom je dit profiel wilt rapporteren:', 'Choose why you want to report this profile:')}</p>
                   <div className="space-y-2">
                     {REPORT_REASONS.map((r) => (
                       <button
@@ -461,7 +463,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               {reportState.step === 'detail' && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>Rapporteer profiel</h3>
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>{trNow('Rapporteer profiel', 'Report profile')}</h3>
                     <button onClick={() => setReportState(null)} className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400 active:scale-90 transition-transform">
                       <X className="w-4 h-4" />
                     </button>
@@ -477,16 +479,16 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                   >
                     <span className="text-base">{reportState.emoji || '⚠️'}</span>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>Gekozen reden</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>{trNow('Gekozen reden', 'Chosen reason')}</span>
                       <span className="text-xs font-bold truncate" style={{ color: isDark ? '#fff' : '#111' }}>{reportState.reason}</span>
                     </div>
                   </div>
 
-                  <h4 className="font-bold text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>Toelichting (optioneel)</h4>
+                  <h4 className="font-bold text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>{trNow('Toelichting (optioneel)', 'Explanation (optional)')}</h4>
                   <textarea
                     value={reportState.details}
                     onChange={(e) => setReportState((prev) => ({ ...prev, details: e.target.value }))}
-                    placeholder="Beschrijf waarom je dit profiel rapporteert..."
+                    placeholder={trNow('Beschrijf waarom je dit profiel rapporteert...', 'Describe why you are reporting this profile...')}
                     className="w-full h-24 p-3 rounded-xl text-xs border resize-none mb-4 outline-none focus:border-pink-500"
                     style={{
                       background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
@@ -496,7 +498,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                   />
                   <div className="flex gap-2">
                     <button onClick={() => setReportState((prev) => ({ ...prev, step: 'choose' }))} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-500/20 text-gray-300 active:scale-95 transition-all">
-                      Terug
+                      {trNow('Terug', 'Back')}
                     </button>
                     <button
                       onClick={handleSubmitReport}
@@ -504,7 +506,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                       className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all bg-red-600 hover:bg-red-700"
                       style={{ background: '#EF4444' }}
                     >
-                      {reportLoading ? 'Rapporteren...' : 'Rapporteren'}
+                      {reportLoading ? trNow('Rapporteren...', 'Reporting...') : trNow('Rapporteren', 'Report')}
                     </button>
                   </div>
                 </div>
@@ -515,10 +517,10 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                   <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-green-500/20 text-green-400">
                     <Check className="w-6 h-6" />
                   </div>
-                  <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>Bedankt voor je melding</h3>
-                  <p className="text-xs mb-4 font-medium" style={{ color: textSub }}>We zullen dit profiel zo snel mogelijk beoordelen.</p>
+                  <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>{trNow('Bedankt voor je melding', 'Thanks for your report')}</h3>
+                  <p className="text-xs mb-4 font-medium" style={{ color: textSub }}>{trNow('We zullen dit profiel zo snel mogelijk beoordelen.', 'We will review this profile as soon as possible.')}</p>
                   <button onClick={() => setReportState(null)} className="w-full py-2.5 rounded-xl font-black text-xs text-white active:scale-95 transition-all" style={{ background: GRAD }}>
-                    Sluiten
+                    {trNow('Sluiten', 'Close')}
                   </button>
                 </div>
               )}

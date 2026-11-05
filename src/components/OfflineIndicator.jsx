@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { trNow } from '@/lib/LanguageContext';
 
 export default function OfflineIndicator() {
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
@@ -41,10 +42,10 @@ export default function OfflineIndicator() {
             </div>
 
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-xs font-bold tracking-widest text-red-500 uppercase">VERBINDING VERLOREN</p>
-              <p className="text-sm font-black text-white mt-0.5">Geen internetverbinding</p>
+              <p className="text-xs font-bold tracking-widest text-red-500 uppercase">{trNow('VERBINDING VERLOREN', 'CONNECTION LOST')}</p>
+              <p className="text-sm font-black text-white mt-0.5">{trNow('Geen internetverbinding', 'No internet connection')}</p>
               <p className="text-[11px] text-white/50 mt-0.5 leading-tight">
-                Controleer je verbinding om Romety te blijven gebruiken.
+                {trNow('Controleer je verbinding om Romety te blijven gebruiken.', 'Check your connection to keep using Romety.')}
               </p>
             </div>
           </div>

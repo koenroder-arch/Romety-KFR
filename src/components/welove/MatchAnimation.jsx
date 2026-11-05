@@ -5,6 +5,7 @@ import { createPageUrl } from '@/utils';
 import confetti from 'canvas-confetti';
 import { Heart, MessageCircle, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { trNow } from '@/lib/LanguageContext';
 
 export default function MatchAnimation({ myProfile, matchedProfile, onDone, onClose, onSendHint }) {
   const navigate = useNavigate();
@@ -117,7 +118,7 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onCl
       const expiry = new Date(created.getTime() + 9 * 60 * 60 * 1000);
       const diff = expiry - now;
       if (diff <= 0) {
-        setTimeLeft('Nu beschikbaar');
+        setTimeLeft(trNow('Nu beschikbaar', 'Available now'));
         setHasSentToday(false);
         return;
       }
@@ -221,7 +222,7 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onCl
           top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 12px)',
           right: 'max(16px, env(safe-area-inset-right, 16px))',
         }}
-        aria-label="Sluiten"
+        aria-label={trNow('Sluiten', 'Close')}
       >
         <X className="w-5 h-5 text-white" />
       </button>
@@ -385,7 +386,7 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onCl
           }}
           className="mt-6 text-white/70 hover:text-white text-[15px] font-semibold tracking-wide py-2 px-6 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-sm active:scale-95 transition-all"
         >
-          Tik om door te gaan
+          {trNow('Tik om door te gaan', 'Tap to continue')}
         </button>
 
       </div>
@@ -437,7 +438,7 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onCl
                 boxShadow: '0 4px 15px rgba(255, 75, 114, 0.4)'
               }}
             >
-              Oke
+              {trNow('Oke', 'OK')}
             </button>
           </div>
         </div>

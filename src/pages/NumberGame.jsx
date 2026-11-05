@@ -5,6 +5,8 @@ import { useTheme } from '@/lib/ThemeContext';
 import { ArrowLeft, Send, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 // ─── Number Game Logic ─────────────────────────────────────────────
 function pickGiftDigits(phone) {
@@ -191,7 +193,7 @@ export default function NumberGame() {
 
   const handleSetupNumber = async () => {
     if (phoneInput.length !== 10 || !/^\d+$/.test(phoneInput)) {
-      toast.error('Vul een geldig 10-cijferig telefoonnummer in');
+      toast.error(trNow('Vul een geldig 10-cijferig telefoonnummer in', 'Enter a valid 10-digit phone number'));
       return;
     }
     setSubmitting(true);
@@ -215,16 +217,16 @@ export default function NumberGame() {
         from_name: myProfile?.display_name || 'Je match',
       }).catch(err => console.error("Error creating game notification:", err));
 
-      toast.success('Nummer opgeslagen! 🔒');
+      toast.success(trNow('Nummer opgeslagen! 🔒', 'Number saved! 🔒'));
     } catch (e) {
-      toast.error('Er ging iets mis');
+      toast.error(trNow('Er ging iets mis', 'Something went wrong'));
     }
     setSubmitting(false);
   };
 
   const handleGuess = async () => {
     if (guessInput.length !== 10 || !/^\d+$/.test(guessInput)) {
-      toast.error('Vul een geldig 10-cijferig nummer in');
+      toast.error(trNow('Vul een geldig 10-cijferig nummer in', 'Enter a valid 10-digit number'));
       return;
     }
     setSubmitting(true);
@@ -247,15 +249,15 @@ export default function NumberGame() {
       const isWinner = result.filter(r => r.result === 'correct').length === 10;
       if (isWinner) {
         await base44.entities.GameSession.update(sessionId, { status: 'finished', winner_email: user.email, finished_at: new Date().toISOString() });
-        toast.success('🎉 JE HEBT HET NUMMER GERADEN! 🏆');
+        toast.success(trNow('🎉 JE HEBT HET NUMMER GERADEN! 🏆', '🎉 YOU GUESSED THE NUMBER! 🏆'));
       } else {
-        toast.success('Gok verstuurd!');
+        toast.success(trNow('Gok verstuurd!', 'Guess sent!'));
       }
 
       setGuessInput('');
       loadData(true);
     } catch (e) {
-      toast.error('Er ging iets mis bij het gokken');
+      toast.error(trNow('Er ging iets mis bij het gokken', 'Something went wrong while guessing'));
     }
     setSubmitting(false);
   };
@@ -271,15 +273,15 @@ export default function NumberGame() {
   if (!session) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0D0E15] text-white">
-        <p className="font-black text-xl mb-4">Spel niet gevonden</p>
-        <button onClick={() => window.history.back()} className="px-6 py-2.5 rounded-full bg-purple-600 font-bold">Terug</button>
+        <p className="font-black text-xl mb-4">{trNow('Spel niet gevonden', 'Game not found')}</p>
+        <button onClick={() => window.history.back()} className="px-6 py-2.5 rounded-full bg-purple-600 font-bold">{trNow('Terug', 'Back')}</button>
       </div>
     );
   }
 
   const activeMyState = myState;
   const activePartnerState = partnerState;
-  const partnerName = partnerProfile?.display_name || partnerProfile?.avatar?.split(' ').slice(1).join(' ') || 'je match';
+  const partnerName = partnerProfile?.display_name || dt(partnerProfile?.avatar?.split(' ').slice(1).join(' ')) || trNow('je match', 'your match');
 
   const bothSetup = activeMyState && activePartnerState;
   const isFinished = session.status === 'finished';
@@ -312,14 +314,14 @@ export default function NumberGame() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className={`text-xs font-bold px-3 py-1 rounded-full border ${isDark ? 'bg-white/10 border-white/10 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'}`}>
-            {bothSetup ? `POGING #${myGuessCount + 1}` : 'INSTELLEN'}
+            {bothSetup ? `${trNow('POGING', 'ATTEMPT')} #${myGuessCount + 1}` : trNow('INSTELLEN', 'SETUP')}
           </span>
         </div>
 
         {/* Title */}
         <div className="text-center my-2">
           <h1 className={`text-3xl font-black tracking-tight drop-shadow-md ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            Nummer Spel
+            {trNow('Nummer Spel', 'Number Game')}
           </h1>
         </div>
 
@@ -370,8 +372,8 @@ export default function NumberGame() {
                   🔒
                 </div>
                 <div>
-                  <h3 className="font-black text-xl text-gray-900 mb-1">Stel je nummer in</h3>
-                  <p className="text-xs text-gray-600 font-medium">Vul je geheime 10-cijferige telefoonnummer in om de game te starten.</p>
+                  <h3 className="font-black text-xl text-gray-900 mb-1">{trNow('Stel je nummer in', 'Set your number')}</h3>
+                  <p className="text-xs text-gray-600 font-medium">{trNow('Vul je geheime 10-cijferige telefoonnummer in om de game te starten.', 'Enter your secret 10-digit phone number to start the game.')}</p>
                 </div>
 
                 <div className="my-3">
@@ -404,7 +406,7 @@ export default function NumberGame() {
                   </button>
                 </div>
                 <p className="text-[11px] text-gray-500 font-medium">
-                  Zodra je dit opslaat, krijgt {partnerName} 4 willekeurige cijfers cadeau om te raden!
+                  {trNow(`Zodra je dit opslaat, krijgt ${partnerName} 4 willekeurige cijfers cadeau om te raden!`, `As soon as you save this, ${partnerName} gets 4 random digits for free to help guess!`)}
                 </p>
               </motion.div>
             )}
@@ -413,9 +415,9 @@ export default function NumberGame() {
             {activeMyState && !activePartnerState && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-4 text-center">
                 <div className="text-4xl mb-3 animate-bounce">⏳</div>
-                <h3 className="font-black text-xl text-gray-900 mb-1">Wachten op {partnerName}…</h3>
+                <h3 className="font-black text-xl text-gray-900 mb-1">{trNow('Wachten op', 'Waiting for')} {partnerName}…</h3>
                 <p className="text-xs text-gray-600 font-medium max-w-xs mx-auto">
-                  De ander stelt zijn nummer nog in. Zodra dat gedaan is kun je beginnen met gokken!
+                  {trNow('De ander stelt zijn nummer nog in. Zodra dat gedaan is kun je beginnen met gokken!', 'The other player is still setting their number. Once done, you can start guessing!')}
                 </p>
               </motion.div>
             )}
@@ -427,17 +429,17 @@ export default function NumberGame() {
                 {isFinished ? (
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-2">
                     <Trophy className="w-14 h-14 mx-auto mb-2 text-amber-500 drop-shadow-md" />
-                    <h2 className="font-black text-2xl text-gray-900 mb-1">🎉 Spel afgerond!</h2>
+                    <h2 className="font-black text-2xl text-gray-900 mb-1">{trNow('🎉 Spel afgerond!', '🎉 Game finished!')}</h2>
                     {activeWinnerEmail === user?.email ? (
-                      <p className="text-sm font-black text-emerald-600">Jij hebt het gewonnen! 🏆</p>
+                      <p className="text-sm font-black text-emerald-600">{trNow('Jij hebt het gewonnen! 🏆', 'You won! 🏆')}</p>
                     ) : (
-                      <p className="text-sm font-bold text-purple-700">{partnerName} heeft jouw nummer geraden</p>
+                      <p className="text-sm font-bold text-purple-700">{trNow(`${partnerName} heeft jouw nummer geraden`, `${partnerName} guessed your number`)}</p>
                     )}
 
                     {activePartnerState?.phone_number && (
                       <div className="mt-5 p-4 rounded-2xl bg-purple-50 border border-purple-200 flex flex-col items-center gap-1.5 shadow-sm">
                         <p className="text-[11px] font-black uppercase tracking-wider text-purple-700">
-                          Telefoonnummer van {partnerName}
+                          {trNow('Telefoonnummer van', 'Phone number of')} {partnerName}
                         </p>
                         <span className="text-2xl font-black tracking-widest text-gray-900 select-all">
                           {activePartnerState.phone_number}
@@ -445,11 +447,11 @@ export default function NumberGame() {
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(activePartnerState.phone_number);
-                            toast.success('Telefoonnummer gekopieerd! 📋');
+                            toast.success(trNow('Telefoonnummer gekopieerd! 📋', 'Phone number copied! 📋'));
                           }}
                           className="mt-2 px-5 py-2.5 rounded-xl font-black text-xs text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all flex items-center gap-1.5 shadow-md"
                         >
-                          📋 Kopieer Nummer
+                          📋 {trNow('Kopieer Nummer', 'Copy Number')}
                         </button>
                       </div>
                     )}
@@ -461,13 +463,13 @@ export default function NumberGame() {
                       <div className="flex items-center justify-between pb-3 border-b border-purple-100">
                         <div>
                           <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
-                            🟢 Jouw Beurt
+                            🟢 {trNow('Jouw Beurt', 'Your Turn')}
                           </span>
-                          <h3 className="font-black text-lg text-gray-900 mt-1.5">Raad het nummer!</h3>
+                          <h3 className="font-black text-lg text-gray-900 mt-1.5">{trNow('Raad het nummer!', 'Guess the number!')}</h3>
                         </div>
                       </div>
 
-                      <p className="text-xs text-gray-600 font-medium">Vul de vakjes aan met je gok naar het nummer van {partnerName}:</p>
+                      <p className="text-xs text-gray-600 font-medium">{trNow(`Vul de vakjes aan met je gok naar het nummer van ${partnerName}:`, `Fill in the boxes with your guess of ${partnerName}'s number:`)}</p>
 
                       <div className="my-2">
                         <InputDigitRow 
@@ -496,7 +498,7 @@ export default function NumberGame() {
                           style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' }}
                         >
                           <Send className="w-4 h-4 mr-1.5" />
-                          Gokken
+                          {trNow('Gokken', 'Guess')}
                         </button>
                       </div>
                     </motion.div>
@@ -508,11 +510,11 @@ export default function NumberGame() {
                       </div>
                       <div>
                         <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
-                          Wachten
+                          {trNow('Wachten', 'Waiting')}
                         </span>
-                        <h3 className="font-black text-lg text-gray-900 mt-2">Wachten op {partnerName}…</h3>
+                        <h3 className="font-black text-lg text-gray-900 mt-2">{trNow('Wachten op', 'Waiting for')} {partnerName}…</h3>
                         <p className="text-xs text-gray-600 font-medium max-w-xs mx-auto mt-1">
-                          De ander is nu een poging aan het doen om jouw nummer te raden.
+                          {trNow('De ander is nu een poging aan het doen om jouw nummer te raden.', 'The other player is now trying to guess your number.')}
                         </p>
                       </div>
 
@@ -540,26 +542,26 @@ export default function NumberGame() {
           <div className="space-y-4">
             {/* Legend */}
             <div className={`rounded-2xl p-4 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}>
-              <p className={`text-xs font-black mb-2.5 ${isDark ? 'text-white/80' : 'text-gray-900'}`}>Kleur uitleg</p>
+              <p className={`text-xs font-black mb-2.5 ${isDark ? 'text-white/80' : 'text-gray-900'}`}>{trNow('Kleur uitleg', 'Colour legend')}</p>
               <div className="grid grid-cols-3 gap-2">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-emerald-500 flex-shrink-0" />
-                  <span className="text-[11px] font-bold text-emerald-400">Goed</span>
+                  <span className="text-[11px] font-bold text-emerald-400">{trNow('Goed', 'Correct')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-amber-500 flex-shrink-0" />
-                  <span className="text-[11px] font-bold text-amber-400">±3 Verschil</span>
+                  <span className="text-[11px] font-bold text-amber-400">±3 {trNow('Verschil', 'Difference')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded bg-purple-500/40 border border-purple-400 flex-shrink-0" />
-                  <span className="text-[11px] font-bold text-purple-300">Cadeau</span>
+                  <span className="text-[11px] font-bold text-purple-300">{trNow('Cadeau', 'Gift')}</span>
                 </div>
               </div>
             </div>
 
             {/* History Tabs & List */}
             <div className="space-y-3">
-              <p className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Gokgeschiedenis</p>
+              <p className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-white/60' : 'text-gray-500'}`}>{trNow('Gokgeschiedenis', 'Guess history')}</p>
               
               <div className={`flex rounded-2xl p-1 border ${isDark ? 'bg-black/40 border-white/10' : 'bg-gray-200/60 border-gray-300/50'}`}>
                 <button
@@ -570,7 +572,7 @@ export default function NumberGame() {
                       : isDark ? 'text-white/60 hover:text-white' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  Jouw gokken ({(activeMyState?.guesses || []).length})
+                  {trNow('Jouw gokken', 'Your guesses')} ({(activeMyState?.guesses || []).length})
                 </button>
                 <button
                   onClick={() => setHistoryTab('theirs')}
@@ -580,7 +582,7 @@ export default function NumberGame() {
                       : isDark ? 'text-white/60 hover:text-white' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  Gokken van {partnerName} ({(activePartnerState?.guesses || []).length})
+                  {trNow('Gokken van', 'Guesses by')} {partnerName} ({(activePartnerState?.guesses || []).length})
                 </button>
               </div>
 
@@ -591,12 +593,12 @@ export default function NumberGame() {
                       <div key={idx} className={`rounded-2xl p-4 space-y-2 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}>
                         <DigitRow digits={g.digits} result={g.result} giftDigits={activePartnerState?.gift_digits || []} isDark={isDark} />
                         <p className={`text-center text-[11px] font-bold ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
-                          Poging {arr.length - idx} · {g.result?.filter(r => r.result === 'correct').length}/10 correct
+                          {trNow('Poging', 'Attempt')} {arr.length - idx} · {g.result?.filter(r => r.result === 'correct').length}/10 {trNow('correct', 'correct')}
                         </p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-center text-xs py-8 text-gray-400 italic">Je hebt nog geen gokken gedaan.</p>
+                    <p className="text-center text-xs py-8 text-gray-400 italic">{trNow('Je hebt nog geen gokken gedaan.', 'You have not made any guesses yet.')}</p>
                   )
                 ) : (
                   (activePartnerState?.guesses || []).length > 0 ? (

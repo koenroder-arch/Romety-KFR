@@ -4,6 +4,7 @@ import { X, CheckCircle2, Navigation, Users, XCircle, Copy, Heart, MapPin } from
 import { motion, useMotionValue, useTransform, animate, useDragControls } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
+import { trNow } from '@/lib/LanguageContext';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -73,10 +74,10 @@ export default function VenueBottomSheet({
     const textToCopy = venue.city ? `${venue.name}, ${venue.city}` : venue.name;
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        toast.success('Locatie gekopieerd! 📋');
+        toast.success(trNow('Locatie gekopieerd! 📋', 'Location copied! 📋'));
       })
       .catch((err) => {
-        toast.error('Kopiëren mislukt.');
+        toast.error(trNow('Kopiëren mislukt.', 'Copy failed.'));
         console.error('Copy failed: ', err);
       });
   };
@@ -190,7 +191,7 @@ export default function VenueBottomSheet({
                   onClick={(e) => { e.stopPropagation(); handleCopyVenue(); }}
                   className="flex items-center justify-center w-9 h-9 rounded-full transition-transform active:scale-90"
                   style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)', border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)' }}
-                  title="Locatie kopiëren"
+                  title={trNow('Locatie kopiëren', 'Copy location')}
                 >
                   <Copy className="w-4 h-4" style={{ color: isDark ? '#FFFFFF' : '#555555' }} />
                 </button>
@@ -220,7 +221,7 @@ export default function VenueBottomSheet({
                   }}
                 >
                   <CheckCircle2 className="w-5 h-5 text-green-400" />
-                  <span className="text-sm font-bold text-green-400">Je bent hier live ingecheckt!</span>
+                  <span className="text-sm font-bold text-green-400">{trNow('Je bent hier live ingecheckt!', 'You are checked in here live!')}</span>
                 </div>
                 {onCancelGoing && (
                   <button
@@ -245,7 +246,7 @@ export default function VenueBottomSheet({
                   }}
                 >
                   <CheckCircle2 className="w-5 h-5 text-green-400" />
-                  <span className="text-sm font-bold text-green-400">Je gaat hiernaartoe vanavond!</span>
+                  <span className="text-sm font-bold text-green-400">{trNow('Je gaat hiernaartoe vanavond!', 'You are going here tonight!')}</span>
                 </div>
                 {onCancelGoing && (
                   <button
@@ -285,10 +286,10 @@ export default function VenueBottomSheet({
                 </div>
                 <p className="text-sm font-bold leading-snug" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111827' }}>
                   {matchGoingCount === 0
-                    ? 'Er gaan 0 van jouw matches naar deze locatie'
+                    ? trNow('Er gaan 0 van jouw matches naar deze locatie', 'None of your matches are going to this location')
                     : matchGoingCount === 1
-                    ? 'Er gaat 1 van jouw matches naar deze locatie'
-                    : `Er gaan ${matchGoingCount} van jouw matches naar deze locatie`}
+                    ? trNow('Er gaat 1 van jouw matches naar deze locatie', '1 of your matches is going to this location')
+                    : trNow(`Er gaan ${matchGoingCount} van jouw matches naar deze locatie`, `${matchGoingCount} of your matches are going to this location`)}
                 </p>
               </div>
 
@@ -307,7 +308,7 @@ export default function VenueBottomSheet({
               {goingCount > 0 && (
                  <div className="mt-3 flex items-center gap-2">
                    <Users className="w-3.5 h-3.5" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)' }} />
-                   <p className="text-xs" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)' }}>{goingCount} {goingCount === 1 ? 'persoon gaat' : 'personen gaan'} vanavond in totaal</p>
+                   <p className="text-xs" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)' }}>{goingCount} {goingCount === 1 ? trNow('persoon gaat', 'person is going') : trNow('personen gaan', 'people are going')} {trNow('vanavond in totaal', 'tonight in total')}</p>
                  </div>
                )}
 

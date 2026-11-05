@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -30,7 +32,7 @@ export default function GamePickerSheet({ profile, currentUser, myProfile, isDar
       );
 
       if (duplicate) {
-        toast.error('Er loopt al een uitnodiging of spel voor dit spel!');
+        toast.error(trNow('Er loopt al een uitnodiging of spel voor dit spel!', 'There is already an invite or game running for this game!'));
         setLoading(false);
         return;
       }
@@ -53,12 +55,12 @@ export default function GamePickerSheet({ profile, currentUser, myProfile, isDar
         from_name: myProfile?.avatar?.split(' ').slice(1).join(' ') || 'Je supermatch',
       });
 
-      toast.success(`Uitnodiging verstuurd! 🎮`);
+      toast.success(trNow('Uitnodiging verstuurd! 🎮', 'Invite sent! 🎮'));
       onInviteSent?.(session);
       onClose();
     } catch (e) {
       console.error(e);
-      toast.error('Er ging iets mis, probeer opnieuw');
+      toast.error(trNow('Er ging iets mis, probeer opnieuw', 'Something went wrong, please try again'));
     }
     setLoading(false);
   };
@@ -67,8 +69,8 @@ export default function GamePickerSheet({ profile, currentUser, myProfile, isDar
     {
       key: 'cards',
       emoji: '🃏',
-      title: 'Kaarten Spel',
-      desc: '6 rondes vraagkaarten — kies een vraag, de ander antwoordt ja of nee.',
+      title: trNow('Kaarten Spel', 'Card Game'),
+      desc: trNow('6 rondes vraagkaarten — kies een vraag, de ander antwoordt ja of nee.', '6 rounds of question cards — pick a question, the other answers yes or no.'),
       color: '#FF4B72',
       bg: isDark ? 'rgba(255,75,114,0.12)' : 'rgba(255,75,114,0.06)',
       border: 'rgba(255,75,114,0.35)',
@@ -76,8 +78,8 @@ export default function GamePickerSheet({ profile, currentUser, myProfile, isDar
     {
       key: 'number',
       emoji: '🔢',
-      title: 'Nummer Spel',
-      desc: 'Raad het telefoonnummer van de ander — lingo-stijl, om en om.',
+      title: trNow('Nummer Spel', 'Number Game'),
+      desc: trNow('Raad het telefoonnummer van de ander — lingo-stijl, om en om.', 'Guess the other person\'s phone number — word-game style, taking turns.'),
       color: '#8B5CF6',
       bg: isDark ? 'rgba(139,92,246,0.12)' : 'rgba(139,92,246,0.06)',
       border: 'rgba(139,92,246,0.35)',
@@ -136,9 +138,9 @@ export default function GamePickerSheet({ profile, currentUser, myProfile, isDar
                 )}
               </div>
               <div>
-                <p className={`font-black text-base ${textMain}`}>Speel een spel!</p>
+                <p className={`font-black text-base ${textMain}`}>{trNow('Speel een spel!', 'Play a game!')}</p>
                 <p className="text-sm" style={{ color: textSub }}>
-                  Stuur een uitnodiging naar {profile.avatar?.split(' ').slice(1).join(' ') || 'je supermatch'}
+                  {trNow('Stuur een uitnodiging naar', 'Send an invite to')} {dt(profile.avatar?.split(' ').slice(1).join(' ')) || trNow('je supermatch', 'your supermatch')}
                 </p>
               </div>
             </div>
@@ -167,7 +169,7 @@ export default function GamePickerSheet({ profile, currentUser, myProfile, isDar
             </div>
 
             <p className="text-center text-xs mt-5" style={{ color: textSub }}>
-              Er wordt een uitnodiging verzonden · je supermatch moet accepteren
+              {trNow('Er wordt een uitnodiging verzonden · je supermatch moet accepteren', 'An invite will be sent · your supermatch has to accept')}
             </p>
           </div>
         </motion.div>

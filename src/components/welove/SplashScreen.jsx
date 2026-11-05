@@ -114,7 +114,7 @@ export default function SplashScreen({ onDone }) {
               Romety
             </h1>
           </div>
-          <h2 className="text-white text-2xl font-black mb-1">Kies jouw taal</h2>
+          <h2 className="text-white text-2xl font-black mb-1">{selectedLang === 'en' ? 'Choose your language' : 'Kies jouw taal'}</h2>
           <p className="text-gray-400 text-sm mb-7">Select your language</p>
 
           <div className="space-y-3">

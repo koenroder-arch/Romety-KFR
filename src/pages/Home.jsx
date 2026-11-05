@@ -21,13 +21,15 @@ import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
 import { getSyncedChatReadCounts, deleteChatRoomAndMedia } from '@/lib/chatUtils';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const REPORT_REASONS = [
-  { id: 'ongepaste_foto', label: 'Ongepaste foto', emoji: '🖼️' },
-  { id: 'fraude_scam', label: 'Fraude of scam', emoji: '⚠️' },
-  { id: 'ai_foto', label: 'AI foto', emoji: '🤖' },
-  { id: 'bot_account', label: 'Een Bot account', emoji: '👾' },
-  { id: 'stalking', label: 'Stalking', emoji: '🚫' },
+  { id: 'ongepaste_foto', get label() { return trNow('Ongepaste foto', 'Inappropriate photo'); }, emoji: '🖼️' },
+  { id: 'fraude_scam', get label() { return trNow('Fraude of scam', 'Fraud or scam'); }, emoji: '⚠️' },
+  { id: 'ai_foto', get label() { return trNow('AI foto', 'AI photo'); }, emoji: '🤖' },
+  { id: 'bot_account', get label() { return trNow('Een Bot account', 'A bot account'); }, emoji: '👾' },
+  { id: 'stalking', get label() { return trNow('Stalking', 'Stalking'); }, emoji: '🚫' },
 ];
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -417,7 +419,7 @@ export default function Home() {
         if (diffMs > 0) {
           const hours = Math.floor(diffMs / (1000 * 60 * 60));
           const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-          setTimeLeft(`${hours}u ${mins}m`);
+          setTimeLeft(`${hours}${trNow('u', 'h')} ${mins}m`);
         } else {
           setTimeLeft('0m');
         }
@@ -755,7 +757,7 @@ export default function Home() {
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                           <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
-                            Locatie actief
+                            {trNow('Locatie actief', 'Location active')}
                           </span>
                         </div>
                         <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
@@ -765,8 +767,8 @@ export default function Home() {
                           <Clock className="w-3 h-3 text-gray-400 shrink-0" />
                           <span>
                             {venueActiveToast.expiresAt 
-                              ? `Staat voor ${Math.max(1, Math.round((new Date(venueActiveToast.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)))} uur actief` 
-                              : `Staat voor ${venueActiveToast.hours || 8} uur actief`}
+                              ? trNow(`Staat voor ${Math.max(1, Math.round((new Date(venueActiveToast.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)))} uur actief`, `Active for ${Math.max(1, Math.round((new Date(venueActiveToast.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60)))} hours`) 
+                              : trNow(`Staat voor ${venueActiveToast.hours || 8} uur actief`, `Active for ${venueActiveToast.hours || 8} hours`)}
                           </span>
                         </p>
                       </div>
@@ -777,7 +779,7 @@ export default function Home() {
                           setVenueActiveToast(null);
                         }}
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-0.5 -mr-1 -mt-1 rounded-full"
-                        aria-label="Sluiten"
+                        aria-label={trNow('Sluiten', 'Close')}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -837,7 +839,7 @@ export default function Home() {
         {!myCheckIn && (
           <div 
             className="absolute inset-0 z-20 cursor-pointer" 
-            onClick={() => alert("Stel eerst een locatie in om de verhalen te kunnen bekijken.")}
+            onClick={() => alert(trNow('Stel eerst een locatie in om de verhalen te kunnen bekijken.', 'Set a location first to view the stories.'))}
           />
         )}
 
@@ -861,7 +863,7 @@ export default function Home() {
                 </div>
               </div>
               <span className={`text-[11px] mt-1.5 font-semibold truncate max-w-[84px] ${textMain}`}>
-                Verhaal
+                {trNow('Verhaal', 'Story')}
               </span>
             </div>
           )}
@@ -903,14 +905,14 @@ export default function Home() {
                         e.stopPropagation();
                         navigate(createPageUrl('Hints'));
                       }}
-                      title="Nieuw verhaal toevoegen"
+                      title={trNow('Nieuw verhaal toevoegen', 'Add new story')}
                     >
                       <Plus className="w-3 h-3 text-white" />
                     </div>
                   )}
                 </div>
                 <span className={`text-[11px] mt-1.5 font-semibold truncate max-w-[84px] ${textMain}`}>
-                  {isMe ? 'Jouw verhaal' : 'Verhaal'}
+                  {isMe ? trNow('Jouw verhaal', 'Your story') : trNow('Verhaal', 'Story')}
                 </span>
               </div>
             );
@@ -981,7 +983,7 @@ export default function Home() {
                 </span>
               </div>
               <span className={`text-[9px] min-[375px]:text-[10px] sm:text-[11px] font-bold tracking-tight uppercase text-center whitespace-nowrap h-6 flex items-center justify-center ${isDark ? 'text-white/80' : 'text-gray-500'}`}>
-                MATCHES OP LOCATIE
+                {trNow('MATCHES OP LOCATIE', 'MATCHES AT LOCATION')}
               </span>
             </div>
           </div>
@@ -1029,7 +1031,7 @@ export default function Home() {
               </div>
               <div className="mt-4 min-w-0">
                 <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
-                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Ontvangen likes</p>
+                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{trNow('Ontvangen likes', 'Received likes')}</p>
               </div>
             </button>
 
@@ -1132,7 +1134,7 @@ export default function Home() {
                   HINTS
                 </p>
                 <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  Hints sturen
+                  {trNow('Hints sturen', 'Send hints')}
                 </p>
               </div>
             </button>
@@ -1210,7 +1212,7 @@ export default function Home() {
               </div>
               <div className="mt-4 min-w-0 relative z-10">
                 <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
-                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>VIP kortingen</p>
+                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{trNow('VIP kortingen', 'VIP discounts')}</p>
               </div>
             </button>
 
@@ -1271,10 +1273,10 @@ export default function Home() {
                 }}
               >
                 <h3 className={`text-base font-black tracking-tight mb-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  Geen bestemming ingesteld
+                  {trNow('Geen bestemming ingesteld', 'No destination set')}
                 </h3>
                 <p className={`text-xs font-medium leading-relaxed mb-5 max-w-[250px] ${isDark ? 'text-white/70' : 'text-gray-600'}`}>
-                  Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!
+                  {trNow('Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!', 'Set your destination for today to see your matches, hints, chat and discounts!')}
                 </p>
                 <button
                   onClick={() => navigate(createPageUrl('Pinpoint'))}
@@ -1284,7 +1286,7 @@ export default function Home() {
                     boxShadow: '0 6px 20px rgba(255, 75, 114, 0.4)',
                   }}
                 >
-                  Ga naar Pinpoint
+                  {trNow('Ga naar Pinpoint', 'Go to Pinpoint')}
                 </button>
               </div>
             </div>
@@ -1403,16 +1405,16 @@ export default function Home() {
                     onClick={() => setShowDiscountsModal(false)}
                     className="w-10 h-10 -ml-1 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform"
                     style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}
-                    title="Terug"
+                    title={trNow('Terug', 'Back')}
                   >
                     <ChevronLeft className="w-6 h-6" style={{ color: textMain }} />
                   </button>
                   <div>
                     <h2 className={`text-lg font-black ${textMain}`}>
-                      VIP Kortingen
+                      {trNow('VIP Kortingen', 'VIP Discounts')}
                     </h2>
                     <p className="text-[10px] text-[#EA3FD3] font-bold uppercase tracking-wider">
-                      Exclusief voor Romety gebruikers
+                      {trNow('Exclusief voor Romety gebruikers', 'Exclusive for Romety users')}
                     </p>
                   </div>
                 </div>
@@ -1437,10 +1439,10 @@ export default function Home() {
                   <Crown className="w-9 h-9 text-[#EA3FD3]" />
                 </div>
                 <h3 className={`font-black text-lg mb-2 ${textMain}`}>
-                  Momenteel geen VIP kortingen
+                  {trNow('Momenteel geen VIP kortingen', 'No VIP discounts at the moment')}
                 </h3>
                 <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: textSub }}>
-                  Er zijn op dit moment nog geen actieve VIP kortingen beschikbaar. Binnenkort vind je hier exclusieve deals bij jouw favoriete locaties!
+                  {trNow('Er zijn op dit moment nog geen actieve VIP kortingen beschikbaar. Binnenkort vind je hier exclusieve deals bij jouw favoriete locaties!', 'There are no active VIP discounts available at the moment. Soon you will find exclusive deals at your favourite locations here!')}
                 </p>
               </div>
             </motion.div>

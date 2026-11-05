@@ -18,7 +18,20 @@ import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/Prof
 import { compressImage } from '@/utils/imageUtils';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
-import { COUNTRIES } from '@/lib/countries';
+import { COUNTRIES, countryName } from '@/lib/countries';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
+
+// Engelse versie van de veelgestelde vragen op de Account-pagina
+const FAQS_EN = [
+  { q: "What are matches?", a: "Matches are profiles that fit you well based on your interests, personality traits and preferences. The higher the match percentage, the bigger the chance of a great connection!" },
+  { q: "How does the Pinpoint page work?", a: "Pinpoint is Romety's interactive nightlife map. Here you discover clubs, bars and real-time hotspots. You can say which location you are going to tonight or check in live when you are there. That way you instantly see which potential matches are going to the same place, so you can meet in real life!" },
+  { q: "How does the chat work and what are the phases?", a: "The chat goes through 4 phases to build a genuine and active connection:\n• Phase 1 (48 hours): First introduction to see if there is a spark. At the end you can both extend.\n• Phase 2 (48 hours): Photo verification — you both send a live camera photo to unlock the extended 48h chat.\n• Phase 3 (24 hours): The final 24 hours to decide whether you want each other's details.\n• Phase 4 (Exchange contact): The chat no longer expires and you can share contact details or socials!" },
+  { q: "What are received likes and how do they work?", a: "Under 'Received likes' you see who liked your profile. You can view these likes, reveal them and like back. As soon as you like someone back, you have an instant match and can get in touch right away!" },
+  { q: "What do Chats, Locations and Likes mean?", a: "• Chats: Your active chats.\n• Locations: The number of users currently at a location.\n• Likes: The number of likes you have received." },
+  { q: "How do Supermatches work?", a: "When you and someone else mark each other as a Supermatch or go to the same nightlife venue, you instantly unlock a Supermatch to get in touch faster and more easily!" },
+  { q: "What are Hints?", a: "With hints you can send a fun, low-key message to matches in the same club or bar to break the ice." },
+];
 
 const TRAITS_LIST = [
   { label: 'Avontuurlijk', emoji: '🧗' },
@@ -53,32 +66,32 @@ const INTERESTS_LIST = [
 const GOALS = ['Relatie', 'Fun time', 'Ik weet het nog niet'];
 
 const GENDER_OPTIONS = [
-  { value: 'man', label: 'Man' },
-  { value: 'vrouw', label: 'Vrouw' },
-  { value: 'anders', label: 'Anders' },
+  { value: 'man', get label() { return trNow('Man', 'Male'); } },
+  { value: 'vrouw', get label() { return trNow('Vrouw', 'Female'); } },
+  { value: 'anders', get label() { return trNow('Anders', 'Other'); } },
 ];
 
 const LOOKING_FOR_OPTIONS = [
-  { value: 'man', label: 'Man' },
-  { value: 'vrouw', label: 'Vrouw' },
-  { value: 'both', label: 'Beide' },
+  { value: 'man', get label() { return trNow('Man', 'Male'); } },
+  { value: 'vrouw', get label() { return trNow('Vrouw', 'Female'); } },
+  { value: 'both', get label() { return trNow('Beide', 'Both'); } },
 ];
 
 const getGenderLabel = (g) => {
-  if (!g) return 'Niet ingesteld';
+  if (!g) return trNow('Niet ingesteld', 'Not set');
   const val = String(g).toLowerCase().trim();
-  if (val === 'man' || val === 'male') return 'Man';
-  if (val === 'vrouw' || val === 'female') return 'Vrouw';
-  if (val === 'anders' || val === 'non-binary' || val === 'nonbinary') return 'Anders';
+  if (val === 'man' || val === 'male') return trNow('Man', 'Male');
+  if (val === 'vrouw' || val === 'female') return trNow('Vrouw', 'Female');
+  if (val === 'anders' || val === 'non-binary' || val === 'nonbinary') return trNow('Anders', 'Other');
   return g;
 };
 
 const getLookingForLabel = (lf) => {
-  if (!lf) return 'Niet ingesteld';
+  if (!lf) return trNow('Niet ingesteld', 'Not set');
   const val = String(lf).toLowerCase().trim();
-  if (val === 'man' || val === 'male') return 'Man';
-  if (val === 'vrouw' || val === 'female') return 'Vrouw';
-  if (val === 'both' || val === 'beide' || val === 'iedereen' || val === 'all' || val === 'anders') return 'Beide';
+  if (val === 'man' || val === 'male') return trNow('Man', 'Male');
+  if (val === 'vrouw' || val === 'female') return trNow('Vrouw', 'Female');
+  if (val === 'both' || val === 'beide' || val === 'iedereen' || val === 'all' || val === 'anders') return trNow('Beide', 'Both');
   return lf;
 };
 
@@ -406,10 +419,10 @@ export default function Account() {
 
       setMyProfile(p => ({ ...p, photos: updatedPhotos, photo_url: primaryPhoto }));
       setForm(f => ({ ...f, photos: updatedPhotos }));
-      toast.success('Foto succesvol toegevoegd! 📸');
+      toast.success(trNow('Foto succesvol toegevoegd! 📸', 'Photo added successfully! 📸'));
     } catch (err) {
       console.error('Upload error:', err);
-      toast.error('Kan foto niet uploaden. Voeg de "photos" kolom toe in Supabase.');
+      toast.error(trNow('Kan foto niet uploaden. Probeer het opnieuw.', 'Could not upload photo. Please try again.'));
     }
     setUploading(false);
   };
@@ -421,7 +434,7 @@ export default function Account() {
       
       // Profiel moet altijd minimaal 1 hoofdfoto behouden
       if (currentPhotos.length <= 1) {
-        toast.error('Je profiel moet altijd een hoofdfoto hebben. Upload eerst een andere foto om deze te kunnen veranderen!');
+        toast.error(trNow('Je profiel moet altijd een hoofdfoto hebben. Upload eerst een andere foto om deze te kunnen veranderen!', 'Your profile always needs a main photo. Upload another photo first before changing this one!'));
         return;
       }
 
@@ -452,39 +465,39 @@ export default function Account() {
       setForm(f => ({ ...f, photos: updatedPhotos }));
       
       if (indexToDelete === 0) {
-        toast.success('Hoofdfoto verwijderd. Foto 2 is nu automatisch je hoofdfoto!');
+        toast.success(trNow('Hoofdfoto verwijderd. Foto 2 is nu automatisch je hoofdfoto!', 'Main photo removed. Photo 2 is now automatically your main photo!'));
       } else {
-        toast.success('Foto verwijderd');
+        toast.success(trNow('Foto verwijderd', 'Photo removed'));
       }
     } catch (err) {
       console.error('Delete photo error:', err);
-      toast.error('Kan foto niet verwijderen');
+      toast.error(trNow('Kan foto niet verwijderen', 'Could not remove photo'));
     }
   };
 
   // Initiates checkmark click -> validates min 3 traits & interests before confirmation
   const handleInitiateSave = () => {
     if ((form.traits || []).length < 3) {
-      toast.error('Kies minimaal 3 eigenschappen (3 tot 5)!');
+      toast.error(trNow('Kies minimaal 3 eigenschappen (3 tot 5)!', 'Choose at least 3 traits (3 to 5)!'));
       return;
     }
     if ((form.interests || []).length < 3) {
-      toast.error('Kies minimaal 3 interesses (3 tot 5)!');
+      toast.error(trNow('Kies minimaal 3 interesses (3 tot 5)!', 'Choose at least 3 interests (3 to 5)!'));
       return;
     }
     if (form.age !== undefined && form.age !== null && form.age !== '') {
       if (Number(form.age) < 18) {
-        toast.error('Je moet minimaal 18 jaar oud zijn!');
+        toast.error(trNow('Je moet minimaal 18 jaar oud zijn!', 'You must be at least 18 years old!'));
         return;
       }
       if (Number(form.age) > 90) {
-        toast.error('Maximale leeftijd is 90 jaar!');
+        toast.error(trNow('Maximale leeftijd is 90 jaar!', 'Maximum age is 90!'));
         return;
       }
     }
     if (form.height_cm !== undefined && form.height_cm !== null && form.height_cm !== '') {
       if (Number(form.height_cm) > 260) {
-        toast.error('Maximale lengte is 260 cm!');
+        toast.error(trNow('Maximale lengte is 260 cm!', 'Maximum height is 260 cm!'));
         return;
       }
     }
@@ -498,7 +511,7 @@ export default function Account() {
     try {
       const u = user;
       if (!u) {
-        toast.error('Geen ingelogde gebruiker gevonden.');
+        toast.error(trNow('Geen ingelogde gebruiker gevonden.', 'No logged-in user found.'));
         setSaving(false);
         return;
       }
@@ -550,10 +563,10 @@ export default function Account() {
 
       setInitialForm({ ...updatedData, photos: photosList });
       setEditing(false);
-      toast.success('Account gewijzigd en opgeslagen in database! ✨');
+      toast.success(trNow('Account gewijzigd en opgeslagen! ✨', 'Account updated and saved! ✨'));
     } catch (e) {
       console.error('Save error details:', e);
-      toast.error('Fout bij opslaan: ' + (e?.message || 'Probeer het opnieuw'));
+      toast.error(trNow('Fout bij opslaan: ', 'Error while saving: ') + (e?.message || trNow('Probeer het opnieuw', 'Please try again')));
     }
     setSaving(false);
   };
@@ -568,7 +581,7 @@ export default function Account() {
       }));
     } else {
       if (current.length >= 5) {
-        toast.error('Je kunt maximaal 5 eigenschappen kiezen! Deselecteer er eerst een.');
+        toast.error(trNow('Je kunt maximaal 5 eigenschappen kiezen! Deselecteer er eerst een.', 'You can choose up to 5 traits! Deselect one first.'));
         return;
       }
       setForm(f => ({
@@ -588,7 +601,7 @@ export default function Account() {
       }));
     } else {
       if (current.length >= 5) {
-        toast.error('Je kunt maximaal 5 interesses kiezen! Deselecteer er eerst een.');
+        toast.error(trNow('Je kunt maximaal 5 interesses kiezen! Deselecteer er eerst een.', 'You can choose up to 5 interests! Deselect one first.'));
         return;
       }
       setForm(f => ({
@@ -625,14 +638,14 @@ export default function Account() {
     } else if (activeSheet === 'age_height') {
       if (form.age && Number(form.age) < 18) {
         setForm(f => ({ ...f, age: 18 }));
-        toast.info('Leeftijd is ingesteld op 18 jaar.');
+        toast.info(trNow('Leeftijd is ingesteld op 18 jaar.', 'Age has been set to 18.'));
       } else if (form.age && Number(form.age) > 90) {
         setForm(f => ({ ...f, age: 90 }));
-        toast.info('Leeftijd is gemaximaliseerd op 90 jaar.');
+        toast.info(trNow('Leeftijd is gemaximaliseerd op 90 jaar.', 'Age has been capped at 90.'));
       }
       if (form.height_cm && Number(form.height_cm) > 260) {
         setForm(f => ({ ...f, height_cm: 260 }));
-        toast.info('Lengte is gemaximaliseerd op 260 cm.');
+        toast.info(trNow('Lengte is gemaximaliseerd op 260 cm.', 'Height has been capped at 260 cm.'));
       }
     }
     setActiveSheet(null);
@@ -641,10 +654,10 @@ export default function Account() {
   const handleConfirmMinItemsLeave = () => {
     if (minItemsWarningModal === 'traits') {
       setForm(f => ({ ...f, traits: sheetBackupTraitsRef.current || initialForm.traits || [] }));
-      toast.error('Minimaal 3 eigenschappen vereist. Oude selectie is behouden.');
+      toast.error(trNow('Minimaal 3 eigenschappen vereist. Oude selectie is behouden.', 'At least 3 traits required. Previous selection kept.'));
     } else if (minItemsWarningModal === 'interests') {
       setForm(f => ({ ...f, interests: sheetBackupInterestsRef.current || initialForm.interests || [] }));
-      toast.error('Minimaal 3 interesses vereist. Oude selectie is behouden.');
+      toast.error(trNow('Minimaal 3 interesses vereist. Oude selectie is behouden.', 'At least 3 interests required. Previous selection kept.'));
     }
     setMinItemsWarningModal(null);
     setActiveSheet(null);
@@ -667,7 +680,7 @@ export default function Account() {
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
-    const toastId = toast.loading('Account en gegevens worden verwijderd...');
+    const toastId = toast.loading(trNow('Account en gegevens worden verwijderd...', 'Deleting account and data...'));
 
     try {
       const email = (
@@ -911,7 +924,7 @@ export default function Account() {
       }
 
       toast.dismiss(toastId);
-      toast.success('Je account is succesvol verwijderd.');
+      toast.success(trNow('Je account is succesvol verwijderd.', 'Your account has been deleted.'));
 
       // 7. Redirect directly to Login page
       setTimeout(() => {
@@ -934,7 +947,7 @@ export default function Account() {
         await supabase.auth.signOut({ scope: 'global' });
       } catch (err) {}
       toast.dismiss(toastId);
-      toast.success('Je account is verwijderd.');
+      toast.success(trNow('Je account is verwijderd.', 'Your account has been deleted.'));
       window.location.replace('/Login');
     } finally {
       setDeleting(false);
@@ -957,7 +970,7 @@ export default function Account() {
   const handleSendFeedback = async (e) => {
     e?.preventDefault();
     if (!feedbackText.trim()) {
-      toast.error('Typ eerst je feedback');
+      toast.error(trNow('Typ eerst je feedback', 'Type your feedback first'));
       return;
     }
     setSendingFeedback(true);
@@ -1001,12 +1014,12 @@ export default function Account() {
         console.log('[Feedback] Daily limit of 2 reached; silently skipping database write.');
       }
 
-      toast.success('Bedankt voor je feedback! 🙌');
+      toast.success(trNow('Bedankt voor je feedback! 🙌', 'Thanks for your feedback! 🙌'));
       setFeedbackText('');
       setShowFeedbackModal(false);
     } catch (err) {
       console.error('Feedback error:', err);
-      toast.success('Bedankt voor je feedback! 🙌');
+      toast.success(trNow('Bedankt voor je feedback! 🙌', 'Thanks for your feedback! 🙌'));
       setFeedbackText('');
       setShowFeedbackModal(false);
     } finally {
@@ -1014,7 +1027,7 @@ export default function Account() {
     }
   };
 
-  const FAQS = [
+  const FAQS = trNow('nl', 'en') === 'en' ? FAQS_EN : [
     {
       q: "Wat zijn matches?",
       a: "Matches zijn profielen die op basis van jouw interesses, persoonlijkheidseigenschappen en voorkeuren goed bij jou passen. Hoe hoger het matchpercentage, hoe groter de kans op een geweldige klik!"
@@ -1099,7 +1112,7 @@ export default function Account() {
           {/* Centered Title */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <h1 className={`text-2xl font-black tracking-tight leading-tight pointer-events-auto ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Mijn Account
+              {trNow('Mijn Account', 'My Account')}
             </h1>
           </div>
 
@@ -1114,7 +1127,7 @@ export default function Account() {
               className={`p-2 rounded-2xl backdrop-blur-md border transition-all active:scale-95 ${
                 isDark ? 'bg-white/10 border-white/15 text-white hover:bg-white/20' : 'bg-white/90 border-gray-200 text-gray-800'
               }`}
-              aria-label="Profiel bewerken"
+              aria-label={trNow('Profiel bewerken', 'Edit profile')}
             >
               <Edit2 className="w-4 h-4" />
             </button>
@@ -1259,11 +1272,11 @@ export default function Account() {
                   >
                     {photoUrl ? (
                       <>
-                        <img src={photoUrl} alt={`Foto ${slotIdx + 1}`} className="w-full h-full object-cover select-none" />
+                        <img src={photoUrl} alt={`${trNow('Foto', 'Photo')} ${slotIdx + 1}`} className="w-full h-full object-cover select-none" />
                         
                         {/* Slot Badge */}
                         <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[9px] font-bold text-white shadow">
-                          {isFirst ? 'Hoofd' : `#${slotIdx + 1}`}
+                          {isFirst ? trNow('Hoofd', 'Main') : `#${slotIdx + 1}`}
                         </div>
 
                         {/* Replace button */}
@@ -1284,7 +1297,7 @@ export default function Account() {
                         <button
                           onClick={() => handlePhotoDelete(slotIdx)}
                           className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-600/80 backdrop-blur-sm flex items-center justify-center text-white shadow active:scale-90 transition-transform"
-                          title="Foto verwijderen"
+                          title={trNow('Foto verwijderen', 'Remove photo')}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -1304,7 +1317,7 @@ export default function Account() {
                           <Plus className="w-4 h-4" />
                         </div>
                         <span className="text-[10px] font-bold text-white/60">
-                          {isFirst ? 'Hoofdfoto' : `Foto ${slotIdx + 1}`}
+                          {isFirst ? trNow('Hoofdfoto', 'Main photo') : `${trNow('Foto', 'Photo')} ${slotIdx + 1}`}
                         </span>
                       </label>
                     )}
@@ -1319,12 +1332,12 @@ export default function Account() {
             <div className="flex flex-wrap items-center gap-2">
               {(myProfile?.relationship_status || myProfile?.relationship_goal) && (
                 <span className="text-xs font-bold px-3 py-1 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/20">
-                  🎯 Zoekt: {myProfile.relationship_status || myProfile.relationship_goal}
+                  🎯 {trNow('Zoekt', 'Looking for')}: {dt(myProfile.relationship_status || myProfile.relationship_goal)}
                 </span>
               )}
               {myProfile?.looking_for && (
                 <span className="text-xs font-bold px-3 py-1 rounded-full bg-pink-500/15 text-pink-400 border border-pink-500/20">
-                  ❤️ Zoekt: {getLookingForLabel(myProfile.looking_for)}
+                  ❤️ {trNow('Zoekt', 'Looking for')}: {getLookingForLabel(myProfile.looking_for)}
                 </span>
               )}
             </div>
@@ -1339,7 +1352,7 @@ export default function Account() {
               <div className="flex flex-wrap gap-1.5">
                 {myProfile.traits.map(t => (
                   <span key={t} className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-pink-500/15 text-pink-500 border border-pink-500/20">
-                    {t}
+                    {dt(t)}
                   </span>
                 ))}
               </div>
@@ -1379,7 +1392,7 @@ export default function Account() {
                 {formatStatCount(stats.locations)}
               </span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-wide truncate max-w-full mt-0.5" style={{ color: textSub }}>Locaties</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide truncate max-w-full mt-0.5" style={{ color: textSub }}>{trNow('Locaties', 'Locations')}</span>
           </div>
 
           <div 
@@ -1413,9 +1426,9 @@ export default function Account() {
                   <Globe className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className={`text-sm font-bold ${textMain}`}>Land</p>
+                  <p className={`text-sm font-bold ${textMain}`}>{trNow('Land', 'Country')}</p>
                   <p className="text-[11px] font-semibold" style={{ color: 'rgba(255,75,114,0.9)' }}>
-                    {myProfile?.country || 'Nederland'}
+                    {countryName(myProfile?.country || 'Nederland')}
                   </p>
                 </div>
               </div>
@@ -1457,7 +1470,7 @@ export default function Account() {
                       }}
                     >
                       <Globe className={`w-3.5 h-3.5 flex-shrink-0 ${current ? 'text-pink-500' : 'text-pink-400/60'}`} />
-                      {name}
+                      {countryName(name)}
                       {current && <Check className="w-3.5 h-3.5 ml-auto text-pink-500" />}
                     </button>
                   );
@@ -1473,8 +1486,8 @@ export default function Account() {
                 {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
               </div>
               <div>
-                <p className={`text-sm font-bold ${textMain}`}>{isDark ? 'Donkere modus' : 'Lichte modus'}</p>
-                <p className="text-[11px] font-medium" style={{ color: textSub }}>{isDark ? 'Wissel naar licht thema' : 'Wissel naar donker thema'}</p>
+                <p className={`text-sm font-bold ${textMain}`}>{isDark ? trNow('Donkere modus', 'Dark mode') : trNow('Lichte modus', 'Light mode')}</p>
+                <p className="text-[11px] font-medium" style={{ color: textSub }}>{isDark ? trNow('Wissel naar licht thema', 'Switch to light theme') : trNow('Wissel naar donker thema', 'Switch to dark theme')}</p>
               </div>
             </div>
             <button
@@ -1493,15 +1506,15 @@ export default function Account() {
                 <Bell className="w-4 h-4" />
               </div>
               <div>
-                <p className={`text-sm font-bold ${textMain}`}>Push Notificaties</p>
-                <p className="text-[11px] font-medium" style={{ color: textSub }}>Meldingen voor games & hints</p>
+                <p className={`text-sm font-bold ${textMain}`}>{trNow('Push Notificaties', 'Push Notifications')}</p>
+                <p className="text-[11px] font-medium" style={{ color: textSub }}>{trNow('Meldingen voor games & hints', 'Notifications for games & hints')}</p>
               </div>
             </div>
             <button
               onClick={() => {
                 const nextVal = !notificationsEnabled;
                 setNotificationsEnabled(nextVal);
-                toast.success(nextVal ? 'Notificaties ingeschakeld 🔔' : 'Notificaties uitgeschakeld');
+                toast.success(nextVal ? trNow('Notificaties ingeschakeld 🔔', 'Notifications enabled 🔔') : trNow('Notificaties uitgeschakeld', 'Notifications disabled'));
               }}
               className="w-12 h-6 rounded-full transition-all flex items-center p-0.5 cursor-pointer select-none"
               style={notificationsEnabled ? { background: 'linear-gradient(135deg, #3B82F6, #2563EB)' } : { background: 'rgba(0,0,0,0.12)' }}
@@ -1516,7 +1529,7 @@ export default function Account() {
         <div className="rounded-2xl overflow-hidden" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
           <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: divider }}>
             <HelpCircle className="w-4 h-4 text-pink-500" />
-            <span className={`text-xs font-black uppercase tracking-wider ${textMain}`}>Veelgestelde Vragen</span>
+            <span className={`text-xs font-black uppercase tracking-wider ${textMain}`}>{trNow('Veelgestelde Vragen', 'Frequently Asked Questions')}</span>
           </div>
           {FAQS.map((faq, i) => (
             <div key={i} style={{ borderBottom: i < FAQS.length - 1 ? divider : 'none' }}>
@@ -1550,7 +1563,7 @@ export default function Account() {
               <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
                 <MessageSquare className="w-4 h-4" />
               </div>
-              <span className={`font-bold text-xs ${textMain}`}>Feedback geven</span>
+              <span className={`font-bold text-xs ${textMain}`}>{trNow('Feedback geven', 'Give feedback')}</span>
             </div>
             <ChevronRight className="w-4 h-4" style={{ color: textSub }} />
           </button>
@@ -1566,7 +1579,7 @@ export default function Account() {
               <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-rose-500/15 text-rose-500">
                 <LogOut className="w-4 h-4" />
               </div>
-              <span className="font-bold text-xs text-rose-500">Uitloggen</span>
+              <span className="font-bold text-xs text-rose-500">{trNow('Uitloggen', 'Log out')}</span>
             </div>
             <ChevronRight className="w-4 h-4 text-rose-400" />
           </button>
@@ -1583,7 +1596,7 @@ export default function Account() {
                 <Trash2 className="w-4 h-4" />
               </div>
               <span className="font-bold text-xs text-red-500">
-                {deleting ? 'Account verwijderen...' : 'Account definitief verwijderen'}
+                {deleting ? trNow('Account verwijderen...', 'Deleting account...') : trNow('Account definitief verwijderen', 'Permanently delete account')}
               </span>
             </div>
           </button>
@@ -1614,9 +1627,9 @@ export default function Account() {
                 </button>
                 <div>
                   <h1 className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600">
-                    Account aanpassen
+                    {trNow('Account aanpassen', 'Edit account')}
                   </h1>
-                  <p className={`text-[11px] font-medium ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Pas je gegevens en voorkeuren aan</p>
+                  <p className={`text-[11px] font-medium ${isDark ? 'text-white/60' : 'text-gray-500'}`}>{trNow('Pas je gegevens en voorkeuren aan', 'Adjust your details and preferences')}</p>
                 </div>
               </div>
               <button
@@ -1640,7 +1653,7 @@ export default function Account() {
               {/* Section 1: Eigen informatie */}
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider px-3 mb-2" style={{ color: textSub }}>
-                  Eigen informatie
+                  {trNow('Eigen informatie', 'Your information')}
                 </p>
                 <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: cardBg, border: cardBorder }}>
                   
@@ -1655,11 +1668,11 @@ export default function Account() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-blue-500/15 text-blue-500">
                         <User className="w-4 h-4" />
                       </div>
-                      <span className={`text-sm font-bold ${textMain}`}>Gebruikersnaam</span>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Gebruikersnaam', 'Username')}</span>
                     </div>
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {form.display_name || 'Niet ingesteld'}
+                        {form.display_name || trNow('Niet ingesteld', 'Not set')}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1697,11 +1710,11 @@ export default function Account() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-500">
                         <Calendar className="w-4 h-4" />
                       </div>
-                      <span className={`text-sm font-bold ${textMain}`}>Leeftijd en eigen lengte</span>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Leeftijd en eigen lengte', 'Age and height')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {form.age ? `${form.age} jr` : '-'} • {form.height_cm ? `${form.height_cm} cm` : '-'}
+                        {form.age ? `${form.age} ${trNow('jr', 'yrs')}` : '-'} • {form.height_cm ? `${form.height_cm} cm` : '-'}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1721,7 +1734,7 @@ export default function Account() {
                     </div>
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {form.bio ? form.bio : 'Over mij'}
+                        {form.bio ? form.bio : trNow('Over mij', 'About me')}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1733,7 +1746,7 @@ export default function Account() {
               {/* Section 2: Interesses */}
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider px-3 mb-2" style={{ color: textSub }}>
-                  Interesses
+                  {trNow('Interesses', 'Interests')}
                 </p>
                 <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: cardBg, border: cardBorder }}>
                   
@@ -1748,11 +1761,11 @@ export default function Account() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-rose-500/15 text-rose-500">
                         <Target className="w-4 h-4" />
                       </div>
-                      <span className={`text-sm font-bold ${textMain}`}>Relatiedoel</span>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Relatiedoel', 'Relationship goal')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {form.relationship_status || 'Relatie'}
+                        {dt(form.relationship_status || 'Relatie')}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1769,7 +1782,7 @@ export default function Account() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
                         <Heart className="w-4 h-4" />
                       </div>
-                      <span className={`text-sm font-bold ${textMain}`}>Op zoek naar</span>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Op zoek naar', 'Looking for')}</span>
                     </div>
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
@@ -1790,11 +1803,11 @@ export default function Account() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-500">
                         <Sparkles className="w-4 h-4" />
                       </div>
-                      <span className={`text-sm font-bold ${textMain}`}>Eigenschappen</span>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Eigenschappen', 'Traits')}</span>
                     </div>
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {(form.traits || []).length > 0 ? `${(form.traits || []).length}/5 gekozen` : 'Kies 3 – 5'}
+                        {(form.traits || []).length > 0 ? `${(form.traits || []).length}/5 ${trNow('gekozen', 'chosen')}` : trNow('Kies 3 – 5', 'Choose 3 – 5')}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1811,11 +1824,11 @@ export default function Account() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-purple-500/15 text-purple-500">
                         <Compass className="w-4 h-4" />
                       </div>
-                      <span className={`text-sm font-bold ${textMain}`}>Interesses</span>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Interesses', 'Interests')}</span>
                     </div>
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {(form.interests || []).length > 0 ? `${(form.interests || []).length}/5 gekozen` : 'Kies 3 – 5'}
+                        {(form.interests || []).length > 0 ? `${(form.interests || []).length}/5 ${trNow('gekozen', 'chosen')}` : trNow('Kies 3 – 5', 'Choose 3 – 5')}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1832,7 +1845,7 @@ export default function Account() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-cyan-500/15 text-cyan-500">
                         <Ruler className="w-4 h-4" />
                       </div>
-                      <span className={`text-sm font-bold ${textMain}`}>Lengte</span>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Lengte', 'Height')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
@@ -1852,7 +1865,7 @@ export default function Account() {
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
                         <Users className="w-4 h-4" />
                       </div>
-                      <span className={`text-sm font-bold ${textMain}`}>Leeftijd</span>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Leeftijd', 'Age')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
@@ -1879,7 +1892,7 @@ export default function Account() {
                   }`}
                 >
                   <Check className="w-4 h-4 stroke-[3]" />
-                  {saving ? 'Opslaan...' : 'Wijzigingen opslaan'}
+                  {saving ? trNow('Opslaan...', 'Saving...') : trNow('Wijzigingen opslaan', 'Save changes')}
                 </button>
               </div>
 
@@ -1922,16 +1935,16 @@ export default function Account() {
               {/* Header */}
               <div className="flex items-center justify-between pb-3 mb-3 border-b" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
                 <h3 className={`text-base font-black ${textMain}`}>
-                  {activeSheet === 'username' && 'Gebruikersnaam'}
+                  {activeSheet === 'username' && trNow('Gebruikersnaam', 'Username')}
                   {activeSheet === 'gender' && 'Gender'}
-                  {activeSheet === 'age_height' && 'Leeftijd en eigen lengte'}
-                  {activeSheet === 'bio' && 'Bio / Over mij'}
-                  {activeSheet === 'goals' && 'Relatiedoel'}
-                  {activeSheet === 'looking_for' && 'Op zoek naar'}
-                  {activeSheet === 'traits' && 'Eigenschappen'}
-                  {activeSheet === 'interests' && 'Interesses'}
-                  {activeSheet === 'height_pref' && 'Lengtevoorkeur matches'}
-                  {activeSheet === 'age_pref' && 'Leeftijdsvoorkeur matches'}
+                  {activeSheet === 'age_height' && trNow('Leeftijd en eigen lengte', 'Age and height')}
+                  {activeSheet === 'bio' && trNow('Bio / Over mij', 'Bio / About me')}
+                  {activeSheet === 'goals' && trNow('Relatiedoel', 'Relationship goal')}
+                  {activeSheet === 'looking_for' && trNow('Op zoek naar', 'Looking for')}
+                  {activeSheet === 'traits' && trNow('Eigenschappen', 'Traits')}
+                  {activeSheet === 'interests' && trNow('Interesses', 'Interests')}
+                  {activeSheet === 'height_pref' && trNow('Lengtevoorkeur matches', 'Height preference for matches')}
+                  {activeSheet === 'age_pref' && trNow('Leeftijdsvoorkeur matches', 'Age preference for matches')}
                 </h3>
                 <button
                   onClick={handleCloseSubSheet}
@@ -1940,7 +1953,7 @@ export default function Account() {
                     background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
                     color: '#FFFFFF',
                   }}
-                  title="Opslaan & Sluiten"
+                  title={trNow('Opslaan & Sluiten', 'Save & Close')}
                 >
                   <Check className="w-4 h-4 stroke-[3]" />
                 </button>
@@ -1951,7 +1964,7 @@ export default function Account() {
                 {activeSheet === 'username' && (
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: textSub }}>
-                      Weergavenaam
+                      {trNow('Weergavenaam', 'Display name')}
                     </label>
                     <input
                       type="text"
@@ -1959,10 +1972,10 @@ export default function Account() {
                       className={`w-full font-bold rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'}`}
                       value={form.display_name || ''}
                       onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))}
-                      placeholder="Bijv. Koen"
+                      placeholder={trNow('Bijv. Koen', 'E.g. Alex')}
                     />
                     <p className="text-[11px] font-medium" style={{ color: textSub }}>
-                      Dit is de naam die andere gebruikers op je profiel zien.
+                      {trNow('Dit is de naam die andere gebruikers op je profiel zien.', 'This is the name other users see on your profile.')}
                     </p>
                   </div>
                 )}
@@ -1970,7 +1983,7 @@ export default function Account() {
                 {activeSheet === 'gender' && (
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold uppercase tracking-wider block mb-2" style={{ color: textSub }}>
-                      Wat is jouw gender?
+                      {trNow('Wat is jouw gender?', 'What is your gender?')}
                     </label>
                     <div className="space-y-2">
                       {GENDER_OPTIONS.map(opt => {
@@ -1996,9 +2009,9 @@ export default function Account() {
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
                         <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: textSub }}>
-                          Leeftijd (jaren)
+                          {trNow('Leeftijd (jaren)', 'Age (years)')}
                         </label>
-                        <span className="text-[10px] font-bold text-pink-500">Min. 18 jaar</span>
+                        <span className="text-[10px] font-bold text-pink-500">{trNow('Min. 18 jaar', 'Min. 18 years')}</span>
                       </div>
                       <input
                         type="number"
@@ -2015,7 +2028,7 @@ export default function Account() {
                           const num = Number(val);
                           if (num > 90) {
                             setForm(f => ({ ...f, age: 90 }));
-                            toast.info('Maximale leeftijd is 90 jaar.');
+                            toast.info(trNow('Maximale leeftijd is 90 jaar.', 'Maximum age is 90.'));
                           } else {
                             setForm(f => ({ ...f, age: val }));
                           }
@@ -2024,24 +2037,24 @@ export default function Account() {
                           const num = Number(e.target.value);
                           if (num && num < 18) {
                             setForm(f => ({ ...f, age: 18 }));
-                            toast.info('Leeftijd is automatisch ingesteld op het minimum van 18 jaar.');
+                            toast.info(trNow('Leeftijd is automatisch ingesteld op het minimum van 18 jaar.', 'Age has automatically been set to the minimum of 18.'));
                           } else if (num && num > 90) {
                             setForm(f => ({ ...f, age: 90 }));
-                            toast.info('Leeftijd is automatisch ingesteld op het maximum van 90 jaar.');
+                            toast.info(trNow('Leeftijd is automatisch ingesteld op het maximum van 90 jaar.', 'Age has automatically been set to the maximum of 90.'));
                           }
                         }}
-                        placeholder="Bijv. 24"
+                        placeholder={trNow('Bijv. 24', 'E.g. 24')}
                       />
                       {form.age && (Number(form.age) < 18 || Number(form.age) > 90) && (
                         <p className="text-[11px] font-bold text-red-500 mt-1">
-                          {Number(form.age) < 18 ? '⚠️ Minimale leeftijd is 18 jaar.' : '⚠️ Maximale leeftijd is 90 jaar.'}
+                          {Number(form.age) < 18 ? trNow('⚠️ Minimale leeftijd is 18 jaar.', '⚠️ Minimum age is 18.') : trNow('⚠️ Maximale leeftijd is 90 jaar.', '⚠️ Maximum age is 90.')}
                         </p>
                       )}
                     </div>
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
                         <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: textSub }}>
-                          Eigen lengte (cm)
+                          {trNow('Eigen lengte (cm)', 'Your height (cm)')}
                         </label>
                         <span className="text-[10px] font-bold text-pink-500">Max. 260 cm</span>
                       </div>
@@ -2060,7 +2073,7 @@ export default function Account() {
                           const num = Number(val);
                           if (num > 260) {
                             setForm(f => ({ ...f, height_cm: 260 }));
-                            toast.info('Maximale lengte is 260 cm.');
+                            toast.info(trNow('Maximale lengte is 260 cm.', 'Maximum height is 260 cm.'));
                           } else {
                             setForm(f => ({ ...f, height_cm: val }));
                           }
@@ -2069,14 +2082,14 @@ export default function Account() {
                           const num = Number(e.target.value);
                           if (num && num > 260) {
                             setForm(f => ({ ...f, height_cm: 260 }));
-                            toast.info('Lengte is automatisch ingesteld op het maximum van 260 cm.');
+                            toast.info(trNow('Lengte is automatisch ingesteld op het maximum van 260 cm.', 'Height has automatically been set to the maximum of 260 cm.'));
                           }
                         }}
-                        placeholder="Bijv. 182"
+                        placeholder={trNow('Bijv. 182', 'E.g. 182')}
                       />
                       {form.height_cm && Number(form.height_cm) > 260 && (
                         <p className="text-[11px] font-bold text-red-500 mt-1">
-                          ⚠️ Maximale lengte is 260 cm.
+                          {trNow('⚠️ Maximale lengte is 260 cm.', '⚠️ Maximum height is 260 cm.')}
                         </p>
                       )}
                     </div>
@@ -2087,7 +2100,7 @@ export default function Account() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: textSub }}>
-                        Bio tekst
+                        {trNow('Bio tekst', 'Bio text')}
                       </label>
                       <span className="text-[10px] font-bold text-gray-400">
                         {(form.bio || '').length}/250
@@ -2100,7 +2113,7 @@ export default function Account() {
                       className={`w-full px-4 py-3 rounded-2xl text-xs resize-none outline-none font-medium focus:ring-2 focus:ring-pink-500 ${isDark ? 'bg-white/10 text-white border border-white/15' : 'bg-gray-100 text-gray-900 border border-gray-200'}`}
                       value={form.bio || ''}
                       onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
-                      placeholder="Vertel iets leuks over jezelf, je passies of weekendplannen..."
+                      placeholder={trNow('Vertel iets leuks over jezelf, je passies of weekendplannen...', 'Tell something fun about yourself, your passions or weekend plans...')}
                     />
                   </div>
                 )}
@@ -2108,7 +2121,7 @@ export default function Account() {
                 {activeSheet === 'goals' && (
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold uppercase tracking-wider block mb-2" style={{ color: textSub }}>
-                      Waar ben je naar op zoek?
+                      {trNow('Waar ben je naar op zoek?', 'What are you looking for?')}
                     </label>
                     <div className="space-y-2">
                       {GOALS.map(g => {
@@ -2120,7 +2133,7 @@ export default function Account() {
                             onClick={() => setForm(f => ({ ...f, relationship_status: g }))}
                             className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left ${isSelected ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-md' : isDark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-800 hover:bg-gray-100'}`}
                           >
-                            <span className="font-bold text-sm">{g}</span>
+                            <span className="font-bold text-sm">{dt(g)}</span>
                             {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
                           </button>
                         );
@@ -2132,7 +2145,7 @@ export default function Account() {
                 {activeSheet === 'looking_for' && (
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold uppercase tracking-wider block mb-2" style={{ color: textSub }}>
-                      Naar wie ben je op zoek?
+                      {trNow('Naar wie ben je op zoek?', 'Who are you looking for?')}
                     </label>
                     <div className="space-y-2">
                       {LOOKING_FOR_OPTIONS.map(opt => {
@@ -2165,12 +2178,12 @@ export default function Account() {
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: textSub }}>
-                            Jouw eigenschappen (3 – 5)
+                            {trNow('Jouw eigenschappen (3 – 5)', 'Your traits (3 – 5)')}
                           </p>
                           <span className={`text-[11px] font-black ${
                             isUnderMinTraits ? 'text-red-500 animate-pulse' : 'text-pink-500'
                           }`}>
-                            {traitsCount}/5 gekozen {isUnderMinTraits ? '(min. 3 vereist!)' : ''}
+                            {traitsCount}/5 {trNow('gekozen', 'chosen')} {isUnderMinTraits ? trNow('(min. 3 vereist!)', '(min. 3 required!)') : ''}
                           </span>
                         </div>
 
@@ -2194,10 +2207,10 @@ export default function Account() {
                                   borderColor: isUnderMinTraits ? '#EF4444' : 'rgba(255, 75, 114, 0.45)',
                                   minHeight: '68px',
                                 }}
-                                title="Klik om te verwijderen"
+                                title={trNow('Klik om te verwijderen', 'Click to remove')}
                               >
                                 <span className="text-lg sm:text-xl leading-none mb-1">{getEmojiForTrait(trait)}</span>
-                                <span className={`text-[10px] font-bold truncate max-w-full leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{trait}</span>
+                                <span className={`text-[10px] font-bold truncate max-w-full leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{dt(trait)}</span>
                                 <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm opacity-90 group-hover:opacity-100">
                                   ✕
                                 </div>
@@ -2236,7 +2249,7 @@ export default function Account() {
                       {/* Available traits list with select/deselect checkmark */}
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
-                          Tik om te selecteren of deselecteren:
+                          {trNow('Tik om te selecteren of deselecteren:', 'Tap to select or deselect:')}
                         </p>
                         <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
                           {TRAITS_LIST.map(t => {
@@ -2255,7 +2268,7 @@ export default function Account() {
                                 }`}
                               >
                                 <span>{t.emoji}</span>
-                                <span>{t.label}</span>
+                                <span>{dt(t.label)}</span>
                                 {isSelected && <Check className="w-3.5 h-3.5 stroke-[3] text-white" />}
                               </button>
                             );
@@ -2275,12 +2288,12 @@ export default function Account() {
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: textSub }}>
-                            Jouw interesses (3 – 5)
+                            {trNow('Jouw interesses (3 – 5)', 'Your interests (3 – 5)')}
                           </p>
                           <span className={`text-[11px] font-black ${
                             isUnderMinInterests ? 'text-red-500 animate-pulse' : 'text-pink-500'
                           }`}>
-                            {interestsCount}/5 gekozen {isUnderMinInterests ? '(min. 3 vereist!)' : ''}
+                            {interestsCount}/5 {trNow('gekozen', 'chosen')} {isUnderMinInterests ? trNow('(min. 3 vereist!)', '(min. 3 required!)') : ''}
                           </span>
                         </div>
 
@@ -2304,10 +2317,10 @@ export default function Account() {
                                   borderColor: isUnderMinInterests ? '#EF4444' : 'rgba(234, 63, 211, 0.45)',
                                   minHeight: '68px',
                                 }}
-                                title="Klik om te verwijderen"
+                                title={trNow('Klik om te verwijderen', 'Click to remove')}
                               >
                                 <span className="text-lg sm:text-xl leading-none mb-1">{getEmojiForInterest(interest)}</span>
-                                <span className={`text-[10px] font-bold truncate max-w-full leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{interest}</span>
+                                <span className={`text-[10px] font-bold truncate max-w-full leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{dt(interest)}</span>
                                 <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[9px] font-black shadow-sm opacity-90 group-hover:opacity-100">
                                   ✕
                                 </div>
@@ -2346,7 +2359,7 @@ export default function Account() {
                       {/* Available interests list with select/deselect checkmark */}
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: textSub }}>
-                          Tik om te selecteren of deselecteren:
+                          {trNow('Tik om te selecteren of deselecteren:', 'Tap to select or deselect:')}
                         </p>
                         <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
                           {INTERESTS_LIST.map(i => {
@@ -2365,7 +2378,7 @@ export default function Account() {
                                 }`}
                               >
                                 <span>{i.emoji}</span>
-                                <span>{i.label}</span>
+                                <span>{dt(i.label)}</span>
                                 {isSelected && <Check className="w-3.5 h-3.5 stroke-[3] text-white" />}
                               </button>
                             );
@@ -2379,7 +2392,7 @@ export default function Account() {
                 {activeSheet === 'height_pref' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold" style={{ color: textSub }}>Bereik:</span>
+                      <span className="text-xs font-bold" style={{ color: textSub }}>{trNow('Bereik:', 'Range:')}</span>
                       <span className="text-sm font-black text-pink-500">
                         {form.min_height_pref || 140} – {form.max_height_pref || 260} cm
                       </span>
@@ -2387,7 +2400,7 @@ export default function Account() {
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span style={{ color: textSub }}>Max. lengte</span>
+                          <span style={{ color: textSub }}>{trNow('Max. lengte', 'Max. height')}</span>
                           <span className="font-bold text-pink-500">{form.max_height_pref || 260} cm</span>
                         </div>
                         <input
@@ -2404,7 +2417,7 @@ export default function Account() {
                       </div>
                       <div>
                         <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span style={{ color: textSub }}>Min. lengte</span>
+                          <span style={{ color: textSub }}>{trNow('Min. lengte', 'Min. height')}</span>
                           <span className="font-bold text-pink-500">{form.min_height_pref || 140} cm</span>
                         </div>
                         <input
@@ -2421,7 +2434,7 @@ export default function Account() {
                       </div>
                     </div>
                     <p className="text-[11px] font-medium" style={{ color: textSub }}>
-                      Matches binnen jouw lengtevoorkeur krijgen voorrang op de home- en ontdekpagina.
+                      {trNow('Matches binnen jouw lengtevoorkeur krijgen voorrang op de home- en ontdekpagina.', 'Matches within your height preference get priority on the home and discover pages.')}
                     </p>
                   </div>
                 )}
@@ -2429,7 +2442,7 @@ export default function Account() {
                 {activeSheet === 'age_pref' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold" style={{ color: textSub }}>Bereik:</span>
+                      <span className="text-xs font-bold" style={{ color: textSub }}>{trNow('Bereik:', 'Range:')}</span>
                       <span className="text-sm font-black text-pink-500">
                         {form.min_age_pref || 18} – {form.max_age_pref || 90} jaar
                       </span>
@@ -2437,7 +2450,7 @@ export default function Account() {
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span style={{ color: textSub }}>Max. leeftijd</span>
+                          <span style={{ color: textSub }}>{trNow('Max. leeftijd', 'Max. age')}</span>
                           <span className="font-bold text-pink-500">{form.max_age_pref || 90} jaar</span>
                         </div>
                         <input
@@ -2454,7 +2467,7 @@ export default function Account() {
                       </div>
                       <div>
                         <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span style={{ color: textSub }}>Min. leeftijd</span>
+                          <span style={{ color: textSub }}>{trNow('Min. leeftijd', 'Min. age')}</span>
                           <span className="font-bold text-pink-500">{form.min_age_pref || 18} jaar</span>
                         </div>
                         <input
@@ -2471,7 +2484,7 @@ export default function Account() {
                       </div>
                     </div>
                     <p className="text-[11px] font-medium" style={{ color: textSub }}>
-                      Profielen binnen deze leeftijdscategorie worden aan jou voorgesteld.
+                      {trNow('Profielen binnen deze leeftijdscategorie worden aan jou voorgesteld.', 'Profiles within this age range will be suggested to you.')}
                     </p>
                   </div>
                 )}
@@ -2512,10 +2525,10 @@ export default function Account() {
                 <AlertTriangle className="w-6 h-6 stroke-[2.4] animate-pulse" />
               </div>
               <h4 className="text-sm font-black mb-1.5">
-                Minimaal 3 {minItemsWarningModal === 'traits' ? 'eigenschappen' : 'interesses'} vereist
+                {trNow('Minimaal 3', 'At least 3')} {minItemsWarningModal === 'traits' ? trNow('eigenschappen', 'traits') : trNow('interesses', 'interests')} {trNow('vereist', 'required')}
               </h4>
               <p className={`text-[11px] font-medium leading-relaxed mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                Je hebt momenteel minder dan 3 {minItemsWarningModal === 'traits' ? 'eigenschappen' : 'interesses'} geselecteerd. Als je nu weggaat, wordt je oude selectie behouden.
+                {trNow('Je hebt momenteel minder dan 3', 'You currently have fewer than 3')} {minItemsWarningModal === 'traits' ? trNow('eigenschappen', 'traits') : trNow('interesses', 'interests')} {trNow('geselecteerd. Als je nu weggaat, wordt je oude selectie behouden.', 'selected. If you leave now, your previous selection will be kept.')}
               </p>
               <div className="flex gap-2.5">
                 <button 
@@ -2527,14 +2540,14 @@ export default function Account() {
                       : 'border-gray-200 text-gray-700 bg-gray-100 hover:bg-gray-200'
                   }`}
                 >
-                  Annuleren
+                  {trNow('Annuleren', 'Cancel')}
                 </button>
                 <button 
                   type="button"
                   onClick={handleConfirmMinItemsLeave} 
                   className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-md active:scale-95 transition-all hover:opacity-95 cursor-pointer"
                 >
-                  Ja, ga terug
+                  {trNow('Ja, ga terug', 'Yes, go back')}
                 </button>
               </div>
             </motion.div>
@@ -2566,10 +2579,10 @@ export default function Account() {
             >
               <div className="flex items-center justify-center gap-2 mb-2">
                 <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
-                <h4 className="text-gray-900 dark:text-white font-bold text-xs">Account wijzigen?</h4>
+                <h4 className="text-gray-900 dark:text-white font-bold text-xs">{trNow('Account wijzigen?', 'Change account?')}</h4>
               </div>
               <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
-                Weet je zeker dat je jouw account wilt opslaan? Je kunt potentiële matches en hints verliezen door het veranderen van je profielgegevens en voorkeuren.
+                {trNow('Weet je zeker dat je jouw account wilt opslaan? Je kunt potentiële matches en hints verliezen door het veranderen van je profielgegevens en voorkeuren.', 'Are you sure you want to save your account? You may lose potential matches and hints by changing your profile details and preferences.')}
               </p>
               <div className="flex gap-2">
                 <button 
@@ -2577,14 +2590,14 @@ export default function Account() {
                   onClick={() => setShowSaveConfirm(false)} 
                   className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15 cursor-pointer"
                 >
-                  Annuleren
+                  {trNow('Annuleren', 'Cancel')}
                 </button>
                 <button 
                   type="button"
                   onClick={executeSave} 
                   className="flex-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:opacity-95 cursor-pointer"
                 >
-                  Ja, opslaan
+                  {trNow('Ja, opslaan', 'Yes, save')}
                 </button>
               </div>
             </motion.div>
@@ -2616,10 +2629,10 @@ export default function Account() {
             >
               <div className="flex items-center justify-center gap-2 mb-2">
                 <AlertTriangle className="w-4.5 h-4.5 text-amber-500 flex-shrink-0" />
-                <h4 className="text-gray-900 dark:text-white font-bold text-xs">Wijzigingen verwerpen?</h4>
+                <h4 className="text-gray-900 dark:text-white font-bold text-xs">{trNow('Wijzigingen verwerpen?', 'Discard changes?')}</h4>
               </div>
               <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
-                Weet je het zeker? Je hebt aanpassingen gemaakt die nog niet zijn opgeslagen. Als je weggaat, gaan deze verloren.
+                {trNow('Weet je het zeker? Je hebt aanpassingen gemaakt die nog niet zijn opgeslagen. Als je weggaat, gaan deze verloren.', 'Are you sure? You have unsaved changes. If you leave, they will be lost.')}
               </p>
               <div className="flex gap-2">
                 <button 
@@ -2627,14 +2640,14 @@ export default function Account() {
                   onClick={handleCancelDiscard} 
                   className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15 cursor-pointer"
                 >
-                  Annuleren
+                  {trNow('Annuleren', 'Cancel')}
                 </button>
                 <button 
                   type="button"
                   onClick={handleConfirmDiscard} 
                   className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700 cursor-pointer"
                 >
-                  Ja, verwerpen
+                  {trNow('Ja, verwerpen', 'Yes, discard')}
                 </button>
               </div>
             </motion.div>
@@ -2690,7 +2703,7 @@ export default function Account() {
                 <div className="pointer-events-auto flex flex-col">
                   {/* Name / Age / Height */}
                   <h2 className="text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide">
-                    {form.age || myProfile?.age || '24'} jaar {form.height_cm || myProfile?.height_cm ? `• ${form.height_cm || myProfile.height_cm} cm` : ''}
+                    {form.age || myProfile?.age || '24'} {trNow('jaar', 'yrs')} {form.height_cm || myProfile?.height_cm ? `• ${form.height_cm || myProfile.height_cm} cm` : ''}
                   </h2>
 
                   {/* Tags (Avatar first, then interests/traits) */}
@@ -2703,7 +2716,7 @@ export default function Account() {
                     )}
                     {[...(form.interests || myProfile?.interests || []).slice(0, 2), ...(form.traits || myProfile?.traits || []).slice(0, 1)].map((tag) => (
                       <span key={tag} className="px-3.5 py-1 rounded-full text-[13px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
-                        {tag}
+                        {dt(tag)}
                       </span>
                     ))}
                   </div>
@@ -2751,10 +2764,10 @@ export default function Account() {
             >
               <div className="flex items-center justify-center gap-2 mb-2">
                 <LogOut className="w-4.5 h-4.5 text-rose-500 flex-shrink-0" />
-                <h4 className="text-gray-900 dark:text-white font-bold text-xs">Uitloggen</h4>
+                <h4 className="text-gray-900 dark:text-white font-bold text-xs">{trNow('Uitloggen', 'Log out')}</h4>
               </div>
               <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
-                Weet je het zeker dat je wilt uitloggen bij Romety?
+                {trNow('Weet je het zeker dat je wilt uitloggen bij Romety?', 'Are you sure you want to log out of Romety?')}
               </p>
               <div className="flex gap-2">
                 <button 
@@ -2762,14 +2775,14 @@ export default function Account() {
                   onClick={() => setShowLogoutConfirm(false)} 
                   className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
                 >
-                  Nee
+                  {trNow('Nee', 'No')}
                 </button>
                 <button 
                   type="button"
                   onClick={handlePerformLogout} 
                   className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
                 >
-                  Ja
+                  {trNow('Ja', 'Yes')}
                 </button>
               </div>
             </motion.div>
@@ -2801,10 +2814,10 @@ export default function Account() {
             >
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Trash2 className="w-4.5 h-4.5 text-red-600 flex-shrink-0" />
-                <h4 className="text-gray-900 dark:text-white font-bold text-xs">Account verwijderen</h4>
+                <h4 className="text-gray-900 dark:text-white font-bold text-xs">{trNow('Account verwijderen', 'Delete account')}</h4>
               </div>
               <p className="text-gray-600 dark:text-gray-400 font-medium text-[11px] leading-relaxed mb-4">
-                Weet je het zeker? Al je matches, hints en overige informatie worden hiermee definitief verwijderd uit de database.
+                {trNow('Weet je het zeker? Al je matches, hints en overige informatie worden hiermee definitief verwijderd uit de database.', 'Are you sure? All your matches, hints and other information will be permanently deleted.')}
               </p>
               <div className="flex gap-2">
                 <button 
@@ -2812,7 +2825,7 @@ export default function Account() {
                   onClick={() => setShowDeleteConfirm(false)} 
                   className="flex-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white py-2 rounded-xl font-bold text-xs active:scale-95 transition-all hover:bg-gray-200 dark:hover:bg-white/15"
                 >
-                  Nee
+                  {trNow('Nee', 'No')}
                 </button>
                 <button 
                   type="button"
@@ -2823,7 +2836,7 @@ export default function Account() {
                   }} 
                   className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all hover:bg-red-700"
                 >
-                  Ja
+                  {trNow('Ja', 'Yes')}
                 </button>
               </div>
             </motion.div>
@@ -2858,9 +2871,9 @@ export default function Account() {
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-red-500/10 text-red-500">
                 <Trash2 className="w-6 h-6 stroke-[2.2]" />
               </div>
-              <h3 className="text-lg font-black text-center mb-1">Waarom verlaat je Romety?</h3>
+              <h3 className="text-lg font-black text-center mb-1">{trNow('Waarom verlaat je Romety?', 'Why are you leaving Romety?')}</h3>
               <p className="text-xs text-center mb-4 leading-relaxed opacity-60">
-                We vinden het jammer dat je gaat. Laat ons weten waarom zodat we Romety kunnen verbeteren:
+                {trNow('We vinden het jammer dat je gaat. Laat ons weten waarom zodat we Romety kunnen verbeteren:', 'We are sorry to see you go. Let us know why so we can improve Romety:')}
               </p>
               
               {/* 3 Selectable Options */}
@@ -2884,7 +2897,7 @@ export default function Account() {
                             : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
                       }`}
                     >
-                      <span>{opt}</span>
+                      <span>{({ 'Ik heb iemand gevonden ❤️': trNow('Ik heb iemand gevonden ❤️', 'I found someone ❤️'), 'Ik vind de app niet lekker werken': trNow('Ik vind de app niet lekker werken', 'The app does not work well for me'), 'Anders': trNow('Anders', 'Other') })[opt] || opt}</span>
                       <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
                         isSelected ? 'border-pink-500 bg-pink-500 text-white' : isDark ? 'border-white/20' : 'border-gray-300'
                       }`}>
@@ -2905,7 +2918,7 @@ export default function Account() {
                         ? 'border-white/15 bg-white/5 text-white placeholder-white/40 focus:border-pink-500' 
                         : 'border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 focus:border-pink-500'
                     }`}
-                    placeholder="Optioneel: typ hier je reden..."
+                    placeholder={trNow('Optioneel: typ hier je reden...', 'Optional: type your reason here...')}
                     value={deleteAnswers.customText || ''}
                     onChange={e => setDeleteAnswers(a => ({ ...a, customText: e.target.value }))}
                   />
@@ -2924,7 +2937,7 @@ export default function Account() {
                       : 'border-gray-200 text-gray-700 bg-gray-100 hover:bg-gray-200'
                   }`}
                 >
-                  Annuleren
+                  {trNow('Annuleren', 'Cancel')}
                 </button>
                 <button
                   type="button"
@@ -2933,11 +2946,11 @@ export default function Account() {
                   className="flex-1 py-3 rounded-2xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 shadow-md active:scale-95 transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
                   {deleting ? (
-                    'Verwijderen...'
+                    trNow('Verwijderen...', 'Deleting...')
                   ) : (
                     <>
                       <Trash2 className="w-3.5 h-3.5" />
-                      Verwijder
+                      {trNow('Verwijder', 'Delete')}
                     </>
                   )}
                 </button>
@@ -2982,13 +2995,13 @@ export default function Account() {
                 </div>
 
                 <h3 className={`text-lg font-black text-center mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  Land wijzigen?
+                  {trNow('Land wijzigen?', 'Change country?')}
                 </h3>
                 <p className={`text-sm text-center mb-1 ${isDark ? 'text-white/60' : 'text-gray-600'}`}>
                   Je wisselt naar <strong className={isDark ? 'text-white' : 'text-gray-900'}>{pendingCountry}</strong>.
                 </p>
                 <p className="text-sm text-center text-pink-500 font-semibold mb-6">
-                  Je verliest je matches in het huidige land.
+                  {trNow('Je verliest je matches in het huidige land.', 'You will lose your matches in the current country.')}
                 </p>
 
                 <div className="flex gap-3">
@@ -2996,7 +3009,7 @@ export default function Account() {
                     onClick={() => { setShowCountryWarning(false); setPendingCountry(null); }}
                     className={`flex-1 py-3.5 rounded-2xl font-bold text-sm border transition-all ${isDark ? 'border-white/15 text-white/70 bg-white/5' : 'border-gray-200 text-gray-600 bg-gray-100'}`}
                   >
-                    Annuleren
+                    {trNow('Annuleren', 'Cancel')}
                   </button>
                   <button
                     onClick={async () => {
@@ -3023,10 +3036,10 @@ export default function Account() {
                         }
                         setMyProfile(p => ({ ...p, country: pendingCountry }));
                         setForm(f => ({ ...f, country: pendingCountry }));
-                        toast.success(`Land gewijzigd naar ${pendingCountry}`);
+                        toast.success(trNow(`Land gewijzigd naar ${pendingCountry}`, `Country changed to ${countryName(pendingCountry, 'en')}`));
                       } catch (e) {
                         console.error('Country save error:', e);
-                        toast.error('Kon land niet opslaan: ' + (e?.message || 'onbekende fout'));
+                        toast.error(trNow('Kon land niet opslaan: ', 'Could not save country: ') + (e?.message || trNow('onbekende fout', 'unknown error')));
                       }
                       setSaving(false);
                       setShowCountryWarning(false);
@@ -3035,7 +3048,7 @@ export default function Account() {
                     className="flex-1 py-3.5 rounded-2xl font-black text-white text-sm transition-all"
                     style={{ background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)', boxShadow: '0 8px 20px rgba(255,75,114,0.4)' }}
                   >
-                    {saving ? '...' : 'Bevestigen'}
+                    {saving ? '...' : trNow('Bevestigen', 'Confirm')}
                   </button>
                 </div>
               </div>
@@ -3073,7 +3086,7 @@ export default function Account() {
                   <div className="w-7 h-7 rounded-xl flex items-center justify-center bg-pink-500/15 text-pink-500">
                     <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
-                  <h3 className="text-sm font-black">Feedback of suggestie</h3>
+                  <h3 className="text-sm font-black">{trNow('Feedback of suggestie', 'Feedback or suggestion')}</h3>
                 </div>
                 <button
                   type="button"
@@ -3087,7 +3100,7 @@ export default function Account() {
               </div>
 
               <p className="text-[11px] mb-3 leading-relaxed opacity-60">
-                Wat vind je van Romety of wat kunnen we verbeteren? We horen het graag!
+                {trNow('Wat vind je van Romety of wat kunnen we verbeteren? We horen het graag!', 'What do you think of Romety or what can we improve? We would love to hear it!')}
               </p>
 
               <div className="mb-3.5">
@@ -3098,7 +3111,7 @@ export default function Account() {
                       ? 'border-white/15 bg-white/5 text-white placeholder-white/40 focus:border-pink-500' 
                       : 'border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 focus:border-pink-500'
                   }`}
-                  placeholder="Typ hier jouw feedback of idee..."
+                  placeholder={trNow('Typ hier jouw feedback of idee...', 'Type your feedback or idea here...')}
                   value={feedbackText}
                   onChange={e => setFeedbackText(e.target.value)}
                 />
@@ -3115,7 +3128,7 @@ export default function Account() {
                       : 'border-gray-200 text-gray-700 bg-gray-100 hover:bg-gray-200'
                   }`}
                 >
-                  Annuleren
+                  {trNow('Annuleren', 'Cancel')}
                 </button>
                 <button
                   type="button"
@@ -3123,10 +3136,10 @@ export default function Account() {
                   onClick={handleSendFeedback}
                   className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-pink-500 to-rose-600 shadow-md active:scale-95 transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  {sendingFeedback ? 'Versturen...' : (
+                  {sendingFeedback ? trNow('Versturen...', 'Sending...') : (
                     <>
                       <Send className="w-3 h-3" />
-                      Versturen
+                      {trNow('Versturen', 'Send')}
                     </>
                   )}
                 </button>

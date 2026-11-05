@@ -54,3 +54,23 @@ export function venueInCountry(lat, lng, country) {
   const [latMin, latMax, lngMin, lngMax] = country.bounds;
   return lat >= latMin && lat <= latMax && lng >= lngMin && lng <= lngMax;
 }
+
+/**
+ * Landnaam in de taal van de kijker. In de database staat de Nederlandse naam;
+ * voor Engels gebruiken we de ingebouwde landnamen van de browser (via de landcode).
+ */
+export function countryName(name, lang) {
+  if (!name) return name;
+  let l = lang;
+  if (!l) {
+    try { l = localStorage.getItem('welove_lang') === 'en' ? 'en' : 'nl'; } catch (e) { l = 'nl'; }
+  }
+  if (l !== 'en') return name;
+  const c = COUNTRIES.find((x) => x.name === name);
+  if (!c) return name;
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(c.code.toUpperCase()) || name;
+  } catch (e) {
+    return name;
+  }
+}

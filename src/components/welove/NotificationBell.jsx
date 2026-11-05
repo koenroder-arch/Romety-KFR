@@ -7,12 +7,15 @@ import { base44 } from '@/api/base44Client';
 import { useNotifications } from './useNotifications';
 import { useAuth } from '@/lib/AuthContext';
 import { format } from 'date-fns';
-import { nl } from 'date-fns/locale';
+import { nl, enGB } from 'date-fns/locale';
+import { useLang } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 import { createPageUrl } from '@/utils';
 
 export default function NotificationBell({ isDark = true }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { tr, isEn } = useLang();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -115,7 +118,7 @@ export default function NotificationBell({ isDark = true }) {
           background: isDark ? 'rgba(255,255,255,0.12)' : '#FFFFFF',
           border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.10)'
         }}
-        title="Meldingen"
+        title={tr('Meldingen', 'Notifications')}
       >
         <Bell className="w-4 h-4" style={{ color: isDark ? '#FFFFFF' : '#111827' }} />
         {unreadCount > 0 && (
@@ -182,8 +185,8 @@ export default function NotificationBell({ isDark = true }) {
                       <ChevronLeft className="w-5 h-5" style={{ color: textMain }} />
                     </button>
                     <div>
-                      <h2 className="font-extrabold text-xl tracking-tight" style={{ color: textMain }}>Meldingen</h2>
-                      <p className="text-xs font-semibold mt-0.5" style={{ color: textSub }}>{notifications.length} meldingen</p>
+                      <h2 className="font-extrabold text-xl tracking-tight" style={{ color: textMain }}>{tr('Meldingen', 'Notifications')}</h2>
+                      <p className="text-xs font-semibold mt-0.5" style={{ color: textSub }}>{notifications.length} {tr('meldingen', 'notifications')}</p>
                     </div>
                   </div>
                 </div>
@@ -207,8 +210,8 @@ export default function NotificationBell({ isDark = true }) {
                       <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: isDark ? 'rgba(160,97,255,0.12)' : 'rgba(160,97,255,0.08)' }}>
                         <Bell className="w-7 h-7" style={{ color: '#A061FF' }} />
                       </div>
-                      <p className="font-bold text-sm" style={{ color: textMain }}>Nog geen meldingen</p>
-                      <p className="text-xs mt-1" style={{ color: textSub }}>Je ziet hier updates, likes en chats</p>
+                      <p className="font-bold text-sm" style={{ color: textMain }}>{tr('Nog geen meldingen', 'No notifications yet')}</p>
+                      <p className="text-xs mt-1" style={{ color: textSub }}>{tr('Je ziet hier updates, likes en chats', 'You will see updates, likes and chats here')}</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -257,10 +260,10 @@ export default function NotificationBell({ isDark = true }) {
                                     >
                                       <div className="flex-1 min-w-0">
                                         <p className="text-[15px] font-extrabold text-white">
-                                          Nieuwe supermatch! 🎉
+                                          {tr('Nieuwe supermatch! 🎉', 'New supermatch! 🎉')}
                                         </p>
                                         <p className="text-[11px] text-white/40 mt-1">
-                                          {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
+                                          {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: isEn ? enGB : nl }) : ''}
                                         </p>
                                       </div>
                                     </div>
@@ -283,7 +286,7 @@ export default function NotificationBell({ isDark = true }) {
                               borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
                             }}
                           >
-                            <span className="text-sm font-bold" style={{ color: textMain }}>Overige meldingen ({likeNotifs.length})</span>
+                            <span className="text-sm font-bold" style={{ color: textMain }}>{tr('Overige meldingen', 'Other notifications')} ({likeNotifs.length})</span>
                             {othersExpanded
                               ? <ChevronUp className="w-4 h-4" style={{ color: textMain }} />
                               : <ChevronDown className="w-4 h-4" style={{ color: textMain }} />
@@ -316,36 +319,36 @@ export default function NotificationBell({ isDark = true }) {
 
                                     const isChat = n.type === 'chat' || n.type === 'chat_message' || n.type === 'chat_invite';
 
-                                    let titleText = 'Melding';
-                                    let descText = n.message || 'Je hebt een update.';
+                                    let titleText = tr('Melding', 'Notification');
+                                    let descText = dt(n.message) || tr('Je hebt een update.', 'You have an update.');
 
                                     if (isChat) {
-                                      titleText = n.from_name ? `${n.from_name} 💬` : 'Nieuw bericht 💬';
-                                      descText = parsedMessageText || n.message || 'Heeft je een bericht gestuurd.';
+                                      titleText = n.from_name ? `${dt(n.from_name)} 💬` : tr('Nieuw bericht 💬', 'New message 💬');
+                                      descText = dt(parsedMessageText) || dt(n.message) || tr('Heeft je een bericht gestuurd.', 'Sent you a message.');
                                     } else if (n.type === 'chat_rejected') {
-                                      titleText = 'Chat beëindigd ❌';
-                                      descText = n.message || n.venue_name || 'Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.';
+                                      titleText = tr('Chat beëindigd ❌', 'Chat ended ❌');
+                                      descText = dt(n.message) || dt(n.venue_name) || tr('Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.', 'A chat was ended because your match chose not to continue.');
                                     } else if (n.type === 'chat_inactive') {
-                                      titleText = 'Chat beëindigd ⌛';
-                                      descText = n.message || 'Een chat is verwijderd vanwege 7 dagen inactiviteit.';
+                                      titleText = tr('Chat beëindigd ⌛', 'Chat ended ⌛');
+                                      descText = dt(n.message) || tr('Een chat is verwijderd vanwege 7 dagen inactiviteit.', 'A chat was removed due to 7 days of inactivity.');
                                     } else if (n.type === 'chat_accepted') {
-                                      titleText = 'Chat geaccepteerd! 💬';
-                                      descText = parsedMessageText || n.message || 'Je chat-uitnodiging is geaccepteerd! 🎉';
+                                      titleText = tr('Chat geaccepteerd! 💬', 'Chat accepted! 💬');
+                                      descText = dt(parsedMessageText) || dt(n.message) || tr('Je chat-uitnodiging is geaccepteerd! 🎉', 'Your chat invite was accepted! 🎉');
                                     } else if (n.type === 'game_invite') {
-                                      titleText = 'Speluitnodiging';
-                                      descText = 'Je match heeft je uitgenodigd voor een game!';
+                                      titleText = tr('Speluitnodiging', 'Game invite');
+                                      descText = tr('Je match heeft je uitgenodigd voor een game!', 'Your match invited you to a game!');
                                     } else if (n.type === 'game_accepted') {
-                                      titleText = 'Spel geaccepteerd';
-                                      descText = 'Je match heeft je speluitnodiging geaccepteerd! 🚀';
+                                      titleText = tr('Spel geaccepteerd', 'Game accepted');
+                                      descText = tr('Je match heeft je speluitnodiging geaccepteerd! 🚀', 'Your match accepted your game invite! 🚀');
                                     } else if (n.type === 'game') {
-                                      titleText = 'Spel-update';
-                                      descText = 'Het is jouw beurt in het spel met je match!';
+                                      titleText = tr('Spel-update', 'Game update');
+                                      descText = tr('Het is jouw beurt in het spel met je match!', 'It is your turn in the game with your match!');
                                     } else if (isHint) {
-                                      titleText = 'Hint ontvangen';
-                                      descText = 'Je hebt een nieuwe hint gekregen van een match!';
+                                      titleText = tr('Hint ontvangen', 'Hint received');
+                                      descText = tr('Je hebt een nieuwe hint gekregen van een match!', 'You received a new hint from a match!');
                                     } else if (n.type === 'like') {
-                                      titleText = 'Nieuwe like';
-                                      descText = 'Iemand vindt je leuk! 💜';
+                                      titleText = tr('Nieuwe like', 'New like');
+                                      descText = tr('Iemand vindt je leuk! 💜', 'Someone likes you! 💜');
                                     }
 
                                     return (
@@ -370,10 +373,10 @@ export default function NotificationBell({ isDark = true }) {
                                             {descText}
                                           </p>
                                           {!isVenueJson && !isChat && n.venue_name && (
-                                            <p className="text-sm mt-0.5 text-white/40">📍 {n.venue_name}</p>
+                                            <p className="text-sm mt-0.5 text-white/40">📍 {dt(n.venue_name)}</p>
                                           )}
                                           <p className="text-[11px] text-white/40 mt-1">
-                                            {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: nl }) : ''}
+                                            {n.created_date ? format(new Date(n.created_date), 'd MMM · HH:mm', { locale: isEn ? enGB : nl }) : ''}
                                           </p>
                                         </div>
                                       </div>

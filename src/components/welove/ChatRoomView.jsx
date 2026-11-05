@@ -6,6 +6,8 @@ import { ChevronLeft, Send, Camera, X, Clock, MoreVertical, AlertTriangle, Trash
 import { toast } from 'sonner';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import { deleteChatRoomAndMedia, syncChatReadState } from '@/lib/chatUtils';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -18,11 +20,11 @@ const PHASE_DURATIONS = {
 };
 
 const REPORT_REASONS = [
-  { id: 'fake', label: 'Nep account / spam', emoji: '🤖' },
-  { id: 'inappropriate', label: 'Ongepaste foto\'s of content', emoji: '🔞' },
-  { id: 'harassment', label: 'Vervelend of intimiderend gedrag', emoji: '🚫' },
-  { id: 'underage', label: 'Minderjarig', emoji: '⚠️' },
-  { id: 'other', label: 'Anders...', emoji: '💬' },
+  { id: 'fake', get label() { return trNow('Nep account / spam', 'Fake account / spam'); }, emoji: '🤖' },
+  { id: 'inappropriate', get label() { return trNow('Ongepaste foto\'s of content', 'Inappropriate photos or content'); }, emoji: '🔞' },
+  { id: 'harassment', get label() { return trNow('Vervelend of intimiderend gedrag', 'Annoying or intimidating behaviour'); }, emoji: '🚫' },
+  { id: 'underage', get label() { return trNow('Minderjarig', 'Underage'); }, emoji: '⚠️' },
+  { id: 'other', get label() { return trNow('Anders...', 'Other...'); }, emoji: '💬' },
 ];
 
 const INACTIVITY_LIMIT = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -32,7 +34,7 @@ function formatTime(ms) {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
   const s = Math.floor((ms % 60000) / 1000);
-  if (h > 0) return `${h}u ${String(m).padStart(2, '0')}m`;
+  if (h > 0) return `${h}${trNow('u', 'h')} ${String(m).padStart(2, '0')}m`;
   return `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
 }
 
@@ -45,9 +47,9 @@ function formatDate(iso) {
   const d = new Date(iso);
   const now = new Date();
   const diff = now - d;
-  if (diff < 86400000) return 'Vandaag';
-  if (diff < 172800000) return 'Gisteren';
-  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' });
+  if (diff < 86400000) return trNow('Vandaag', 'Today');
+  if (diff < 172800000) return trNow('Gisteren', 'Yesterday');
+  return d.toLocaleDateString(trNow('nl-NL', 'en-GB'), { day: 'numeric', month: 'long' });
 }
 
 export default function ChatRoomView({ room, currentUserEmail, otherProfile, onBack, onRoomUpdate }) {
@@ -246,7 +248,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         }
       } else {
         // Room was deleted or rejected
-        toast.info('Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.');
+        toast.info(trNow('Een chat is beëindigd omdat je match heeft aangegeven niet verder te willen gaan.', 'A chat was ended because your match chose not to continue.'));
         onBackRef.current?.();
       }
     } catch (e) {}
@@ -404,7 +406,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       await loadMessages();
       scrollToBottom(true);
     } catch (e) {
-      toast.error('Bericht kon niet worden verstuurd');
+      toast.error(trNow('Bericht kon niet worden verstuurd', 'Message could not be sent'));
       setText(content);
     }
     setSending(false);
@@ -437,9 +439,9 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         await loadRoom();
       }
       await loadMessages();
-      toast.success('Foto verstuurd! 📸');
+      toast.success(trNow('Foto verstuurd! 📸', 'Photo sent! 📸'));
     } catch (e) {
-      toast.error('Foto kon niet worden verstuurd');
+      toast.error(trNow('Foto kon niet worden verstuurd', 'Photo could not be sent'));
     }
     setSending(false);
   };
@@ -478,7 +480,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           }).catch(() => {});
         }
 
-        toast.info('Chat en foto\'s zijn beëindigd');
+        toast.info(trNow('Chat en foto\'s zijn beëindigd', 'Chat and photos have ended'));
         onBack?.();
       } else {
         // Check if other also accepted → advance phase
@@ -505,9 +507,9 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             type: 'system',
             is_system: true,
           });
-          toast.success('Chat verlengd! 🎉');
+          toast.success(trNow('Chat verlengd! 🎉', 'Chat extended! 🎉'));
         } else {
-          toast.success('Je akkoord is opgeslagen! Wachten op de ander...');
+          toast.success(trNow('Je akkoord is opgeslagen! Wachten op de ander...', 'Your agreement is saved! Waiting for the other person...'));
         }
         await loadRoom();
         await loadMessages();
@@ -515,7 +517,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       setShowExtensionPrompt(false);
       setShowDeclineConfirm(false);
     } catch (e) {
-      toast.error('Er ging iets mis, probeer opnieuw');
+      toast.error(trNow('Er ging iets mis, probeer opnieuw', 'Something went wrong, please try again'));
     }
     setExtensionLoading(false);
   };
@@ -554,9 +556,9 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           type: 'system',
           is_system: true,
         });
-        toast.success('Contactgegevens uitgewisseld! 🎉');
+        toast.success(trNow('Contactgegevens uitgewisseld! 🎉', 'Contact details exchanged! 🎉'));
       } else {
-        toast.success('Jouw gegevens zijn verstuurd! Wachten op de ander...');
+        toast.success(trNow('Jouw gegevens zijn verstuurd! Wachten op de ander...', 'Your details have been sent! Waiting for the other person...'));
       }
       setContactInput('');
       setContactType(null);
@@ -564,7 +566,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       await loadRoom();
       await loadMessages();
     } catch (e) {
-      toast.error('Kon niet versturen, probeer opnieuw');
+      toast.error(trNow('Kon niet versturen, probeer opnieuw', 'Could not send, please try again'));
     }
     setSending(false);
   };
@@ -590,12 +592,12 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
 
       localStorage.setItem(`deleted_chat_hidden_${localRoom.id}`, 'true');
       await deleteChatRoomAndMedia(localRoom.id, { deletedBy: currentUserEmail });
-      toast.success('Chat en foto\'s definitief verwijderd! 🗑️');
+      toast.success(trNow('Chat en foto\'s definitief verwijderd! 🗑️', 'Chat and photos permanently deleted! 🗑️'));
       setShowDeleteConfirm(false);
       onBack?.();
     } catch (err) {
       console.error('Delete chat error:', err);
-      toast.error('Kon chat niet verwijderen');
+      toast.error(trNow('Kon chat niet verwijderen', 'Could not delete chat'));
     } finally {
       setIsDeletingChat(false);
     }
@@ -635,7 +637,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       setReportState(prev => ({ ...prev, step: 'done' }));
     } catch (err) {
       console.error('Report error:', err);
-      toast.error('Kon melding niet versturen');
+      toast.error(trNow('Kon melding niet versturen', 'Could not send report'));
     } finally {
       setReportLoading(false);
     }
@@ -657,10 +659,10 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const otherAvatar = otherPhotos[0] || null;
 
   const phaseLabels = {
-    1: { label: 'Fase 1 – 48u chat', color: '#FF4B72' },
-    2: { label: myPhotoSent ? 'Fase 2 – 48u chat' : 'Fase 2 – Stuur een foto', color: myPhotoSent ? '#FF4B72' : '#EA3FD3' },
-    3: { label: 'Fase 3 – Laatste 24u', color: '#8B5CF6' },
-    4: { label: 'Fase 4 – Contactgegevens uitwisselen', color: '#10B981' },
+    1: { label: trNow('Fase 1 – 48u chat', 'Phase 1 – 48h chat'), color: '#FF4B72' },
+    2: { label: myPhotoSent ? trNow('Fase 2 – 48u chat', 'Phase 2 – 48h chat') : trNow('Fase 2 – Stuur een foto', 'Phase 2 – Send a photo'), color: myPhotoSent ? '#FF4B72' : '#EA3FD3' },
+    3: { label: trNow('Fase 3 – Laatste 24u', 'Phase 3 – Final 24h'), color: '#8B5CF6' },
+    4: { label: trNow('Fase 4 – Contactgegevens uitwisselen', 'Phase 4 – Exchange contact details'), color: '#10B981' },
   };
   const currentPhaseInfo = phaseLabels[phase] || phaseLabels[1];
 
@@ -696,7 +698,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
             borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'
           }}
-          title="Terug"
+          title={trNow('Terug', 'Back')}
         >
           <ChevronLeft className={`w-5 h-5 ${isDark ? 'text-white' : 'text-gray-900'}`} />
         </button>
@@ -704,7 +706,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         <div
           onClick={() => setShowProfileModal(true)}
           className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer active:opacity-75 transition-opacity"
-          title="Profiel bekijken"
+          title={trNow('Profiel bekijken', 'View profile')}
         >
           {/* Avatar */}
           <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border-2" style={{ borderColor: currentPhaseInfo.color }}>
@@ -715,13 +717,13 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-black text-sm truncate" style={{ color: textMain }}>
-              {otherProfile?.age ? `${otherProfile.age} jaar` : 'Supermatch'}
+              {otherProfile?.age ? `${otherProfile.age} ${trNow('jaar', 'yrs')}` : 'Supermatch'}
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[10px] font-bold truncate" style={{ color: isWaitingForOther ? '#EA3FD3' : currentPhaseInfo.color }}>
-                {isWaitingForOther ? '⏳ Wachten op de ander...' : currentPhaseInfo.label}
-                {isArchived && ' • Gearchiveerd'}
-                {isDeleted && ' • Verwijderd'}
+                {isWaitingForOther ? trNow('⏳ Wachten op de ander...', '⏳ Waiting for the other person...') : currentPhaseInfo.label}
+                {isArchived && trNow(' • Gearchiveerd', ' • Archived')}
+                {isDeleted && trNow(' • Verwijderd', ' • Deleted')}
               </span>
             </div>
           </div>
@@ -751,8 +753,8 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)',
                 borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
               }}
-              title="Opties"
-              aria-label="Opties"
+              title={trNow('Opties', 'Options')}
+              aria-label={trNow('Opties', 'Options')}
             >
               <MoreVertical className={`w-4 h-4 ${isDark ? 'text-white' : 'text-gray-900'}`} />
             </button>
@@ -784,7 +786,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     style={{ color: '#FF6B6B' }}
                   >
                     <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-500" />
-                    Rapporteer gebruiker
+                    {trNow('Rapporteer gebruiker', 'Report user')}
                   </button>
 
                   <div className="h-px mx-3" style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }} />
@@ -798,7 +800,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold hover:bg-white/10 active:bg-white/15 transition-colors text-left text-red-500"
                   >
                     <Trash2 className="w-4 h-4 flex-shrink-0 text-red-500" />
-                    Verwijder chat
+                    {trNow('Verwijder chat', 'Delete chat')}
                   </button>
                 </motion.div>
               )}
@@ -819,7 +821,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         >
           <Clock className="w-4 h-4 text-pink-400 flex-shrink-0 animate-spin" style={{ animationDuration: '4s' }} />
           <p className="text-xs font-semibold text-pink-400 truncate">
-            Wachten op de ander...
+            {trNow('Wachten op de ander...', 'Waiting for the other person...')}
           </p>
         </div>
       )}
@@ -833,7 +835,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         >
           <Camera className="w-4 h-4 text-purple-400 flex-shrink-0" />
           <p className="text-xs font-semibold text-purple-400">
-            Stuur een foto om te kunnen chatten
+            {trNow('Stuur een foto om te kunnen chatten', 'Send a photo to be able to chat')}
           </p>
         </div>
       )}
@@ -858,11 +860,11 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl" style={{ background: 'rgba(255,75,114,0.15)' }}>
               💬
             </div>
-            <p className="font-bold text-sm" style={{ color: textMain }}>Begin met chatten!</p>
+            <p className="font-bold text-sm" style={{ color: textMain }}>{trNow('Begin met chatten!', 'Start chatting!')}</p>
             <p className="text-xs" style={{ color: textSub }}>
               {phase === 2 && !myPhotoSent
-                ? 'Stuur eerst een foto om te kunnen chatten.'
-                : 'Stuur een bericht om de conversatie te starten.'}
+                ? trNow('Stuur eerst een foto om te kunnen chatten.', 'Send a photo first to be able to chat.')
+                : trNow('Stuur een bericht om de conversatie te starten.', 'Send a message to start the conversation.')}
             </p>
           </div>
         ) : (
@@ -884,7 +886,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
               return (
                 <div key={msg.id} className="flex items-center justify-center my-3">
                   <span className="text-[11px] font-semibold text-center px-4 py-2 rounded-2xl max-w-[280px]" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.08)', color: '#FF4B72' }}>
-                    {msg.content}
+                    {dt(msg.content)}
                   </span>
                 </div>
               );
@@ -903,7 +905,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 <div className={`max-w-[75%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
                   {msg.type === 'photo' && msg.media_url ? (
                     <div className={`rounded-2xl overflow-hidden shadow-lg ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`} style={{ maxWidth: 220 }}>
-                      <img src={msg.media_url} alt="Foto" className="w-full object-cover" style={{ maxHeight: 280 }} />
+                      <img src={msg.media_url} alt={trNow('Foto', 'Photo')} className="w-full object-cover" style={{ maxHeight: 280 }} />
                     </div>
                   ) : (
                     <div
@@ -914,7 +916,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       }}
                     >
                       <p className="text-sm leading-relaxed" style={{ color: isMe ? '#FFFFFF' : textMain }}>
-                        {msg.content}
+                        {dt(msg.content)}
                       </p>
                     </div>
                   )}
@@ -939,14 +941,14 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           {myContactSent ? (
             <div className="text-center py-2">
               <p className="text-xs font-semibold" style={{ color: textSub }}>
-                ✅ Jouw gegevens zijn verstuurd!
-                {otherContactSent ? ' Jullie hebben allebei contact uitgewisseld. 🎉' : ' Wachten op de ander...'}
+                ✅ {trNow('Jouw gegevens zijn verstuurd!', 'Your details have been sent!')}
+                {otherContactSent ? trNow(' Jullie hebben allebei contact uitgewisseld. 🎉', ' You have both exchanged contact details. 🎉') : trNow(' Wachten op de ander...', ' Waiting for the other person...')}
               </p>
             </div>
           ) : (
             <>
               <p className="text-xs font-bold text-center mb-3" style={{ color: textMain }}>
-                📱 Stuur je contactgegevens
+                📱 {trNow('Stuur je contactgegevens', 'Send your contact details')}
               </p>
               <div className="grid grid-cols-3 gap-2 mb-3">
                 {[{ type: 'Snapchat', icon: '👻' }, { type: 'Instagram', icon: '📸' }, { type: 'Nummer', icon: '📞' }].map(({ type, icon }) => (
@@ -961,7 +963,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     }}
                   >
                     <span className="text-xl">{icon}</span>
-                    <span>{type}</span>
+                    <span>{dt(type)}</span>
                   </button>
                 ))}
               </div>
@@ -993,7 +995,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           )}
           {otherContactSent && !myContactSent && (
             <div className="mt-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }}>
-              <p className="text-xs font-bold text-green-400">✅ {otherProfile?.display_name || 'De ander'} heeft zijn/haar gegevens al gestuurd!</p>
+              <p className="text-xs font-bold text-green-400">✅ {otherProfile?.display_name || trNow('De ander', 'The other person')} {trNow('heeft zijn/haar gegevens al gestuurd!', 'has already sent their details!')}</p>
             </div>
           )}
         </div>
@@ -1116,12 +1118,12 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             }}
             placeholder={
               isWaitingForOther
-                ? "Wachten op de ander..."
+                ? trNow('Wachten op de ander...', 'Waiting for the other person...')
                 : isExtensionPending
-                ? "Verleng de chat om te typen..."
+                ? trNow('Verleng de chat om te typen...', 'Extend the chat to type...')
                 : isPhotoRequired
-                ? "Stuur eerst een foto om te chatten..."
-                : "Stuur een bericht..."
+                ? trNow('Stuur eerst een foto om te chatten...', 'Send a photo first to chat...')
+                : trNow('Stuur een bericht...', 'Send a message...')
             }
             className="flex-1 px-4 py-2.5 rounded-full text-base sm:text-sm focus:outline-none"
             style={{
@@ -1162,7 +1164,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       {(isArchived || isDeleted) && (
         <div className="flex-shrink-0 px-4 py-4 text-center" style={{ borderTop: '1px solid rgba(255,75,114,0.2)' }}>
           <p className="text-xs font-semibold" style={{ color: textSub }}>
-            {isDeleted ? '🗑️ Deze chat is verwijderd.' : '📁 Chat gearchiveerd — wordt binnenkort verwijderd.'}
+            {isDeleted ? trNow('🗑️ Deze chat is verwijderd.', '🗑️ This chat has been deleted.') : trNow('📁 Chat gearchiveerd — wordt binnenkort verwijderd.', '📁 Chat archived — will be deleted soon.')}
           </p>
         </div>
       )}
@@ -1196,7 +1198,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
                   color: textSub,
                 }}
-                aria-label="Sluiten"
+                aria-label={trNow('Sluiten', 'Close')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1208,16 +1210,16 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       {myExtAccepted ? '⏳' : '💬'}
                     </div>
                     <h3 className="font-black text-lg mb-2" style={{ color: textMain }}>
-                      {myExtAccepted ? 'Wachten op de ander' : 'Wil je doorgaan?'}
+                      {myExtAccepted ? trNow('Wachten op de ander', 'Waiting for the other person') : trNow('Wil je doorgaan?', 'Do you want to continue?')}
                     </h3>
                     <p className="text-sm" style={{ color: textSub }}>
                       {myExtAccepted ? (
-                        `Je hebt akkoord gegeven om door te gaan. Zodra de ander ook akkoord geeft, start Fase ${phase + 1} direct!`
+                        trNow(`Je hebt akkoord gegeven om door te gaan. Zodra de ander ook akkoord geeft, start Fase ${phase + 1} direct!`, `You agreed to continue. As soon as the other person agrees too, Phase ${phase + 1} starts right away!`)
                       ) : (
                         <>
-                          {phase === 1 && 'Jullie chatfase is verlopen. Wil je 48u doorgaan en elkaars foto zien?'}
-                          {phase === 2 && 'Wil je nog 24u doorgaan met chatten?'}
-                          {phase === 3 && 'Dit is de laatste verlenging! Wil je elkaars contactgegevens uitwisselen?'}
+                          {phase === 1 && trNow('Jullie chatfase is verlopen. Wil je 48u doorgaan en elkaars foto zien?', 'Your chat phase has expired. Do you want to continue for 48h and see each other\'s photo?')}
+                          {phase === 2 && trNow('Wil je nog 24u doorgaan met chatten?', 'Do you want to keep chatting for another 24h?')}
+                          {phase === 3 && trNow('Dit is de laatste verlenging! Wil je elkaars contactgegevens uitwisselen?', 'This is the last extension! Do you want to exchange contact details?')}
                         </>
                       )}
                     </p>
@@ -1229,7 +1231,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       className="w-full py-3.5 rounded-2xl font-bold text-white text-sm active:scale-95 transition-transform disabled:opacity-60"
                       style={{ background: GRAD }}
                     >
-                      {myExtAccepted ? 'Je hebt akkoord gegeven, wachten op de ander...' : 'Ja, doorgaan'}
+                      {myExtAccepted ? trNow('Je hebt akkoord gegeven, wachten op de ander...', 'You agreed, waiting for the other person...') : trNow('Ja, doorgaan', 'Yes, continue')}
                     </button>
                     <button
                       onClick={() => setShowDeclineConfirm(true)}
@@ -1237,7 +1239,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       className="w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform disabled:opacity-40"
                       style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: textMain }}
                     >
-                      Nee, stop de chat
+                      {trNow('Nee, stop de chat', 'No, stop the chat')}
                     </button>
                   </div>
                 </>
@@ -1248,10 +1250,10 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       ⚠️
                     </div>
                     <h3 className="font-black text-lg mb-2" style={{ color: textMain }}>
-                      Weet je het zeker?
+                      {trNow('Weet je het zeker?', 'Are you sure?')}
                     </h3>
                     <p className="text-sm leading-relaxed" style={{ color: textSub }}>
-                      Als je nu stopt, wordt de chat beëindigd en is deze definitief weg.
+                      {trNow('Als je nu stopt, wordt de chat beëindigd en is deze definitief weg.', 'If you stop now, the chat ends and is gone for good.')}
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -1260,7 +1262,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       disabled={extensionLoading}
                       className="w-full py-3.5 rounded-2xl font-bold text-white text-sm active:scale-95 transition-transform disabled:opacity-60 bg-red-500 hover:bg-red-600 shadow-md shadow-red-500/20"
                     >
-                      {extensionLoading ? 'Bezig met beëindigen...' : 'Ja, definitief stoppen'}
+                      {extensionLoading ? trNow('Bezig met beëindigen...', 'Ending...') : trNow('Ja, definitief stoppen', 'Yes, stop for good')}
                     </button>
                     <button
                       onClick={() => setShowDeclineConfirm(false)}
@@ -1268,7 +1270,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       className="w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform disabled:opacity-40"
                       style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: textMain }}
                     >
-                      Annuleren
+                      {trNow('Annuleren', 'Cancel')}
                     </button>
                   </div>
                 </>
@@ -1307,7 +1309,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
                   color: textSub,
                 }}
-                aria-label="Sluiten"
+                aria-label={trNow('Sluiten', 'Close')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1316,17 +1318,17 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 ⏳
               </div>
               <h3 className="font-black text-base mb-2" style={{ color: textMain }}>
-                Wacht op supermatch
+                {trNow('Wacht op supermatch', 'Wait for supermatch')}
               </h3>
               <p className="text-sm mb-6 leading-relaxed" style={{ color: textSub }}>
-                Wacht op supermatch voor verder te chatten.
+                {trNow('Wacht op supermatch voor verder te chatten.', 'Wait for your supermatch to continue chatting.')}
               </p>
               <button
                 onClick={() => setShowWaitingAlert(false)}
                 className="w-full py-3.5 rounded-2xl font-bold text-white text-sm active:scale-95 transition-transform shadow-md"
                 style={{ background: GRAD }}
               >
-                Oké
+                {trNow('Oké', 'OK')}
               </button>
             </motion.div>
           </motion.div>
@@ -1362,7 +1364,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
                   color: textSub,
                 }}
-                aria-label="Sluiten"
+                aria-label={trNow('Sluiten', 'Close')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1371,10 +1373,10 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 📸
               </div>
               <h3 className="font-black text-base mb-2" style={{ color: textMain }}>
-                Foto vereist
+                {trNow('Foto vereist', 'Photo required')}
               </h3>
               <p className="text-sm mb-6 leading-relaxed" style={{ color: textSub }}>
-                Stuur eerst een foto om te kunnen chatten.
+                {trNow('Stuur eerst een foto om te kunnen chatten.', 'Send a photo first to be able to chat.')}
               </p>
               <div className="space-y-2">
                 <button
@@ -1386,14 +1388,14 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   style={{ background: GRAD }}
                 >
                   <Camera className="w-4 h-4" />
-                  Foto maken
+                  {trNow('Foto maken', 'Take photo')}
                 </button>
                 <button
                   onClick={() => setShowPhotoRequiredAlert(false)}
                   className="w-full py-2.5 rounded-2xl font-bold text-xs active:scale-95 transition-transform"
                   style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: textSub }}
                 >
-                  Annuleren
+                  {trNow('Annuleren', 'Cancel')}
                 </button>
               </div>
             </motion.div>
@@ -1438,7 +1440,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 <button
                   onClick={() => setShowProfileModal(false)}
                   className="absolute top-4 right-4 z-30 w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg cursor-pointer"
-                  title="Sluiten"
+                  title={trNow('Sluiten', 'Close')}
                 >
                   <X className="w-4 h-4 text-white" />
                 </button>
@@ -1449,7 +1451,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 {/* Title inside photo overlay */}
                 <div className="absolute bottom-3.5 left-4 right-4 z-20 pointer-events-none">
                   <h3 className="text-2xl font-black text-white drop-shadow-md">
-                    {otherProfile?.age ? `${otherProfile.age} jaar` : 'Match'}
+                    {otherProfile?.age ? `${otherProfile.age} ${trNow('jaar', 'yrs')}` : 'Match'}
                     {otherProfile?.height_cm ? ` • ${otherProfile.height_cm} cm` : ''}
                   </h3>
                   {otherProfile?.city && (
@@ -1521,10 +1523,10 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <h3 className="font-black text-base mb-1" style={{ color: textMain }}>
-                Weet je het zeker?
+                {trNow('Weet je het zeker?', 'Are you sure?')}
               </h3>
               <p className="text-xs mb-5 font-medium leading-relaxed" style={{ color: textSub }}>
-                Weet je zeker dat je deze chat en alle verstuurde foto's wilt verwijderen?
+                {trNow('Weet je zeker dat je deze chat en alle verstuurde foto\'s wilt verwijderen?', 'Are you sure you want to delete this chat and all photos sent?')}
               </p>
               <div className="flex gap-2.5">
                 <button
@@ -1536,7 +1538,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     color: textMain,
                   }}
                 >
-                  Nee
+                  {trNow('Nee', 'No')}
                 </button>
                 <button
                   onClick={handleConfirmDeleteChat}
@@ -1544,7 +1546,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   className="flex-1 py-3 rounded-2xl font-black text-xs text-white shadow-lg active:scale-95 transition-all bg-red-600 hover:bg-red-700"
                   style={{ background: '#EF4444' }}
                 >
-                  {isDeletingChat ? 'Verwijderen...' : 'Ja'}
+                  {isDeletingChat ? trNow('Verwijderen...', 'Deleting...') : trNow('Ja', 'Yes')}
                 </button>
               </div>
             </motion.div>
@@ -1567,7 +1569,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>
-                      Rapporteer gebruiker
+                      {trNow('Rapporteer gebruiker', 'Report user')}
                     </h3>
                     <button
                       onClick={() => setReportState(null)}
@@ -1577,7 +1579,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     </button>
                   </div>
                   <p className="text-xs mb-3 font-medium" style={{ color: textSub }}>
-                    Kies de reden waarom je deze gebruiker wilt rapporteren:
+                    {trNow('Kies de reden waarom je deze gebruiker wilt rapporteren:', 'Choose why you want to report this user:')}
                   </p>
                   <div className="space-y-2">
                     {REPORT_REASONS.map((r) => (
@@ -1606,7 +1608,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>
-                      Rapporteer gebruiker
+                      {trNow('Rapporteer gebruiker', 'Report user')}
                     </h3>
                     <button
                       onClick={() => setReportState(null)}
@@ -1626,18 +1628,18 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   >
                     <span className="text-base">{reportState.emoji || '⚠️'}</span>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>Gekozen reden</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>{trNow('Gekozen reden', 'Chosen reason')}</span>
                       <span className="text-xs font-bold truncate" style={{ color: isDark ? '#fff' : '#111' }}>{reportState.reason}</span>
                     </div>
                   </div>
 
                   <h4 className="font-bold text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>
-                    Toelichting (optioneel)
+                    {trNow('Toelichting (optioneel)', 'Explanation (optional)')}
                   </h4>
                   <textarea
                     value={reportState.details}
                     onChange={(e) => setReportState(prev => ({ ...prev, details: e.target.value }))}
-                    placeholder="Beschrijf waarom je deze gebruiker rapporteert..."
+                    placeholder={trNow('Beschrijf waarom je deze gebruiker rapporteert...', 'Describe why you are reporting this user...')}
                     className="w-full h-24 p-3 rounded-xl text-xs border resize-none mb-4 outline-none focus:border-pink-500"
                     style={{
                       background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
@@ -1650,7 +1652,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       onClick={() => setReportState(prev => ({ ...prev, step: 'choose' }))}
                       className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-500/20 text-gray-300 active:scale-95 transition-all"
                     >
-                      Terug
+                      {trNow('Terug', 'Back')}
                     </button>
                     <button
                       onClick={handleSubmitReport}
@@ -1658,7 +1660,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all bg-red-600 hover:bg-red-700"
                       style={{ background: '#EF4444' }}
                     >
-                      {reportLoading ? 'Rapporteren...' : 'Rapporteren'}
+                      {reportLoading ? trNow('Rapporteren...', 'Reporting...') : trNow('Rapporteren', 'Report')}
                     </button>
                   </div>
                 </div>
@@ -1670,10 +1672,10 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     <Check className="w-6 h-6" />
                   </div>
                   <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>
-                    Bedankt voor je melding
+                    {trNow('Bedankt voor je melding', 'Thanks for your report')}
                   </h3>
                   <p className="text-xs mb-4 font-medium" style={{ color: textSub }}>
-                    We zullen deze melding zo snel mogelijk beoordelen. De chat is verwijderd.
+                    {trNow('We zullen deze melding zo snel mogelijk beoordelen. De chat is verwijderd.', 'We will review this report as soon as possible. The chat has been deleted.')}
                   </p>
                   <button
                     onClick={() => {
@@ -1683,7 +1685,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     className="w-full py-2.5 rounded-xl font-black text-xs text-white active:scale-95 transition-all"
                     style={{ background: GRAD }}
                   >
-                    Sluiten
+                    {trNow('Sluiten', 'Close')}
                   </button>
                 </div>
               )}

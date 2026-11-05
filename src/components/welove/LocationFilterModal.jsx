@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, MapPin, Crosshair, Search, Check, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DEFAULT_COUNTRY } from '@/lib/countries';
+import { trNow } from '@/lib/LanguageContext';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -272,8 +273,8 @@ export default function LocationFilterModal({
                             <Crosshair className="w-4 h-4 text-white" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className={`text-sm font-bold truncate ${textMain}`}>Filteren op huidige locatie</p>
-                            <p className="text-xs text-gray-400 truncate mt-0.5">Gebruik je live GPS positie</p>
+                            <p className={`text-sm font-bold truncate ${textMain}`}>{trNow('Filteren op huidige locatie', 'Filter on current location')}</p>
+                            <p className="text-xs text-gray-400 truncate mt-0.5">{trNow('Gebruik je live GPS positie', 'Use your live GPS position')}</p>
                           </div>
                         </button>
                       </div>
@@ -332,7 +333,7 @@ export default function LocationFilterModal({
                 }}
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>Filter verwijderen</span>
+                <span>{trNow('Filter verwijderen', 'Remove filter')}</span>
               </button>
             )}
           </motion.div>

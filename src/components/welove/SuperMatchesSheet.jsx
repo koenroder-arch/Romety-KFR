@@ -8,15 +8,17 @@ import { addLocalReportedEmail } from '@/lib/reportUtils';
 import { toast } from 'sonner';
 import { createPageUrl } from '@/utils';
 import { useNavigate } from 'react-router-dom';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
 const REPORT_REASONS = [
-  { id: 'ongepaste_foto', label: 'Ongepaste foto', emoji: '🖼️' },
-  { id: 'fraude_scam', label: 'Fraude of scam', emoji: '⚠️' },
-  { id: 'ai_foto', label: 'AI foto', emoji: '🤖' },
-  { id: 'bot_account', label: 'Een Bot account', emoji: '👾' },
-  { id: 'stalking', label: 'Stalking', emoji: '🚫' },
+  { id: 'ongepaste_foto', get label() { return trNow('Ongepaste foto', 'Inappropriate photo'); }, emoji: '🖼️' },
+  { id: 'fraude_scam', get label() { return trNow('Fraude of scam', 'Fraud or scam'); }, emoji: '⚠️' },
+  { id: 'ai_foto', get label() { return trNow('AI foto', 'AI photo'); }, emoji: '🤖' },
+  { id: 'bot_account', get label() { return trNow('Een Bot account', 'A bot account'); }, emoji: '👾' },
+  { id: 'stalking', get label() { return trNow('Stalking', 'Stalking'); }, emoji: '🚫' },
 ];
 
 export default function SuperMatchesSheet({ profiles, currentUser, myProfile, isDark, onClose }) {
@@ -108,11 +110,11 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
         console.warn('Could not create notification:', errNotif);
       }
 
-      toast.success('Chat-uitnodiging verstuurd! 💬');
+      toast.success(trNow('Chat-uitnodiging verstuurd! 💬', 'Chat invite sent! 💬'));
       await loadChatRooms();
     } catch (e) {
       console.error('Error starting chat:', e);
-      toast.error('Kon geen chat starten. Controleer of de ChatRoom tabel bestaat in Supabase.');
+      toast.error(trNow('Kon geen chat starten. Probeer het later opnieuw.', 'Could not start a chat. Please try again later.'));
     } finally {
       setStartingChatFor(null);
     }
@@ -154,14 +156,14 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
           onClick={(e) => e.stopPropagation()}
         >
           <span className="text-5xl">💜</span>
-          <p className="text-white font-black text-xl">Nog geen supermatches</p>
-          <p className="text-white/60 text-sm max-w-xs">Like iemand terug en ze worden je supermatch!</p>
+          <p className="text-white font-black text-xl">{trNow('Nog geen supermatches', 'No supermatches yet')}</p>
+          <p className="text-white/60 text-sm max-w-xs">{trNow('Like iemand terug en ze worden je supermatch!', 'Like someone back and they become your supermatch!')}</p>
           <button 
             onClick={onClose} 
             className="mt-4 px-6 py-2.5 rounded-full font-bold text-white text-sm active:scale-95 transition-transform cursor-pointer" 
             style={{ background: GRAD, boxShadow: '0 8px 24px rgba(255, 75, 114, 0.35)' }}
           >
-            Sluiten
+            {trNow('Sluiten', 'Close')}
           </button>
         </div>
       </div>,
@@ -233,7 +235,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                         setOpenMenuProfileId(prev => prev === profile.id ? null : profile.id);
                       }}
                       className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg"
-                      title="Opties"
+                      title={trNow('Opties', 'Options')}
                     >
                       <MoreVertical className="w-4 h-4 text-white" />
                     </button>
@@ -262,7 +264,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                               ? <ChevronUp className="w-4 h-4 text-pink-400 flex-shrink-0" />
                               : <ChevronDown className="w-4 h-4 text-pink-400 flex-shrink-0" />
                             }
-                            Bio zien van profiel
+                            {trNow('Bio zien van profiel', 'View profile bio')}
                           </button>
 
                           <div className="h-px mx-3" style={{ background: 'rgba(255,255,255,0.1)' }} />
@@ -278,7 +280,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                             style={{ color: '#FF6B6B' }}
                           >
                             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                            Rapporteren
+                            {trNow('Rapporteren', 'Report')}
                           </button>
                         </motion.div>
                       )}
@@ -293,7 +295,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                     <div className="mt-auto pointer-events-auto flex flex-col">
                       {/* Name/Age/Height */}
                       <h2 className="text-[26px] sm:text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide text-left">
-                        {profile.age} jaar {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
+                        {profile.age} {trNow('jaar', 'yrs')} {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                       </h2>
 
                       {/* Expandable Bio Section */}
@@ -308,7 +310,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                           >
                             <div className="rounded-2xl px-4 py-3 border border-white/20 bg-black/65 backdrop-blur-md">
                               <p className="text-xs sm:text-sm text-white/90 font-medium leading-relaxed">
-                                {profile.bio || 'Geen bio beschikbaar.'}
+                                {profile.bio || trNow('Geen bio beschikbaar.', 'No bio available.')}
                               </p>
                             </div>
                           </motion.div>
@@ -340,7 +342,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                               className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-green-400 bg-green-500/15 border border-green-500/40 backdrop-blur-md shadow-lg active:scale-95 transition-transform"
                             >
                               <MessageCircle className="w-5 h-5" />
-                              <span>Chat actief! Ga naar Chats →</span>
+                              <span>{trNow('Chat actief! Ga naar Chats →', 'Chat active! Go to Chats →')}</span>
                             </button>
                           );
                         }
@@ -349,7 +351,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                             return (
                               <div className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 font-bold text-sm text-amber-300 bg-amber-500/20 border border-amber-500/40 backdrop-blur-md shadow-lg">
                                 <Clock className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '3s' }} />
-                                <span>Uitnodiging verstuurd</span>
+                                <span>{trNow('Uitnodiging verstuurd', 'Invite sent')}</span>
                               </div>
                             );
                           } else {
@@ -359,7 +361,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                                 className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-pink-300 bg-pink-500/20 border border-pink-500/40 backdrop-blur-md shadow-lg active:scale-95 transition-transform"
                               >
                                 <MessageCircle className="w-5 h-5" />
-                                <span>Uitnodiging ontvangen! Ga naar Chats →</span>
+                                <span>{trNow('Uitnodiging ontvangen! Ga naar Chats →', 'Invite received! Go to Chats →')}</span>
                               </button>
                             );
                           }
@@ -372,7 +374,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                             style={{ background: GRAD, boxShadow: '0 6px 20px rgba(234, 63, 211, 0.4)' }}
                           >
                             <MessageCircle className="w-5 h-5 text-white" />
-                            {startingChatFor === profile.user_email ? 'Bezig...' : 'Chat ontgrendelen'}
+                            {startingChatFor === profile.user_email ? trNow('Bezig...', 'Working...') : trNow('Chat ontgrendelen', 'Unlock chat')}
                           </button>
                         );
                       })()}
@@ -399,7 +401,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
               onClick={onClose}
               className="w-9 h-9 rounded-full flex items-center justify-center pointer-events-auto transition-transform active:scale-90 border border-white/15"
               style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }}
-              title="Terug"
+              title={trNow('Terug', 'Back')}
             >
               <ChevronLeft className="w-5 h-5 text-white" />
             </button>
@@ -435,12 +437,12 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
               {reportState.step === 'choose' && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>Rapporteer profiel</h3>
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>{trNow('Rapporteer profiel', 'Report profile')}</h3>
                     <button onClick={() => setReportState(null)} className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-xs mb-3 font-medium" style={{ color: textSub }}>Kies de reden waarom je dit profiel wilt rapporteren:</p>
+                  <p className="text-xs mb-3 font-medium" style={{ color: textSub }}>{trNow('Kies de reden waarom je dit profiel wilt rapporteren:', 'Choose why you want to report this profile:')}</p>
                   <div className="space-y-2">
                     {REPORT_REASONS.map((r) => (
                       <button
@@ -464,7 +466,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
               {reportState.step === 'detail' && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>Rapporteer profiel</h3>
+                    <h3 className="font-black text-base" style={{ color: isDark ? '#fff' : '#111' }}>{trNow('Rapporteer profiel', 'Report profile')}</h3>
                     <button onClick={() => setReportState(null)} className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-500/20 text-gray-400 active:scale-90 transition-transform">
                       <X className="w-4 h-4" />
                     </button>
@@ -480,16 +482,16 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   >
                     <span className="text-base">{reportState.emoji || '⚠️'}</span>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>Gekozen reden</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: textSub }}>{trNow('Gekozen reden', 'Chosen reason')}</span>
                       <span className="text-xs font-bold truncate" style={{ color: isDark ? '#fff' : '#111' }}>{reportState.reason}</span>
                     </div>
                   </div>
 
-                  <h4 className="font-bold text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>Toelichting (optioneel)</h4>
+                  <h4 className="font-bold text-xs mb-2" style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>{trNow('Toelichting (optioneel)', 'Explanation (optional)')}</h4>
                   <textarea
                     value={reportState.details}
                     onChange={(e) => setReportState((prev) => ({ ...prev, details: e.target.value }))}
-                    placeholder="Beschrijf waarom je dit profiel rapporteert..."
+                    placeholder={trNow('Beschrijf waarom je dit profiel rapporteert...', 'Describe why you are reporting this profile...')}
                     className="w-full h-24 p-3 rounded-xl text-xs border resize-none mb-4 outline-none focus:border-pink-500"
                     style={{
                       background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
@@ -499,7 +501,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   />
                   <div className="flex gap-2">
                     <button onClick={() => setReportState((prev) => ({ ...prev, step: 'choose' }))} className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-gray-500/20 text-gray-300 active:scale-95 transition-all">
-                      Terug
+                      {trNow('Terug', 'Back')}
                     </button>
                     <button
                       onClick={handleSubmitReport}
@@ -507,7 +509,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                       className="flex-1 py-2.5 rounded-xl font-black text-xs text-white shadow-md active:scale-95 transition-all bg-red-600 hover:bg-red-700"
                       style={{ background: '#EF4444' }}
                     >
-                      {reportLoading ? 'Rapporteren...' : 'Rapporteren'}
+                      {reportLoading ? trNow('Rapporteren...', 'Reporting...') : trNow('Rapporteren', 'Report')}
                     </button>
                   </div>
                 </div>
@@ -518,10 +520,10 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-green-500/20 text-green-400">
                     <Check className="w-6 h-6" />
                   </div>
-                  <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>Bedankt voor je melding</h3>
-                  <p className="text-xs mb-4" style={{ color: textSub }}>We zullen dit profiel zo snel mogelijk beoordelen.</p>
+                  <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>{trNow('Bedankt voor je melding', 'Thanks for your report')}</h3>
+                  <p className="text-xs mb-4" style={{ color: textSub }}>{trNow('We zullen dit profiel zo snel mogelijk beoordelen.', 'We will review this profile as soon as possible.')}</p>
                   <button onClick={() => setReportState(null)} className="w-full py-2.5 rounded-xl font-black text-xs text-white" style={{ background: GRAD }}>
-                    Sluiten
+                    {trNow('Sluiten', 'Close')}
                   </button>
                 </div>
               )}

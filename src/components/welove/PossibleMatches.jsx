@@ -3,6 +3,7 @@ import { isMatch } from '@/lib/matchUtils';
 import { Heart, Crown, MapPin, SlidersHorizontal, X, Check } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { supabase } from '@/api/supabaseClient';
+import { useLang } from '@/lib/LanguageContext';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,6 +12,7 @@ const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 const NL_CITIES = ['Amsterdam', 'Rotterdam', 'Utrecht', 'Den Haag', 'Eindhoven', 'Tilburg', 'Groningen', 'Breda', 'Nijmegen', 'Leiden', 'Haarlem', 'Maastricht', 'Arnhem', 'Enschede', 'Zwolle'];
 
 export default function PossibleMatches({ allDestinations = [], allProfiles = [], isPremium, currentUserEmail, myProfile, onShowPremium }) {
+  const { tr } = useLang();
   const [cityFilter, setCityFilter] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
   const [likedEmails, setLikedEmails] = useState(new Set());
@@ -69,9 +71,9 @@ export default function PossibleMatches({ allDestinations = [], allProfiles = []
         base44.entities.Notification.create({ to_email: profile.user_email, from_email: currentUserEmail, type: 'match', venue_name: venueName, from_name: myName }),
         base44.entities.Notification.create({ to_email: currentUserEmail, from_email: profile.user_email, type: 'match', venue_name: venueName, from_name: profile.display_name || 'Iemand' }),
       ]);
-      toast.success(`🎉 Match met ${profile.display_name || 'iemand'}!`, { duration: 3000 });
+      toast.success(tr(`🎉 Match met ${profile.display_name || 'iemand'}!`, `🎉 Match with ${profile.display_name || 'someone'}!`), { duration: 3000 });
     } else {
-      toast.success(`Je hebt ${profile.display_name || 'iemand'} geliked! 💜`, { duration: 2000 });
+      toast.success(tr(`Je hebt ${profile.display_name || 'iemand'} geliked! 💜`, `You liked ${profile.display_name || 'someone'}! 💜`), { duration: 2000 });
     }
   };
 

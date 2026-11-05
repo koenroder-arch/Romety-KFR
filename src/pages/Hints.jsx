@@ -6,6 +6,7 @@ import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
 import { X, Send, AlertCircle, Download, RefreshCw, Zap, ZapOff, Type, MapPin, Trash2, Image as ImageIcon } from 'lucide-react';
 import { createPageUrl } from '@/utils';
+import { trNow } from '@/lib/LanguageContext';
 
 // Helper component for Drag & Drop (1 finger), Pinch-to-zoom (2 fingers), and Rotate (2 fingers)
 function GestureSticker({ transform, onTransformChange, onTap, children, innerRef, stickerType, onDragStart, onDragMove, onDragEnd }) {
@@ -288,11 +289,11 @@ export default function Hints() {
       if (targetType === 'text') {
         setStoryText('');
         setTextTransform({ x: 0, y: 15, scale: 1, rotation: 0 });
-        toast.success('Tekst verwijderd 🗑️');
+        toast.success(trNow('Tekst verwijderd 🗑️', 'Text removed 🗑️'));
       } else if (targetType === 'location') {
         setStoryLocation(null);
         setLocTransform({ x: 0, y: -75, scale: 1, rotation: 0 });
-        toast.success('Locatie verwijderd 🗑️');
+        toast.success(trNow('Locatie verwijderd 🗑️', 'Location removed 🗑️'));
       }
       if (navigator.vibrate) navigator.vibrate([40, 50, 40]);
     }
@@ -307,15 +308,15 @@ export default function Hints() {
     if (storyText && storyLocation) {
       setStoryText('');
       setTextTransform({ x: 0, y: 15, scale: 1, rotation: 0 });
-      toast.success('Tekst verwijderd 🗑️');
+      toast.success(trNow('Tekst verwijderd 🗑️', 'Text removed 🗑️'));
     } else if (storyText) {
       setStoryText('');
       setTextTransform({ x: 0, y: 15, scale: 1, rotation: 0 });
-      toast.success('Tekst verwijderd 🗑️');
+      toast.success(trNow('Tekst verwijderd 🗑️', 'Text removed 🗑️'));
     } else if (storyLocation) {
       setStoryLocation(null);
       setLocTransform({ x: 0, y: -75, scale: 1, rotation: 0 });
-      toast.success('Locatie verwijderd 🗑️');
+      toast.success(trNow('Locatie verwijderd 🗑️', 'Location removed 🗑️'));
     }
     if (navigator.vibrate) navigator.vibrate(40);
   };
@@ -607,7 +608,7 @@ export default function Hints() {
       );
     } catch (err) {
       console.error('Error in capturePhoto:', err);
-      toast.error('Kon foto niet vastleggen, probeer opnieuw');
+      toast.error(trNow('Kon foto niet vastleggen, probeer opnieuw', 'Could not capture photo, please try again'));
     }
   };
 
@@ -848,7 +849,7 @@ export default function Hints() {
         venue_name: storyLocation || myCheckIn.venue_name,
       });
 
-      toast.success("Verhaal succesvol geplaatst! 🚀", { duration: 3000 });
+      toast.success(trNow('Verhaal succesvol geplaatst! 🚀', 'Story posted successfully! 🚀'), { duration: 3000 });
       
       if (capturedUrl) {
         URL.revokeObjectURL(capturedUrl);
@@ -857,7 +858,7 @@ export default function Hints() {
       navigate(createPageUrl('Home'));
     } catch (err) {
       console.error("Story creation failed:", err);
-      toast.error("Kan verhaal niet uploaden. Probeer het opnieuw.", { duration: 3000 });
+      toast.error(trNow('Kan verhaal niet uploaden. Probeer het opnieuw.', 'Could not upload story. Please try again.'), { duration: 3000 });
     } finally {
       setIsUploading(false);
     }
@@ -875,7 +876,7 @@ export default function Hints() {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
-    toast.success(`${capturedType === 'video' ? 'Video' : 'Foto'} opgeslagen op je apparaat! 📥`);
+    toast.success(`${capturedType === 'video' ? 'Video' : trNow('Foto', 'Photo')} ${trNow('opgeslagen op je apparaat! 📥', 'saved to your device! 📥')}`);
   };
 
   const bg = isDark ? '#08090E' : '#F8F9FB';
@@ -901,7 +902,7 @@ export default function Hints() {
           <button
             onClick={() => navigate(createPageUrl('Home'))}
             className="p-2.5 rounded-full bg-black/5 dark:bg-white/10 active:scale-90 transition-transform"
-            aria-label="Sluiten"
+            aria-label={trNow('Sluiten', 'Close')}
           >
             <X className={`w-5 h-5 ${textMain}`} />
           </button>
@@ -922,10 +923,10 @@ export default function Hints() {
             }}
           >
             <h3 className={`text-base font-black tracking-tight mb-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Geen bestemming ingesteld
+              {trNow('Geen bestemming ingesteld', 'No destination set')}
             </h3>
             <p className={`text-xs font-medium leading-relaxed mb-5 max-w-[250px] ${isDark ? 'text-white/70' : 'text-gray-600'}`}>
-              Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!
+              {trNow('Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!', 'Set your destination for today to see your matches, hints, chat and discounts!')}
             </p>
             <button
               onClick={() => navigate(createPageUrl('Pinpoint'))}
@@ -935,7 +936,7 @@ export default function Hints() {
                 boxShadow: '0 6px 20px rgba(255, 75, 114, 0.4)',
               }}
             >
-              Ga naar Pinpoint
+              {trNow('Ga naar Pinpoint', 'Go to Pinpoint')}
             </button>
           </div>
         </div>
@@ -1005,8 +1006,8 @@ export default function Hints() {
             }
           }}
           className="p-2.5 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/20 active:scale-90 transition-transform cursor-pointer hover:bg-black/60 shadow-lg"
-          aria-label={capturedUrl ? 'Foto verwerpen' : 'Sluiten'}
-          title={capturedUrl ? 'Foto verwerpen' : 'Sluiten'}
+          aria-label={capturedUrl ? trNow('Foto verwerpen', 'Discard photo') : trNow('Sluiten', 'Close')}
+          title={capturedUrl ? trNow('Foto verwerpen', 'Discard photo') : trNow('Sluiten', 'Close')}
         >
           <X className="w-5 h-5" />
         </button>
@@ -1024,8 +1025,8 @@ export default function Hints() {
                   ? 'bg-amber-400 text-gray-900 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.65)]'
                   : 'bg-black/40 text-white border-white/20 hover:bg-black/60'
               }`}
-              title={flashMode ? 'Flits aan' : 'Flits uit'}
-              aria-label="Flits"
+              title={flashMode ? trNow('Flits aan', 'Flash on') : trNow('Flits uit', 'Flash off')}
+              aria-label={trNow('Flits', 'Flash')}
             >
               {flashMode ? (
                 <Zap className="w-5 h-5 fill-current text-gray-950" />
@@ -1039,8 +1040,8 @@ export default function Hints() {
               type="button"
               onClick={toggleCamera}
               className="p-2.5 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/20 active:scale-90 transition-all hover:bg-black/60 cursor-pointer shadow-lg"
-              title="Camera draaien"
-              aria-label="Camera draaien"
+              title={trNow('Camera draaien', 'Flip camera')}
+              aria-label={trNow('Camera draaien', 'Flip camera')}
             >
               <RefreshCw className="w-5 h-5" />
             </button>
@@ -1057,8 +1058,8 @@ export default function Hints() {
                   ? 'bg-pink-500 text-white border-pink-400 shadow-[0_0_16px_rgba(236,72,153,0.65)]'
                   : 'bg-black/40 text-white border-white/20 hover:bg-black/60'
               }`}
-              title="Locatie toevoegen"
-              aria-label="Locatie toevoegen"
+              title={trNow('Locatie toevoegen', 'Add location')}
+              aria-label={trNow('Locatie toevoegen', 'Add location')}
             >
               <MapPin className={`w-5 h-5 ${storyLocation ? 'fill-current' : ''}`} />
             </button>
@@ -1072,8 +1073,8 @@ export default function Hints() {
                   ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-pink-400 shadow-[0_0_16px_rgba(236,72,153,0.65)]'
                   : 'bg-black/40 text-white border-white/20 hover:bg-black/60'
               }`}
-              title="Tekst toevoegen"
-              aria-label="Tekst toevoegen"
+              title={trNow('Tekst toevoegen', 'Add text')}
+              aria-label={trNow('Tekst toevoegen', 'Add text')}
             >
               <Type className="w-5 h-5" />
             </button>
@@ -1151,25 +1152,25 @@ export default function Hints() {
                 <AlertCircle className="w-14 h-14 text-red-400 mb-1" />
                 {permissionError === 'blocked' && (
                   <>
-                    <p className="text-base font-bold text-white">Cameratoegang vereist 🚫</p>
+                    <p className="text-base font-bold text-white">{trNow('Cameratoegang vereist 🚫', 'Camera access required 🚫')}</p>
                     <p className="text-sm text-white/70 max-w-xs">
-                      Ga naar instellingen om Romety toegang tot je camera te geven om foto's en verhalen te kunnen maken.
+                      {trNow('Ga naar instellingen om Romety toegang tot je camera te geven om foto\'s en verhalen te kunnen maken.', 'Go to settings to give Romety access to your camera so you can take photos and stories.')}
                     </p>
                   </>
                 )}
                 {permissionError === 'notfound' && (
                   <>
-                    <p className="text-base font-bold text-white">Geen camera gevonden 📷</p>
+                    <p className="text-base font-bold text-white">{trNow('Geen camera gevonden 📷', 'No camera found 📷')}</p>
                     <p className="text-sm text-white/70 max-w-xs">
-                      Er is geen camera beschikbaar op dit toestel of de camera is in gebruik door een andere app.
+                      {trNow('Er is geen camera beschikbaar op dit toestel of de camera is in gebruik door een andere app.', 'No camera is available on this device or the camera is being used by another app.')}
                     </p>
                   </>
                 )}
                 {permissionError === 'generic' && (
                   <>
-                    <p className="text-base font-bold text-white">Camera niet beschikbaar</p>
+                    <p className="text-base font-bold text-white">{trNow('Camera niet beschikbaar', 'Camera not available')}</p>
                     <p className="text-sm text-white/70 max-w-xs">
-                      Cameratoegang is niet ingeschakeld. Geef toestemming in je instellingen en probeer opnieuw.
+                      {trNow('Cameratoegang is niet ingeschakeld. Geef toestemming in je instellingen en probeer opnieuw.', 'Camera access is not enabled. Give permission in your settings and try again.')}
                     </p>
                   </>
                 )}
@@ -1179,7 +1180,7 @@ export default function Hints() {
                   className="mt-2 px-6 py-3 rounded-full font-bold text-sm text-white active:scale-95 transition-transform"
                   style={{ background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)', boxShadow: '0 6px 20px rgba(255,75,114,0.4)' }}
                 >
-                  🔄 Opnieuw proberen
+                  🔄 {trNow('Opnieuw proberen', 'Try again')}
                 </button>
               </div>
             ) : (
@@ -1220,7 +1221,7 @@ export default function Hints() {
           <div className="w-14 flex items-center justify-center">
             <label 
               className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition-all flex items-center justify-center cursor-pointer border border-white/20 shadow-md"
-              title="Foto of video kiezen uit galerij"
+              title={trNow('Foto of video kiezen uit galerij', 'Choose photo or video from gallery')}
             >
               <ImageIcon className="w-5 h-5 text-white/90" />
               <input 
@@ -1249,7 +1250,7 @@ export default function Hints() {
                   : '0 4px 20px rgba(0, 0, 0, 0.4)',
                 transform: isRecording ? 'scale(1.12)' : 'scale(1)',
               }}
-              aria-label="Foto maken of video opnemen"
+              aria-label={trNow('Foto maken of video opnemen', 'Take photo or record video')}
             >
               <div
                 className={`transition-all duration-200 ${
@@ -1267,8 +1268,8 @@ export default function Hints() {
               type="button"
               onClick={toggleCamera}
               className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition-all flex items-center justify-center cursor-pointer border border-white/20 shadow-md"
-              title="Camera draaien"
-              aria-label="Camera draaien"
+              title={trNow('Camera draaien', 'Flip camera')}
+              aria-label={trNow('Camera draaien', 'Flip camera')}
             >
               <RefreshCw className="w-5 h-5 text-white/90" />
             </button>
@@ -1307,7 +1308,7 @@ export default function Hints() {
               }`}
             >
               <Download className="w-4.5 h-4.5 text-[#FF4B72]" />
-              <span>Opslaan</span>
+              <span>{trNow('Opslaan', 'Save')}</span>
             </button>
 
             {/* Naar Story (Add to Story) */}
@@ -1324,12 +1325,12 @@ export default function Hints() {
               {isUploading ? (
                 <>
                   <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  <span>Plaatsen...</span>
+                  <span>{trNow('Plaatsen...', 'Posting...')}</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>Naar Story</span>
+                  <span>{trNow('Naar Story', 'To Story')}</span>
                 </>
               )}
             </button>
@@ -1353,8 +1354,8 @@ export default function Hints() {
             bottom: 'calc(max(20px, env(safe-area-inset-bottom, 20px)) + 74px)',
             right: 'calc(50% - min(50vw, 224px) + 16px)',
           }}
-          title="Sleep hierheen om te verwijderen"
-          aria-label="Sleep tekst of locatie hierheen om te verwijderen"
+          title={trNow('Sleep hierheen om te verwijderen', 'Drag here to remove')}
+          aria-label={trNow('Sleep tekst of locatie hierheen om te verwijderen', 'Drag text or location here to remove')}
         >
           <Trash2
             className={`transition-all duration-200 ${
@@ -1393,14 +1394,14 @@ export default function Hints() {
                 className="py-1.5 px-3.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-xs hover:bg-red-500/25 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Wissen</span>
+                <span>{trNow('Wissen', 'Clear')}</span>
               </button>
             ) : (
               <div className="w-16" />
             )}
 
             <span className="text-white/60 text-xs font-semibold tracking-wide">
-              {storyText.length > 0 ? `${storyText.length}/80` : 'Tik om te typen'}
+              {storyText.length > 0 ? `${storyText.length}/80` : trNow('Tik om te typen', 'Tap to type')}
             </span>
 
             <button
@@ -1412,7 +1413,7 @@ export default function Hints() {
                 boxShadow: '0 4px 16px rgba(255, 75, 114, 0.45)',
               }}
             >
-              Klaar
+              {trNow('Klaar', 'Done')}
             </button>
           </div>
 
@@ -1440,7 +1441,7 @@ export default function Hints() {
                   maxLength={80}
                   value={storyText}
                   onChange={e => setStoryText(e.target.value)}
-                  placeholder="Typ een bericht..."
+                  placeholder={trNow('Typ een bericht...', 'Type a message...')}
                   className="w-full bg-transparent text-center text-white font-black text-base sm:text-lg outline-none resize-none placeholder-white/40 leading-snug"
                   style={{
                     caretColor: '#FF4B72',
@@ -1458,7 +1459,7 @@ export default function Hints() {
 
           {/* Bottom Hint */}
           <div className="w-full text-center text-white/40 text-[11px] pointer-events-none pb-2">
-            Tik buiten het vak of op Klaar om te bevestigen
+            {trNow('Tik buiten het vak of op Klaar om te bevestigen', 'Tap outside the box or on Done to confirm')}
           </div>
         </div>
       )}
@@ -1478,7 +1479,7 @@ export default function Hints() {
                 <div className="w-8 h-8 rounded-xl bg-pink-500/20 text-pink-500 flex items-center justify-center">
                   <MapPin className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-black">Locatie toevoegen</h3>
+                <h3 className="text-sm font-black">{trNow('Locatie toevoegen', 'Add location')}</h3>
               </div>
               <button
                 type="button"
@@ -1493,7 +1494,7 @@ export default function Hints() {
             {myCheckIn?.venue_name && (
               <div className="mb-3">
                 <p className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5">
-                  Jouw huidige hotspot:
+                  {trNow('Jouw huidige hotspot:', 'Your current hotspot:')}
                 </p>
                 <button
                   type="button"
@@ -1509,7 +1510,7 @@ export default function Hints() {
                     <span className="truncate">{myCheckIn.venue_name}</span>
                   </span>
                   {storyLocation === myCheckIn.venue_name && (
-                    <span className="text-[11px] text-pink-400 font-bold">Gekozen</span>
+                    <span className="text-[11px] text-pink-400 font-bold">{trNow('Gekozen', 'Selected')}</span>
                   )}
                 </button>
               </div>
@@ -1518,13 +1519,13 @@ export default function Hints() {
             {/* Custom Location input */}
             <div className="mb-4">
               <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider block mb-1.5">
-                Of typ een eigen locatie:
+                {trNow('Of typ een eigen locatie:', 'Or type your own location:')}
               </label>
               <input
                 type="text"
                 value={storyLocation || ''}
                 onChange={e => setStoryLocation(e.target.value)}
-                placeholder="Bijv. Amsterdam Centrum, Club Air..."
+                placeholder={trNow('Bijv. Amsterdam Centrum, Club Air...', 'E.g. Amsterdam Centre, Club Air...')}
                 maxLength={40}
                 className="w-full rounded-2xl bg-white/5 border border-white/15 px-3.5 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-pink-500"
               />
@@ -1540,7 +1541,7 @@ export default function Hints() {
                   }}
                   className="py-2.5 px-3.5 rounded-xl border border-red-500/30 text-red-400 bg-red-500/10 font-bold text-xs hover:bg-red-500/20 active:scale-95 transition-all cursor-pointer"
                 >
-                  Verwijderen
+                  {trNow('Verwijderen', 'Remove')}
                 </button>
               )}
               <button
@@ -1548,7 +1549,7 @@ export default function Hints() {
                 onClick={() => setShowLocationModal(false)}
                 className="flex-1 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-pink-500 to-rose-600 shadow-md active:scale-95 transition-all cursor-pointer"
               >
-                Opslaan
+                {trNow('Opslaan', 'Save')}
               </button>
             </div>
           </div>

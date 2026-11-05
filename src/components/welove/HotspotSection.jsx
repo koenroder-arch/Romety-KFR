@@ -1,10 +1,12 @@
 import React from 'react';
+import { useLang } from '@/lib/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { Flame, Users, Crown, MapPin } from 'lucide-react';
 import { useTheme } from '@/lib/ThemeContext';
 import { calculateDistanceKm, formatDistance } from '@/lib/geoUtils';
 
 export default function HotspotSection({ hotspots, isPremium, onHotspotClick, userPosition = null }) {
+  const { tr } = useLang();
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isDark = theme !== 'light';
@@ -22,8 +24,8 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick, us
           <Flame className="w-4 h-4" />
         </div>
         <div>
-          <h2 className="font-black text-base leading-none" style={{ color: titleColor }}>Beste locaties vanavond</h2>
-          <p className="text-[11px] font-medium mt-0.5" style={{ color: subColor }}>Meest populaire hotspots in de stad</p>
+          <h2 className="font-black text-base leading-none" style={{ color: titleColor }}>{tr('Beste locaties vanavond', 'Best spots tonight')}</h2>
+          <p className="text-[11px] font-medium mt-0.5" style={{ color: subColor }}>{tr('Meest populaire hotspots in de stad', 'Most popular hotspots in town')}</p>
         </div>
       </div>
 
@@ -31,7 +33,7 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick, us
         <div className="rounded-[20px] p-5 text-center" style={{ background: emptyBg, border: emptyBorder }}>
           <p className="text-2xl mb-2">📍</p>
           <p className="text-sm leading-relaxed" style={{ color: subColor }}>
-            Nog geen hotspots bekend. Wees de eerste die een bestemming kiest!
+            {tr('Nog geen hotspots bekend. Wees de eerste die een bestemming kiest!', 'No hotspots yet. Be the first to pick a destination!')}
           </p>
         </div>
       ) : (

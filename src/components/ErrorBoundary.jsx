@@ -1,4 +1,5 @@
 import React from 'react';
+import { trNow } from '@/lib/LanguageContext';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -33,9 +34,9 @@ export default class ErrorBoundary extends React.Component {
             </div>
 
             <div>
-              <h1 className="text-2xl font-black text-white tracking-tight mb-2">Er ging iets mis</h1>
+              <h1 className="text-2xl font-black text-white tracking-tight mb-2">{trNow('Er ging iets mis', 'Something went wrong')}</h1>
               <p className="text-sm text-white/60 leading-relaxed">
-                Er is een onverwachte fout opgetreden bij het laden van dit scherm. Geen zorgen, we kunnen je terugbrengen.
+                {trNow('Er is een onverwachte fout opgetreden bij het laden van dit scherm. Geen zorgen, we kunnen je terugbrengen.', 'An unexpected error occurred while loading this screen. No worries, we can take you back.')}
               </p>
             </div>
 
@@ -47,7 +48,7 @@ export default class ErrorBoundary extends React.Component {
                 boxShadow: '0 8px 24px rgba(255,75,114,0.35)'
               }}
             >
-              Terug naar startscherm
+              {trNow('Terug naar startscherm', 'Back to home screen')}
             </button>
 
             {/* Error Details Accordion */}
@@ -58,7 +59,7 @@ export default class ErrorBoundary extends React.Component {
                   className="text-xs font-bold text-white/40 hover:text-white/60 flex items-center gap-1.5 transition-colors focus:outline-none"
                 >
                   <span>{this.state.showDetails ? '▼' : '▶'}</span>
-                  <span>Foutdetails weergeven</span>
+                  <span>{trNow('Foutdetails weergeven', 'Show error details')}</span>
                 </button>
 
                 {this.state.showDetails && (

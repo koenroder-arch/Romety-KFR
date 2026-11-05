@@ -11,6 +11,8 @@ import { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { createPageUrl } from '@/utils';
 import { deleteChatRoomAndMedia, getSyncedChatReadCounts } from '@/lib/chatUtils';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -23,42 +25,42 @@ const PHASE_DURATIONS = {
 
 
 const PHASE_LABELS = {
-  1: { label: 'Fase 1 · 48u chat', color: '#FF4B72' },
-  2: { label: 'Fase 2 · 48u chat', color: '#FF4B72' },
-  3: { label: 'Fase 3 · Laatste 24u', color: '#8B5CF6' },
-  4: { label: 'Fase 4 · Contact uitwisselen', color: '#10B981' },
+  1: { get label() { return trNow('Fase 1 · 48u chat', 'Phase 1 · 48h chat'); }, color: '#FF4B72' },
+  2: { get label() { return trNow('Fase 2 · 48u chat', 'Phase 2 · 48h chat'); }, color: '#FF4B72' },
+  3: { get label() { return trNow('Fase 3 · Laatste 24u', 'Phase 3 · Final 24h'); }, color: '#8B5CF6' },
+  4: { get label() { return trNow('Fase 4 · Contact uitwisselen', 'Phase 4 · Exchange contact'); }, color: '#10B981' },
 };
 
 function formatTimeLeft(expiresAt) {
   if (!expiresAt) return null;
   const ms = new Date(expiresAt) - new Date();
-  if (ms <= 0) return 'Verlopen';
+  if (ms <= 0) return trNow('Verlopen', 'Expired');
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
-  if (h > 0) return `${h}u ${m}m`;
+  if (h > 0) return `${h}${trNow('u', 'h')} ${m}m`;
   return `${m}m`;
 }
 
 function DeletedRoomCard({ room, otherProfile, isDark }) {
   const photos = getProfilePhotos(otherProfile);
   const avatar = photos[0] || null;
-  const displayTitle = otherProfile?.age ? `${otherProfile.age} jaar` : 'Match';
+  const displayTitle = otherProfile?.age ? `${otherProfile.age} ${trNow('jaar', 'yrs')}` : 'Match';
   const isInactive = room.contact_sent_a === 'inactivity' || room.contact_sent_b === 'inactivity';
 
   let remainingText = '';
   if (room.deleted_at) {
     const diffMs = new Date(room.deleted_at).getTime() - Date.now();
     const hours = Math.max(1, Math.ceil(diffMs / 3600000));
-    remainingText = ` · Nog ${hours}u`;
+    remainingText = trNow(` · Nog ${hours}u`, ` · ${hours}h left`);
   }
 
   const toastMsg = isInactive
-    ? 'Deze chat is beëindigd vanwege 7 dagen inactiviteit en kan niet meer geopend worden.'
-    : 'Deze chat is beëindigd en kan niet meer geopend worden.';
+    ? trNow('Deze chat is beëindigd vanwege 7 dagen inactiviteit en kan niet meer geopend worden.', 'This chat was ended due to 7 days of inactivity and can no longer be opened.')
+    : trNow('Deze chat is beëindigd en kan niet meer geopend worden.', 'This chat has ended and can no longer be opened.');
 
   const subText = isInactive
-    ? `❌ Beëindigd wegens 7 dagen inactiviteit${remainingText}`
-    : `❌ Chat beëindigd${remainingText}`;
+    ? `❌ ${trNow('Beëindigd wegens 7 dagen inactiviteit', 'Ended due to 7 days of inactivity')}${remainingText}`
+    : `❌ ${trNow('Chat beëindigd', 'Chat ended')}${remainingText}`;
 
   return (
     <div
@@ -97,7 +99,7 @@ function DeletedRoomCard({ room, otherProfile, isDark }) {
             {displayTitle}
           </p>
           <span className="text-[10px] font-semibold text-gray-500">
-            Beëindigd
+            {trNow('Beëindigd', 'Ended')}
           </span>
         </div>
         <p className="text-xs truncate font-medium text-gray-500">
@@ -127,16 +129,16 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
   const isPhase2WaitingPhoto = phase === 2 && myPhotoSent && !otherPhotoSent && room.status === 'active';
 
   const phaseInfo = isPhase2NeedPhoto
-    ? { label: 'Stuur een foto', color: '#EA3FD3' }
+    ? { label: trNow('Stuur een foto', 'Send a photo'), color: '#EA3FD3' }
     : (PHASE_LABELS[phase] || PHASE_LABELS[1]);
 
   const timeLeft = room.status === 'active' && room.phase_expires_at ? formatTimeLeft(room.phase_expires_at) : null;
 
-  const displayTitle = otherProfile?.age ? `${otherProfile.age} jaar` : 'Supermatch';
+  const displayTitle = otherProfile?.age ? `${otherProfile.age} ${trNow('jaar', 'yrs')}` : 'Supermatch';
 
   const handleClick = () => {
     if (isSentPending) {
-      toast.info(`Uitnodiging verstuurd. Wachten op acceptatie...`);
+      toast.info(trNow('Uitnodiging verstuurd. Wachten op acceptatie...', 'Invite sent. Waiting for acceptance...'));
       return;
     }
     onClick?.();
@@ -182,12 +184,12 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
             {isSentPending ? (
               <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <Clock className="w-3 h-3 animate-spin" style={{ animationDuration: '4s' }} />
-                Verstuurd
+                {trNow('Verstuurd', 'Sent')}
               </span>
             ) : isWaitingExt ? (
               <span className="text-[10px] font-bold text-pink-400 bg-pink-500/15 border border-pink-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <Clock className="w-3 h-3 animate-spin" style={{ animationDuration: '4s' }} />
-                Wachten
+                {trNow('Wachten', 'Waiting')}
               </span>
             ) : timeLeft ? (
               <span className="text-[10px] font-bold" style={{ color: phaseInfo.color }}>
@@ -198,13 +200,13 @@ function RoomCard({ room, otherProfile, currentUserEmail, isDark, messageCount =
         </div>
         <p className="text-[11px] font-semibold truncate" style={{ color: isSentPending ? '#F59E0B' : isWaitingExt ? '#EA3FD3' : phaseInfo.color }}>
           {isSentPending
-            ? 'Uitnodiging verstuurd • Wachten op antwoord...'
+            ? trNow('Uitnodiging verstuurd • Wachten op antwoord...', 'Invite sent • Waiting for reply...')
             : isWaitingExt
-            ? '⏳ Wachten op de ander...'
+            ? trNow('⏳ Wachten op de ander...', '⏳ Waiting for the other person...')
             : isPending && isUserB
-            ? '💬 Uitnodiging — Accepteer of weiger'
+            ? trNow('💬 Uitnodiging — Accepteer of weiger', '💬 Invite — Accept or decline')
             : room.status === 'archived'
-            ? '📁 Gearchiveerd'
+            ? trNow('📁 Gearchiveerd', '📁 Archived')
             : phaseInfo.label}
         </p>
       </div>
@@ -421,11 +423,11 @@ export default function Chat() {
         console.warn('Notification failed:', notifErr);
       }
 
-      toast.success('Chat geaccepteerd! 🎉');
+      toast.success(trNow('Chat geaccepteerd! 🎉', 'Chat accepted! 🎉'));
       await loadData();
     } catch (e) {
       console.error('Accept room error:', e);
-      toast.error('Kon niet accepteren, probeer opnieuw');
+      toast.error(trNow('Kon niet accepteren, probeer opnieuw', 'Could not accept, please try again'));
     } finally {
       setAcceptingRoom(null);
     }
@@ -450,17 +452,17 @@ export default function Chat() {
         }).catch(() => {});
       }
 
-      toast.info('Uitnodiging geweigerd');
+      toast.info(trNow('Uitnodiging geweigerd', 'Invite declined'));
       await loadData();
     } catch (e) {
       console.error('Decline error:', e);
-      toast.error('Er ging iets mis');
+      toast.error(trNow('Er ging iets mis', 'Something went wrong'));
     }
   };
 
   const handleOpenRoom = (room) => {
     if (room.status === 'deleted') {
-      toast.info('Deze chat is beëindigd en kan niet meer geopend worden.');
+      toast.info(trNow('Deze chat is beëindigd en kan niet meer geopend worden.', 'This chat has ended and can no longer be opened.'));
       return;
     }
     setMessageCounts(prev => ({ ...prev, [room.id]: 0 }));
@@ -475,7 +477,7 @@ export default function Chat() {
     const found = rooms.find(r => r.id === roomIdFromUrl);
     if (found) {
       if (found.status === 'deleted') {
-        toast.info('Deze chat is beëindigd en kan niet meer geopend worden.');
+        toast.info(trNow('Deze chat is beëindigd en kan niet meer geopend worden.', 'This chat has ended and can no longer be opened.'));
         setSearchParams({}, { replace: true });
         return;
       }
@@ -587,7 +589,7 @@ export default function Chat() {
               background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
               borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'
             }}
-            title="Terug"
+            title={trNow('Terug', 'Back')}
           >
             <ChevronLeft className={`w-5 h-5 ${isDark ? 'text-white' : 'text-gray-900'}`} />
           </button>
@@ -596,7 +598,7 @@ export default function Chat() {
               Chats
             </h1>
             <p className="text-[11px] font-medium mt-0.5" style={{ color: textSub }}>
-              SuperMatch chats • Wederzijdse likes
+              {trNow('SuperMatch chats • Wederzijdse likes', 'SuperMatch chats • Mutual likes')}
             </p>
           </div>
         </div>
@@ -614,9 +616,9 @@ export default function Chat() {
             <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.1)' }}>
               <MessageCircle className="w-9 h-9 text-[#FF4B72]" />
             </div>
-            <h2 className="font-black text-lg mb-2" style={{ color: textMain }}>Nog geen chats</h2>
+            <h2 className="font-black text-lg mb-2" style={{ color: textMain }}>{trNow('Nog geen chats', 'No chats yet')}</h2>
             <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: textSub }}>
-              Ga naar Supermatches op de Home pagina en klik op "Chat ontgrendelen" om een chat te starten met je match!
+              {trNow('Ga naar Supermatches op de Home pagina en klik op "Chat ontgrendelen" om een chat te starten met je match!', 'Go to Supermatches on the Home page and tap "Unlock chat" to start a chat with your match!')}
             </p>
           </div>
         ) : (
@@ -626,7 +628,7 @@ export default function Chat() {
             {pendingInvites.length > 0 && (
               <section>
                 <p className="text-xs font-black uppercase tracking-widest mb-3 px-1" style={{ color: '#FF4B72' }}>
-                  📩 Uitnodigingen
+                  📩 {trNow('Uitnodigingen', 'Invites')}
                 </p>
                 <div className="space-y-2">
                   {pendingInvites.map(room => {
@@ -654,10 +656,10 @@ export default function Chat() {
                           </div>
                           <div>
                             <p className="font-bold text-sm" style={{ color: textMain }}>
-                              {profile?.age ? `${profile.age} jaar` : 'Supermatch'} wil chatten!
+                              {profile?.age ? `${profile.age} ${trNow('jaar', 'yrs')}` : 'Supermatch'} {trNow('wil chatten!', 'wants to chat!')}
                             </p>
                             <p className="text-[11px]" style={{ color: textSub }}>
-                              Jullie hebben elkaar beide geliked 💜
+                              {trNow('Jullie hebben elkaar beide geliked 💜', 'You both liked each other 💜')}
                             </p>
                           </div>
                         </button>
@@ -668,7 +670,7 @@ export default function Chat() {
                             className="flex-1 py-2.5 rounded-xl font-bold text-sm active:scale-95 transition-transform"
                             style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: textSub }}
                           >
-                            ❌ Weigeren
+                            ❌ {trNow('Weigeren', 'Decline')}
                           </button>
                           <button
                             onClick={() => handleAcceptRoom(room)}
@@ -676,7 +678,7 @@ export default function Chat() {
                             className="flex-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white active:scale-95 transition-transform disabled:opacity-60"
                             style={{ background: GRAD, flex: 2 }}
                           >
-                            {acceptingRoom === room.id ? 'Laden...' : '✅ Accepteren'}
+                            {acceptingRoom === room.id ? trNow('Laden...', 'Loading...') : trNow('✅ Accepteren', '✅ Accept')}
                           </button>
                         </div>
                       </div>
@@ -690,7 +692,7 @@ export default function Chat() {
             {sentInvites.length > 0 && (
               <section>
                 <p className="text-xs font-black uppercase tracking-widest mb-3 px-1" style={{ color: textSub }}>
-                  ⏳ Verstuurd — Wachten op antwoord
+                  ⏳ {trNow('Verstuurd — Wachten op antwoord', 'Sent — Waiting for reply')}
                 </p>
                 <div className="space-y-2">
                   {sentInvites.map(room => {
@@ -715,7 +717,7 @@ export default function Chat() {
             {activeRooms.length > 0 && (
               <section>
                 <p className="text-xs font-black uppercase tracking-widest mb-3 px-1" style={{ color: textMain }}>
-                  💬 Actieve chats
+                  💬 {trNow('Actieve chats', 'Active chats')}
                 </p>
                 <div className="space-y-2">
                   {activeRooms.map(room => {
@@ -807,10 +809,10 @@ export default function Chat() {
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <h3 className="font-black text-base mb-1.5" style={{ color: textMain }}>
-                Weet je het zeker?
+                {trNow('Weet je het zeker?', 'Are you sure?')}
               </h3>
               <p className="text-xs leading-relaxed mb-5" style={{ color: textSub }}>
-                Weet je zeker dat je deze chat-uitnodiging wilt weigeren? De chat wordt dan definitief verwijderd.
+                {trNow('Weet je zeker dat je deze chat-uitnodiging wilt weigeren? De chat wordt dan definitief verwijderd.', 'Are you sure you want to decline this chat invite? The chat will be permanently deleted.')}
               </p>
               <div className="flex gap-2">
                 <button
@@ -822,7 +824,7 @@ export default function Chat() {
                     color: textMain 
                   }}
                 >
-                  Annuleren
+                  {trNow('Annuleren', 'Cancel')}
                 </button>
                 <button
                   onClick={async () => {
@@ -832,7 +834,7 @@ export default function Chat() {
                   }}
                   className="flex-1 py-2.5 rounded-xl font-bold text-xs text-white bg-red-500 active:scale-95 transition-transform shadow-md"
                 >
-                  Ja, weigeren
+                  {trNow('Ja, weigeren', 'Yes, decline')}
                 </button>
               </div>
             </motion.div>

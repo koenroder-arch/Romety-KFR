@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useLang } from '@/lib/LanguageContext';
 import { Pencil, X, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useTheme } from '@/lib/ThemeContext';
 
 export default function VenueBanner({ checkIn, onRemoved }) {
+  const { tr } = useLang();
   const { theme } = useTheme();
   const isDark = theme !== 'light';
   const [showMenu, setShowMenu] = useState(false);
@@ -30,7 +32,7 @@ export default function VenueBanner({ checkIn, onRemoved }) {
       <div className="relative z-40 inline-block">
         <Link 
           to="/Pinpoint"
-          title="Kies locatie"
+          title={tr('Kies locatie', 'Choose location')}
           className="relative flex items-center justify-center w-9 h-9 rounded-full transition-transform active:scale-95 shadow-sm"
           style={{
             background: isDark ? 'rgba(255,255,255,0.12)' : '#FFFFFF',
@@ -68,7 +70,7 @@ export default function VenueBanner({ checkIn, onRemoved }) {
             style={{ background: isDark ? '#141521' : '#FFFFFF', backdropFilter: 'blur(20px)' }}
           >
             <div className="px-4 py-2.5 border-b border-black/5 dark:border-white/5">
-              <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Actieve locatie</p>
+              <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{tr('Actieve locatie', 'Active location')}</p>
               <p className="text-xs font-bold truncate text-gray-900 dark:text-white mt-0.5">{checkIn.venue_name}</p>
             </div>
             <Link 
@@ -85,7 +87,7 @@ export default function VenueBanner({ checkIn, onRemoved }) {
               className={`w-full text-left flex items-center gap-2.5 px-4 py-3 text-xs font-semibold transition-colors text-red-600 dark:text-red-500 hover:bg-red-50/10 dark:hover:bg-red-950/20`}
             >
               <X className="w-3.5 h-3.5 text-red-600 dark:text-red-500" />
-              <span className="text-red-600 dark:text-red-500">Verwijder venue</span>
+              <span className="text-red-600 dark:text-red-500">{tr('Verwijder venue', 'Remove venue')}</span>
             </button>
           </div>
         </>

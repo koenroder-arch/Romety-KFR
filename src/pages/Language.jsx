@@ -58,7 +58,7 @@ export default function Language() {
             <div className="h-px w-8" style={{ background: 'rgba(255,255,255,0.25)' }} />
           </div>
         </div>
-        <h2 className="text-white text-2xl font-black mb-1">Kies jouw taal</h2>
+        <h2 className="text-white text-2xl font-black mb-1">{selectedLang === 'en' ? 'Choose your language' : 'Kies jouw taal'}</h2>
         <p className="text-gray-400 text-sm mb-8">Select your language</p>
 
         <div className="space-y-3">

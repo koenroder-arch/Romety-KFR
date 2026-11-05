@@ -6,11 +6,13 @@ import { useTheme } from '@/lib/ThemeContext';
 import { ArrowLeft, Clock, CheckCircle2, XCircle, Swords, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { trNow } from '@/lib/LanguageContext';
+import { dt } from '@/lib/displayText';
 
 const GAME_LABELS = {
   cards: { 
     emoji: '🃏', 
-    name: 'Kaarten Spel', 
+    get name() { return trNow('Kaarten Spel', 'Card Game'); }, 
     icon: (
       <svg className="w-6 h-6 text-[#FBE3CC]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="6" width="12" height="15" rx="2" transform="rotate(-10 8 13.5)" fill="currentColor" fillOpacity="0.2"/>
@@ -21,7 +23,7 @@ const GAME_LABELS = {
   },
   number: { 
     emoji: '🔢', 
-    name: 'Nummer Spel', 
+    get name() { return trNow('Nummer Spel', 'Number Game'); }, 
     icon: (
       <svg className="w-6 h-6 text-[#FBE3CC]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="8" height="8" rx="2" fill="currentColor" fillOpacity="0.3"/>
@@ -34,10 +36,10 @@ const GAME_LABELS = {
 };
 
 const STATUS_LABELS = {
-  pending: { label: 'Uitnodiging', icon: Clock, color: '#F59E0B', darkBg: 'bg-black/50 border-[#F59E0B]/30 text-[#FCD34D]', lightBg: 'bg-amber-100/80 border-amber-300 text-amber-900 font-black' },
-  active: { label: 'Actief', icon: Swords, color: '#10B981', darkBg: 'bg-black/50 border-[#10B981]/30 text-[#6EE7B7]', lightBg: 'bg-emerald-100/80 border-emerald-300 text-emerald-900 font-black' },
-  finished: { label: 'Afgerond', icon: CheckCircle2, color: '#9CA3AF', darkBg: 'bg-black/50 border-white/20 text-gray-300', lightBg: 'bg-gray-100 border-gray-300 text-gray-800 font-black' },
-  declined: { label: 'Geweigerd', icon: XCircle, color: '#EF4444', darkBg: 'bg-black/50 border-[#EF4444]/30 text-[#FCA5A5]', lightBg: 'bg-rose-100/80 border-rose-300 text-rose-900 font-black' },
+  pending: { get label() { return trNow('Uitnodiging', 'Invite'); }, icon: Clock, color: '#F59E0B', darkBg: 'bg-black/50 border-[#F59E0B]/30 text-[#FCD34D]', lightBg: 'bg-amber-100/80 border-amber-300 text-amber-900 font-black' },
+  active: { get label() { return trNow('Actief', 'Active'); }, icon: Swords, color: '#10B981', darkBg: 'bg-black/50 border-[#10B981]/30 text-[#6EE7B7]', lightBg: 'bg-emerald-100/80 border-emerald-300 text-emerald-900 font-black' },
+  finished: { get label() { return trNow('Afgerond', 'Finished'); }, icon: CheckCircle2, color: '#9CA3AF', darkBg: 'bg-black/50 border-white/20 text-gray-300', lightBg: 'bg-gray-100 border-gray-300 text-gray-800 font-black' },
+  declined: { get label() { return trNow('Geweigerd', 'Declined'); }, icon: XCircle, color: '#EF4444', darkBg: 'bg-black/50 border-[#EF4444]/30 text-[#FCA5A5]', lightBg: 'bg-rose-100/80 border-rose-300 text-rose-900 font-black' },
 };
 
 export default function Games() {
@@ -124,10 +126,10 @@ export default function Games() {
         from_name: 'Je supermatch',
       });
 
-      toast.success('Spel geaccepteerd! 🎮');
+      toast.success(trNow('Spel geaccepteerd! 🎮', 'Game accepted! 🎮'));
       navigateToGame(session);
     } catch (e) {
-      toast.error('Er ging iets mis');
+      toast.error(trNow('Er ging iets mis', 'Something went wrong'));
     }
   };
 
@@ -137,7 +139,7 @@ export default function Games() {
       toast.success('Uitnodiging geweigerd');
       loadData();
     } catch (e) {
-      toast.error('Er ging iets mis');
+      toast.error(trNow('Er ging iets mis', 'Something went wrong'));
     }
   };
 
@@ -165,7 +167,7 @@ export default function Games() {
     const isMyInvite = isPending && !iAmInviter;
     const isFinished = session.status === 'finished' || session.status === 'declined';
 
-    const partnerName = partner?.avatar?.split(' ').slice(1).join(' ') || partner?.full_name || 'je supermatch';
+    const partnerName = dt(partner?.avatar?.split(' ').slice(1).join(' ')) || partner?.full_name || trNow('je supermatch', 'your supermatch');
 
     // Conditional classes/styles based on status
     const underlayerClass = isFinished
@@ -233,7 +235,7 @@ export default function Games() {
                 <div className={`px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${isDark ? status.darkBg : status.lightBg} shadow-inner`}>
                   <StatusIcon className="w-3 h-3" />
                   <span className="text-[10px] font-extrabold tracking-wide uppercase">
-                    {isPending && iAmInviter ? 'Uitnodiging verstuurd' : status.label}
+                    {isPending && iAmInviter ? trNow('Uitnodiging verstuurd', 'Invite sent') : status.label}
                   </span>
                 </div>
               </div>
@@ -258,7 +260,7 @@ export default function Games() {
                     : 'text-rose-600 border-rose-300 bg-rose-50 hover:bg-rose-100'
                 }`}
               >
-                Weigeren
+                {trNow('Weigeren', 'Decline')}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleAccept(session); }}
@@ -307,7 +309,7 @@ export default function Games() {
           <h1 className="font-black text-2xl tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-500 to-indigo-600">
             🎮 Spellen
           </h1>
-          <p className={`text-xs ${isDark ? 'text-white/60' : 'text-gray-500'}`}>Jouw games met supermatches</p>
+          <p className={`text-xs ${isDark ? 'text-white/60' : 'text-gray-500'}`}>{trNow('Jouw games met supermatches', 'Your games with supermatches')}</p>
         </div>
       </div>
 
@@ -356,15 +358,15 @@ export default function Games() {
             <div className={`w-20 h-20 rounded-full flex items-center justify-center text-5xl shadow-inner ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'}`}>
               🎮
             </div>
-            <h2 className={`font-black text-xl ${isDark ? 'text-white' : 'text-gray-900'}`}>Nog geen spellen</h2>
+            <h2 className={`font-black text-xl ${isDark ? 'text-white' : 'text-gray-900'}`}>{trNow('Nog geen spellen', 'No games yet')}</h2>
             <p className={`text-xs max-w-xs leading-relaxed ${isDark ? 'text-white/60' : 'text-gray-500'}`}>
-              Ga naar je supermatches via de homepage en stuur een uitnodiging om een spel te starten!
+              {trNow('Ga naar je supermatches via de homepage en stuur een uitnodiging om een spel te starten!', 'Go to your supermatches on the home page and send an invite to start a game!')}
             </p>
             <button
               onClick={() => window.location.href = createPageUrl('Home')}
               className="mt-2 px-7 py-3.5 rounded-2xl font-black text-white text-sm bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 shadow-lg hover:brightness-105 transition-all active:scale-95"
             >
-              Naar de homepage
+              {trNow('Naar de homepage', 'To the home page')}
             </button>
           </div>
         )}

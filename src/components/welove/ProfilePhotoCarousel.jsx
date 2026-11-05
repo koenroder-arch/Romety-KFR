@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { trNow } from '@/lib/LanguageContext';
 
 export function getProfilePhotos(profile) {
   if (!profile) return [];
@@ -234,7 +235,7 @@ export default function ProfilePhotoCarousel({
                       ? `w-5 h-1.5 ${activeDotColor} shadow-sm` 
                       : `w-1.5 h-1.5 ${inactiveDotColor} hover:bg-white/70`
                   }`}
-                  aria-label={`Foto ${idx + 1}`}
+                  aria-label={`${trNow('Foto', 'Photo')} ${idx + 1}`}
                 />
               );
             })}

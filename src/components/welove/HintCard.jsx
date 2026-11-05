@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { MapPin, X, Heart } from 'lucide-react';
 import { format } from 'date-fns';
-import { nl } from 'date-fns/locale';
+import { nl, enGB } from 'date-fns/locale';
+import { useLang } from '@/lib/LanguageContext';
 import { base44 } from '@/api/base44Client';
 import { supabase } from '@/api/supabaseClient';
 import { useUser } from '@/lib/useUser';
@@ -10,6 +11,7 @@ export default function HintCard({ hint, isDark, onReacted, isSuperMatch }) {
   const [expanded, setExpanded] = useState(false);
   const [reacting, setReacting] = useState(false);
   const user = useUser();
+  const { tr, isEn } = useLang();
 
   const hasReacted = user && (hint.heart_reactions || []).includes(user.email);
 
@@ -49,7 +51,7 @@ export default function HintCard({ hint, isDark, onReacted, isSuperMatch }) {
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)';
   const cardBg = isDark ? '#1E1E35' : '#FFFFFF';
   const divider = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-  const timeStr = hint.created_date ? format(new Date(hint.created_date), 'd MMM · HH:mm', { locale: nl }) : '';
+  const timeStr = hint.created_date ? format(new Date(hint.created_date), 'd MMM · HH:mm', { locale: isEn ? enGB : nl }) : '';
 
   return (
     <>
@@ -221,7 +223,7 @@ export default function HintCard({ hint, isDark, onReacted, isSuperMatch }) {
                   className="w-full py-3.5 px-4 rounded-full border border-white/20 bg-black/35 backdrop-blur-sm flex items-center justify-center gap-2.5 text-white font-bold text-[16px] active:scale-95 transition-transform"
                 >
                   <Heart className="w-5 h-5" color={hasReacted ? '#FF5A43' : 'white'} fill={hasReacted ? '#FF5A43' : 'transparent'} strokeWidth={2.5} />
-                  {hasReacted ? 'Geliked! ❤️' : 'Like Bericht'}
+                  {hasReacted ? tr('Geliked! ❤️', 'Liked! ❤️') : tr('Like Bericht', 'Like message')}
                 </button>
               </div>
 

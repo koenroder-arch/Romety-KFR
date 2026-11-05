@@ -19,7 +19,7 @@ import SendHintSheet from '@/components/welove/SendHintSheet';
 
 export default function Matches() {
   const navigate = useNavigate();
-  const { lang } = useLang();
+  const { lang, tr } = useLang();
   const { theme } = useTheme();
   const isDark = theme !== 'light';
   const t = T[lang] || T.nl;
@@ -193,7 +193,7 @@ export default function Matches() {
             {myLocation?.venue_name ? `Matches - ${myLocation.venue_name}` : 'Matches'}
           </h1>
           <p className="text-[11px] font-medium mt-0.5" style={{ color: textSub }}>
-            {matches.length} {matches.length === 1 ? 'match op je locatie' : 'matches op je locatie'}
+            {matches.length} {matches.length === 1 ? tr('match op je locatie', 'match at your location') : tr('matches op je locatie', 'matches at your location')}
           </p>
         </div>
         <NotificationBell isDark={isDark} />
@@ -215,10 +215,10 @@ export default function Matches() {
             }}
           >
             <h3 className={`text-base font-black tracking-tight mb-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Geen bestemming ingesteld
+              {tr('Geen bestemming ingesteld', 'No destination set')}
             </h3>
             <p className={`text-xs font-medium leading-relaxed mb-5 max-w-[250px] ${isDark ? 'text-white/70' : 'text-gray-600'}`}>
-              Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!
+              {tr('Stel je bestemming van vandaag in om je matches, hints, chat en kortingen te zien!', 'Set your destination for today to see your matches, hints, chat and discounts!')}
             </p>
             <button
               onClick={() => navigate(createPageUrl('Pinpoint'))}
@@ -228,7 +228,7 @@ export default function Matches() {
                 boxShadow: '0 6px 20px rgba(255, 75, 114, 0.4)',
               }}
             >
-              Ga naar Pinpoint
+              {tr('Ga naar Pinpoint', 'Go to Pinpoint')}
             </button>
           </div>
         </div>

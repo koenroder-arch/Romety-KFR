@@ -326,7 +326,7 @@ export default function Login() {
       } else {
         setMessage({
           type: 'error',
-          text: lang === 'nl' ? 'Geen code gevonden op het klembord. Kopieer eerst de code uit je e-mail.' : 'No code found on clipboard.'
+          text: lang === 'nl' ? 'Geen code gevonden op het klembord. Kopieer eerst de code uit je e-mail.' : 'No code found on the clipboard. Copy the code from your email first.'
         });
       }
     } catch (err) {
@@ -355,7 +355,7 @@ export default function Login() {
       setResendCooldown(30);
       setMessage({ 
         type: 'success', 
-        text: lang === 'nl' ? 'Nieuwe verificatielink verstuurd naar je e-mail!' : 'New verification link sent to your email!' 
+        text: lang === 'nl' ? 'Nieuwe verificatiecode verstuurd naar je e-mail!' : 'New verification code sent to your email!' 
       });
     } catch (err) {
       setMessage({ type: 'error', text: err.message || t.errorTitle });
@@ -505,17 +505,17 @@ export default function Login() {
               </div>
 
               <h2 className={`text-xl font-black text-center mb-1 ${textMain}`}>
-                Check je e-mail
+                {lang === 'nl' ? 'Check je e-mail' : 'Check your email'}
               </h2>
               <p className={`text-xs text-center mb-6 leading-relaxed ${textSub}`}>
-                Code gestuurd naar <span className="font-bold text-pink-500 break-all">{email}</span>
+                {lang === 'nl' ? 'Code gestuurd naar' : 'Code sent to'} <span className="font-bold text-pink-500 break-all">{email}</span>
               </p>
 
               {/* ── 8-DIGIT OTP FIELD (ONE NATIVE INPUT = ZERO STUTTER) ── */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2 px-0.5">
                   <span className="text-[11px] font-bold uppercase tracking-wider opacity-60">
-                    8-cijferige code
+                    {lang === 'nl' ? '8-cijferige code' : '8-digit code'}
                   </span>
                   <button
                     type="button"
@@ -531,12 +531,12 @@ export default function Login() {
                     {pastedSuccess ? (
                       <>
                         <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Geplakt!</span>
+                        <span>{lang === 'nl' ? 'Geplakt!' : 'Pasted!'}</span>
                       </>
                     ) : (
                       <>
                         <ClipboardPaste className="w-3.5 h-3.5" />
-                        <span>Plakken</span>
+                        <span>{lang === 'nl' ? 'Plakken' : 'Paste'}</span>
                       </>
                     )}
                   </button>
@@ -596,12 +596,12 @@ export default function Login() {
                 {verifyingOtp ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Verifiëren...</span>
+                    <span>{lang === 'nl' ? 'Verifiëren...' : 'Verifying...'}</span>
                   </>
                 ) : (
                   <>
                     <KeyRound className="w-4 h-4" />
-                    <span>Code bevestigen</span>
+                    <span>{lang === 'nl' ? 'Code bevestigen' : 'Confirm code'}</span>
                   </>
                 )}
               </button>
@@ -630,8 +630,8 @@ export default function Login() {
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                   <span>
                     {resendCooldown > 0 
-                      ? `Nieuwe code over ${resendCooldown}s` 
-                      : 'Geen code ontvangen? Opnieuw versturen'
+                      ? (lang === 'nl' ? `Nieuwe code over ${resendCooldown}s` : `New code in ${resendCooldown}s`) 
+                      : (lang === 'nl' ? 'Geen code ontvangen? Opnieuw versturen' : 'No code received? Send again')
                     }
                   </span>
                 </button>
@@ -647,7 +647,7 @@ export default function Login() {
                   className={`text-[11px] font-semibold transition-colors cursor-pointer opacity-60 hover:opacity-100 ${textSub} hover:text-pink-500 flex items-center gap-1`}
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Ander e-mailadres gebruiken</span>
+                  <span>{lang === 'nl' ? 'Ander e-mailadres gebruiken' : 'Use a different email address'}</span>
                 </button>
               </div>
             </div>
@@ -813,7 +813,7 @@ export default function Login() {
                 transition={{ delay: 0.2 }}
                 className="text-2xl font-black mb-1.5 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500"
               >
-                Authenticatie voltooid! 🎉
+                {lang === 'nl' ? 'Authenticatie voltooid! 🎉' : 'Authentication complete! 🎉'}
               </motion.h2>
 
               <motion.p 
@@ -822,7 +822,7 @@ export default function Login() {
                 transition={{ delay: 0.3 }}
                 className="text-sm font-bold mb-1 opacity-95"
               >
-                Welkom bij Romety{username ? `, ${username}` : ''}!
+                {lang === 'nl' ? 'Welkom bij Romety' : 'Welcome to Romety'}{username ? `, ${username}` : ''}!
               </motion.p>
 
               <motion.p 
@@ -831,7 +831,7 @@ export default function Login() {
                 transition={{ delay: 0.4 }}
                 className="text-xs leading-relaxed opacity-65 mb-6 px-2"
               >
-                Je e-mailadres is succesvol geverifieerd. We richten nu je account in...
+                {lang === 'nl' ? 'Je e-mailadres is succesvol geverifieerd. We richten nu je account in...' : 'Your email address has been verified. We are now setting up your account...'}
               </motion.p>
 
               {/* Progress bar to Onboarding */}
