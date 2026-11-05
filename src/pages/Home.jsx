@@ -428,18 +428,16 @@ export default function Home() {
       // Non-blocking background pruning
       setTimeout(() => {
         try {
-          const oldHints = allHints.filter(h => h && h.created_date < nineHoursAgo);
-          for (const oldHint of oldHints) {
-            if (oldHint && oldHint.id) base44.entities.Hint.delete(oldHint.id).catch(() => {});
-          }
+          // Eigen verlopen story-bestanden opruimen (bestanden van anderen mag je niet verwijderen)
           const oldStories = allStories.filter(s => s && s.created_date < nineHoursAgo);
           for (const oldStory of oldStories) {
-            if (oldStory && oldStory.id) {
-              if (oldStory.media_url) {
-                base44.integrations.Core.DeleteFile({ file_url: oldStory.media_url }).catch(() => {});
-              }
-              base44.entities.Story.delete(oldStory.id).catch(() => {});
+            if (oldStory?.media_url && (oldStory.user_email || '').toLowerCase() === (u.email || '').toLowerCase()) {
+              base44.integrations.Core.DeleteFile({ file_url: oldStory.media_url }).catch(() => {});
             }
+          }
+          // Verlopen hints en stories (ook van anderen) verwijderen via beveiligde databasefunctie
+          if (oldStories.length > 0 || allHints.some(h => h && h.created_date < nineHoursAgo)) {
+            Promise.resolve(supabase.rpc('cleanup_expired_content')).catch(() => {});
           }
 
           // Clean up excess UserDestination rows (> 10) for current user

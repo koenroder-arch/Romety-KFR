@@ -1,4 +1,3 @@
-import { supabase } from '@/api/supabaseClient';
 
 /**
  * Ultra-robust persistent authentication storage manager for Romety.
@@ -136,7 +135,7 @@ export const authStorage = {
    * Synchronously attempts to recover logged in user from all available synchronous stores.
    */
   getUserSync: () => {
-    if (inMemoryUser && (inMemoryUser.email || inMemoryUser.user_email)) {
+    if (inMemoryUser && !inMemoryUser.is_mock && (inMemoryUser.email || inMemoryUser.user_email)) {
       return inMemoryUser;
     }
 
@@ -188,6 +187,12 @@ export const authStorage = {
       }
     }
 
+    // Oude nep-sessies (inloggen zonder Supabase) niet meer accepteren
+    if (foundUser && foundUser.is_mock) {
+      authStorage.clearUser();
+      return null;
+    }
+
     if (foundUser) {
       if (!foundUser.email && foundUser.user_email) foundUser.email = foundUser.user_email;
       if (foundUser.email) {
@@ -211,6 +216,10 @@ export const authStorage = {
 
     // Try IndexedDB full object
     const idbUser = await getIDBUser();
+    if (idbUser && idbUser.is_mock) {
+      authStorage.clearUser();
+      return null;
+    }
     if (idbUser && (idbUser.email || idbUser.user_email || idbUser.id)) {
       if (!idbUser.email && idbUser.user_email) idbUser.email = idbUser.user_email;
       if (idbUser.email) {
@@ -222,48 +231,8 @@ export const authStorage = {
       return idbUser;
     }
 
-    // ── Emergency Auto-Recovery via persistent email ──
-    let recoveredEmail = null;
-    for (const k of EMAIL_KEYS) {
-      try {
-        const lVal = localStorage.getItem(k);
-        if (lVal) { recoveredEmail = lVal; break; }
-      } catch (e) {}
-      const cVal = getCookieValue(k);
-      if (cVal) { recoveredEmail = cVal; break; }
-    }
-    if (!recoveredEmail) {
-      recoveredEmail = await getIDBEmail();
-    }
-
-    if (recoveredEmail) {
-      try {
-        console.log('[authStorage] Attempting auto-recovery for email:', recoveredEmail);
-        const { data, error } = await supabase
-          .from('UserProfile')
-          .select('*')
-          .eq('user_email', recoveredEmail.trim().toLowerCase());
-        
-        if (!error && data && data.length > 0) {
-          const profile = data[0];
-          const reconstructedUser = {
-            id: profile.id,
-            email: profile.user_email,
-            user_email: profile.user_email,
-            display_name: profile.display_name,
-            avatar: profile.avatar,
-            is_mock: true
-          };
-          inMemoryUser = reconstructedUser;
-          authStorage.saveUser(reconstructedUser);
-          console.log('[authStorage] Auto-recovery successful!', reconstructedUser);
-          return reconstructedUser;
-        }
-      } catch (err) {
-        console.error('[authStorage] Auto-recovery error:', err);
-      }
-    }
-
+    // Geen "auto-recovery" op basis van alleen een e-mailadres meer: dat liet iedereen
+    // inloggen als een ander zonder bewijs. Inloggen gaat nu altijd via een Supabase-sessie.
     return null;
   },
 

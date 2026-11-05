@@ -316,6 +316,7 @@ export default function Chat() {
             // Notify both users
             base44.entities.Notification.create({
               to_email: r.user_a_email,
+              from_email: user?.email,
               type: 'chat_inactive',
               venue_name: 'Een chat is beëindigd wegens 7 dagen inactiviteit.',
               is_read: false,
@@ -324,6 +325,7 @@ export default function Chat() {
 
             base44.entities.Notification.create({
               to_email: r.user_b_email,
+              from_email: user?.email,
               type: 'chat_inactive',
               venue_name: 'Een chat is beëindigd wegens 7 dagen inactiviteit.',
               is_read: false,

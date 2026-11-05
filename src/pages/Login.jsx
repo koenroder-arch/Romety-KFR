@@ -136,8 +136,8 @@ export default function Login() {
         id: supaUser.id,
         email: emailLower,
         user_email: emailLower,
-        display_name: displayName,
-        ...supaUser.user_metadata
+        ...supaUser.user_metadata,
+        display_name: existing?.[0]?.display_name || displayName,
       };
       authStorage.saveUser(userObj);
       try {
@@ -147,9 +147,10 @@ export default function Login() {
       // Clean up pending verification state
       sessionStorage.removeItem('romety_pending_verification');
 
-      // Wait 2.2 seconds so user clearly sees the grand celebration before redirecting to Language selection
+      // Bestaande gebruiker met afgeronde onboarding gaat direct naar Home, anders naar taalkeuze
+      const destination = existing?.[0]?.onboarding_complete ? '/' : '/Language';
       setTimeout(() => {
-        window.location.replace('/Language');
+        window.location.replace(destination);
       }, 2200);
     } catch (e) {
       console.error('Error in handleAuthSuccess:', e);
@@ -169,7 +170,7 @@ export default function Login() {
           setEmail(pending.email);
           if (pending.username) setUsername(pending.username);
           setWaitingForVerification(true);
-          setIsRegister(true);
+          setIsRegister(pending.mode !== 'login');
         }
       } catch (e) {}
     }
@@ -383,14 +384,11 @@ export default function Login() {
       const emailLower = email.trim().toLowerCase();
       const usernameTrim = username.trim();
 
-      // Check if profile exists case-insensitively
-      const { data: existing, error: checkError } = await supabase
-        .from('UserProfile')
-        .select('*')
-        .ilike('user_email', emailLower);
+      // Check of er al een account is via een beveiligde databasefunctie
+      // (de profieltabel zelf is niet leesbaar zonder login).
+      const { data: hasAccount, error: checkError } = await supabase.rpc('account_exists', { p_email: emailLower });
 
       if (checkError) throw checkError;
-      const hasAccount = existing && existing.length > 0;
 
       if (isRegister) {
         if (hasAccount) {
@@ -437,38 +435,26 @@ export default function Login() {
           return;
         }
 
-        const profile = existing[0];
-        const matchName = (profile.display_name || '').trim().toLowerCase() === usernameTrim.toLowerCase();
-
-        if (!matchName) {
-          setMessage({
-            type: 'error',
-            text: lang === 'nl' ? 'Gebruikersnaam is onjuist.' : 'Username is incorrect.'
-          });
-          setLoading(false);
-          return;
-        }
-
-        // Bypass verification email for existing users
-        const mockUser = {
-          id: profile.id,
-          email: (profile.user_email || '').toLowerCase().trim(),
-          user_email: (profile.user_email || '').toLowerCase().trim(),
-          display_name: profile.display_name,
-          avatar: profile.avatar,
-          is_mock: true
-        };
-        authStorage.saveUser(mockUser);
-
-        setMessage({
-          type: 'success',
-          text: lang === 'nl' ? 'Inloggen succesvol! Je wordt doorgestuurd...' : 'Login successful! Redirecting...'
+        // Bestaande gebruikers loggen ook in via Supabase: een code/link per e-mail.
+        // Zo krijgt de gebruiker een echte sessie en werkt de database-beveiliging (RLS).
+        const { error } = await supabase.auth.signInWithOtp({
+          email: emailLower,
+          options: {
+            emailRedirectTo: `${window.location.origin}/Login?verified=true`,
+            data: { display_name: usernameTrim }
+          },
         });
+        if (error) throw error;
 
-        setTimeout(() => {
-          const destination = profile.onboarding_complete ? '/' : '/Language';
-          window.location.replace(destination);
-        }, 800);
+        sessionStorage.setItem('romety_pending_verification', JSON.stringify({
+          email: emailLower,
+          username: usernameTrim,
+          mode: 'login',
+          timestamp: Date.now()
+        }));
+
+        setResendCooldown(30);
+        setWaitingForVerification(true);
       }
     } catch (err) {
       setMessage({ type: 'error', text: err.message || t.errorTitle });

@@ -201,15 +201,20 @@ export const base44 = {
   },
   auth: {
     me: async () => {
-      const persistentUser = await authStorage.getUserAsync();
-      if (persistentUser) return persistentUser;
-
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) return null;
+      // Alleen een echte Supabase-sessie telt als ingelogd. Een opgeslagen gebruiker
+      // zonder sessie zou voor de database anoniem zijn en door RLS geblokkeerd worden.
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) {
+        authStorage.clearUser();
+        return null;
+      }
+      const emailLower = (user.email || '').toLowerCase().trim();
       const supaUserObj = {
+        ...user.user_metadata,
         id: user.id,
-        email: user.email,
-        ...user.user_metadata
+        email: emailLower,
+        user_email: emailLower,
       };
       authStorage.saveUser(supaUserObj);
       return supaUserObj;

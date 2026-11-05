@@ -3,6 +3,7 @@ import { MapPin, X, Heart } from 'lucide-react';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useUser } from '@/lib/useUser';
 
 export default function HintCard({ hint, isDark, onReacted, isSuperMatch }) {
@@ -17,14 +18,11 @@ export default function HintCard({ hint, isDark, onReacted, isSuperMatch }) {
     if (!user || reacting) return;
     setReacting(true);
     try {
-      if (hasReacted) {
-        // Unlike: remove user's email from the reactions array
-        const updated = (hint.heart_reactions || []).filter((email) => email !== user.email);
-        await base44.entities.Hint.update(hint.id, { heart_reactions: updated });
-      } else {
-        // Like: add user's email to the reactions array
-        const updated = [...(hint.heart_reactions || []), user.email];
-        await base44.entities.Hint.update(hint.id, { heart_reactions: updated });
+      // Hartje aan/uit via beveiligde databasefunctie (je mag andermans hint niet direct wijzigen)
+      const { error: reactError } = await supabase.rpc('toggle_hint_reaction', { p_hint_id: hint.id });
+      if (reactError) throw reactError;
+
+      if (!hasReacted) {
 
         // Fetch current user's name
         const myProfs = await base44.entities.UserProfile.filter({ user_email: user.email });

@@ -47,10 +47,13 @@ export const AuthProvider = ({ children }) => {
       console.log(`[AuthContext] onAuthStateChange event=${event} session=${session ? 'present' : 'null'}`);
       if (cancelled) return;
 
-      // Yield to persistent user if present and no active Supabase session
-      const activeStored = authStorage.getUserSync();
-      if (activeStored && !session?.user) {
-        setStableUser(activeStored);
+      // Geen sessie: alleen bij expliciet uitloggen meteen wissen. De eerste check
+      // (base44.auth.me hieronder) bepaalt verder of er een geldige sessie is.
+      if (!session?.user) {
+        if (event === 'SIGNED_OUT') {
+          authStorage.clearUser();
+          setStableUser(null);
+        }
         if (initialCheckCompleted) {
           setIsLoading(false);
         }
@@ -85,8 +88,6 @@ export const AuthProvider = ({ children }) => {
             console.error('[AuthContext] Error ensuring UserProfile:', err);
           }
         }
-      } else {
-        setStableUser(prev => prev || authStorage.getUserSync());
       }
 
       if (initialCheckCompleted) {
@@ -109,23 +110,14 @@ export const AuthProvider = ({ children }) => {
             setStableUser(cleaned);
             authStorage.saveUser(cleaned);
           } else {
-            const asyncUser = await authStorage.getUserAsync();
-            if (asyncUser) {
-              setStableUser(asyncUser);
-            } else {
-              setStableUser(null);
-            }
+            // Geen geldige Supabase-sessie → niet ingelogd (geen terugval op opgeslagen gebruiker)
+            setStableUser(null);
           }
         }
       } catch (err) {
         console.error('[AuthContext] Recovery check error:', err);
         if (!cancelled) {
-          const asyncUser = await authStorage.getUserAsync();
-          if (asyncUser) {
-            setStableUser(asyncUser);
-          } else {
-            setStableUser(null);
-          }
+          setStableUser(null);
         }
       } finally {
         if (!cancelled) {

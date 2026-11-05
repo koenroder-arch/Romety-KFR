@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { isMatch } from '@/lib/matchUtils';
 import { Heart, Crown, MapPin, SlidersHorizontal, X, Check } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -57,10 +58,10 @@ export default function PossibleMatches({ allDestinations = [], allProfiles = []
 
     await base44.entities.Like.create({ from_email: currentUserEmail, to_email: profile.user_email, venue_name: venueName });
 
-    const profs = await base44.entities.UserProfile.filter({ user_email: profile.user_email });
-    if (profs[0]) {
-      await base44.entities.UserProfile.update(profs[0].id, { likes_received: (profs[0].likes_received || 0) + 1 });
-    }
+    // Teller van de ander ophogen via een beveiligde databasefunctie (je mag andermans profiel niet direct wijzigen)
+    try {
+      await supabase.rpc('increment_likes_received', { p_target_email: profile.user_email });
+    } catch (e) {}
 
     const existingLikes = await base44.entities.Like.filter({ from_email: profile.user_email, to_email: currentUserEmail });
     if (existingLikes.length > 0) {
