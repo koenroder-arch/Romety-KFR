@@ -7,13 +7,13 @@ import { blockUser } from '@/lib/blockUtils';
 
 /**
  * Bevestiging voor blokkeren. `target` = { email, name }; null = niet zichtbaar.
+ * Het venster noemt geen naam of avatar, alleen 'Gebruiker blokkeren?'.
  * onBlocked wordt aangeroepen nadat de blokkade is opgeslagen.
  */
 export default function BlockUserDialog({ target, isDark = true, onClose, onBlocked }) {
   const [busy, setBusy] = useState(false);
   if (!target) return null;
 
-  const name = target.name || trNow('deze gebruiker', 'this user');
   const textMain = isDark ? '#FFFFFF' : '#111827';
   const textSub = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)';
 
@@ -22,7 +22,7 @@ export default function BlockUserDialog({ target, isDark = true, onClose, onBloc
     setBusy(true);
     try {
       await blockUser(target.email);
-      toast.success(trNow(`${name} is geblokkeerd`, `${name} has been blocked`));
+      toast.success(trNow('Gebruiker is geblokkeerd', 'User has been blocked'));
       onBlocked?.(target);
       onClose?.();
     } catch (err) {
@@ -48,7 +48,7 @@ export default function BlockUserDialog({ target, isDark = true, onClose, onBloc
           <Ban className="w-6 h-6" />
         </div>
         <h3 className="font-black text-base mb-2" style={{ color: textMain }}>
-          {trNow(`${name} blokkeren?`, `Block ${name}?`)}
+          {trNow('Gebruiker blokkeren?', 'Block user?')}
         </h3>
         <p className="text-xs font-medium leading-relaxed mb-5" style={{ color: textSub }}>
           {trNow(

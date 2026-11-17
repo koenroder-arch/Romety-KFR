@@ -19,14 +19,20 @@ export async function blockUser(email) {
   } catch (e) {}
 }
 
-/** Jouw lijst met geblokkeerde gebruikers, nieuwste eerst. */
+/**
+ * Jouw lijst met geblokkeerde gebruikers, nieuwste eerst, met hun profiel (foto's, leeftijd, bio),
+ * zodat je ziet wie het is voordat je iemand deblokkeert. Lukt dat niet, dan alleen de naam.
+ */
 export async function fetchBlockedUsers() {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.rpc('my_blocked_users');
+  if (!error) return data || [];
+
+  const fallback = await supabase
     .from('BlockedUser')
     .select('id, blocked_name, created_date')
     .order('created_date', { ascending: false });
-  if (error) throw error;
-  return data || [];
+  if (fallback.error) throw fallback.error;
+  return fallback.data || [];
 }
 
 /** Heft een blokkade op. Oude likes en chats komen hiermee niet terug. */

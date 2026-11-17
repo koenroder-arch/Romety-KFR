@@ -560,7 +560,7 @@ export default function StoriesViewer({
                       onClick={() => {
                         setShowMenu(false);
                         setIsPaused(true);
-                        setBlockTarget({ email: activeStory.user_email, name: activeStory.user_name });
+                        setBlockTarget({ email: activeStory.user_email, name: creatorProfile?.avatar || activeStory.user_avatar });
                       }}
                       className="w-full py-4 px-5 rounded-2xl flex items-center gap-3 text-red-400 text-sm font-bold active:scale-[0.98] transition-transform hover:bg-red-500/10"
                       style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
@@ -790,7 +790,7 @@ export default function StoriesViewer({
                     {trNow('We nemen dit zeer serieus en zullen dit profiel en verhaal zo spoedig mogelijk controleren.', 'We take this very seriously and will review this profile and story as soon as possible.')}
                   </p>
                   <button
-                    onClick={() => setBlockTarget({ email: activeStory.user_email, name: activeStory.user_name })}
+                    onClick={() => setBlockTarget({ email: activeStory.user_email, name: creatorProfile?.avatar || activeStory.user_avatar })}
                     className="w-full py-3.5 mb-2 rounded-2xl text-red-400 font-bold text-sm active:scale-95 transition-all"
                     style={{ background: 'rgba(239,68,68,0.12)' }}
                   >

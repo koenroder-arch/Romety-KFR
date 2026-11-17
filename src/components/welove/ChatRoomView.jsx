@@ -831,7 +831,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   <button
                     onClick={() => {
                       setShowOptionsMenu(false);
-                      setBlockTarget({ email: otherProfile?.user_email || (isUserA ? localRoom.user_b_email : localRoom.user_a_email), name: otherProfile?.display_name || otherProfile?.full_name });
+                      setBlockTarget({ email: otherProfile?.user_email || (isUserA ? localRoom.user_b_email : localRoom.user_a_email), name: otherProfile?.avatar });
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold hover:bg-white/10 active:bg-white/15 transition-colors text-left"
                     style={{ color: '#FF6B6B' }}
@@ -1744,7 +1744,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     {trNow('We zullen deze melding zo snel mogelijk beoordelen. De chat is verwijderd.', 'We will review this report as soon as possible. The chat has been deleted.')}
                   </p>
                   <button
-                    onClick={() => setBlockTarget({ email: otherProfile?.user_email || (isUserA ? localRoom.user_b_email : localRoom.user_a_email), name: otherProfile?.display_name || otherProfile?.full_name })}
+                    onClick={() => setBlockTarget({ email: otherProfile?.user_email || (isUserA ? localRoom.user_b_email : localRoom.user_a_email), name: otherProfile?.avatar })}
                     className="w-full py-2.5 mb-2 rounded-xl font-black text-xs text-red-500 active:scale-95 transition-all"
                     style={{ background: 'rgba(239,68,68,0.12)' }}
                   >

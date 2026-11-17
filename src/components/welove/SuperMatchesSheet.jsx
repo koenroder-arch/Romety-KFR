@@ -292,7 +292,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenMenuProfileId(null);
-                              setBlockTarget({ email: profile.user_email, name: profile.display_name });
+                              setBlockTarget({ email: profile.user_email, name: profile.avatar });
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold hover:bg-white/10 active:bg-white/15 transition-colors text-left"
                             style={{ color: '#FF6B6B' }}
@@ -550,7 +550,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   <h3 className="font-black text-base mb-1" style={{ color: isDark ? '#fff' : '#111' }}>{trNow('Bedankt voor je melding', 'Thanks for your report')}</h3>
                   <p className="text-xs mb-4" style={{ color: textSub }}>{trNow('We zullen dit profiel zo snel mogelijk beoordelen.', 'We will review this profile as soon as possible.')}</p>
                   <button
-                    onClick={() => setBlockTarget({ email: reportState.profile.user_email, name: reportState.profile.display_name })}
+                    onClick={() => setBlockTarget({ email: reportState.profile.user_email, name: reportState.profile.avatar })}
                     className="w-full py-2.5 mb-2 rounded-xl font-black text-xs text-red-500 active:scale-95 transition-all"
                     style={{ background: 'rgba(239,68,68,0.12)' }}
                   >

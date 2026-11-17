@@ -1619,6 +1619,7 @@ export default function Account() {
                     type="button"
                     onClick={() => setActiveSheet('bio')}
                     className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                    style={{ borderBottom: divider }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-500/15 text-emerald-500">
@@ -1629,6 +1630,26 @@ export default function Account() {
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
                         {form.bio ? form.bio : trNow('Over mij', 'About me')}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                  </button>
+
+                  {/* Row: Eigenschappen */}
+                  <button
+                    type="button"
+                    onClick={() => openSubSheet('traits')}
+                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-500">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Eigenschappen', 'Traits')}</span>
+                    </div>
+                    <div className="flex items-center gap-2 max-w-[50%]">
+                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
+                        {(form.traits || []).length > 0 ? `${(form.traits || []).length}/5 ${trNow('gekozen', 'chosen')}` : trNow('Kies 3 – 5', 'Choose 3 – 5')}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -1681,27 +1702,6 @@ export default function Account() {
                     <div className="flex items-center gap-2 max-w-[50%]">
                       <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
                         {getLookingForLabel(form.looking_for)}
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    </div>
-                  </button>
-
-                  {/* Row: Eigenschappen */}
-                  <button
-                    type="button"
-                    onClick={() => openSubSheet('traits')}
-                    className="w-full flex items-center justify-between p-3.5 text-left transition-colors hover:bg-black/5 active:bg-black/10"
-                    style={{ borderBottom: divider }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-amber-500/15 text-amber-500">
-                        <Sparkles className="w-4 h-4" />
-                      </div>
-                      <span className={`text-sm font-bold ${textMain}`}>{trNow('Eigenschappen', 'Traits')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 max-w-[50%]">
-                      <span className="text-xs font-semibold truncate" style={{ color: textSub }}>
-                        {(form.traits || []).length > 0 ? `${(form.traits || []).length}/5 ${trNow('gekozen', 'chosen')}` : trNow('Kies 3 – 5', 'Choose 3 – 5')}
                       </span>
                       <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     </div>
