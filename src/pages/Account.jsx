@@ -8,6 +8,7 @@ import { isAppAdmin } from '@/lib/moderation';
 import { useUser } from '@/lib/useUser';
 import BlockedUsersSheet from '@/components/welove/BlockedUsersSheet';
 import ModerationSheet from '@/components/welove/ModerationSheet';
+import RometyLogo from '@/components/welove/RometyLogo';
 import { createPageUrl } from '@/utils';
 import { 
   Ban, Flag, LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart, Gamepad2,
@@ -1486,6 +1487,11 @@ export default function Account() {
             </div>
           </button>
 
+        </div>
+
+        {/* Voetnoot: klein Romety-logo in het midden onder alle knoppen; volgt de licht/donker-modus */}
+        <div className="flex justify-center pt-4 pb-2 pointer-events-none select-none">
+          <RometyLogo className="h-7 w-auto opacity-80" />
         </div>
 
       </div>

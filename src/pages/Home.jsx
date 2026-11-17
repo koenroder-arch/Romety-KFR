@@ -1065,7 +1065,7 @@ export default function Home() {
             {/* 1. Onthul wie je heeft geliked (#FF4B72 - Felroze / Kersenrood) */}
             <button
               onClick={onRevealClick}
-              className={`flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left ${
+              className={`flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left ${
                 unmatchedLikes.length > 0 ? '' : 'opacity-95'
               }`}
               style={{
@@ -1102,12 +1102,13 @@ export default function Home() {
                 <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
                 <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{trNow('Ontvangen likes', 'Received likes')}</p>
               </div>
+              <Eye aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
             </button>
 
             {/* 2. Super matches (#F9488A - Fade stap 1) */}
             <button
               onClick={handleSuperMatchClick}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(249, 72, 138, 0.22) 0%, rgba(249, 72, 138, 0.08) 100%)'
@@ -1142,12 +1143,13 @@ export default function Home() {
                 <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#F9488A]'}`}>SUPER</p>
                 <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Super matches</p>
               </div>
+              <Flame aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
             </button>
 
             {/* 3. Hints button */}
             <button
               onClick={onHintClick}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: (isDark
                     ? 'linear-gradient(135deg, rgba(244, 69, 163, 0.22) 0%, rgba(244, 69, 163, 0.08) 100%)'
@@ -1190,12 +1192,15 @@ export default function Home() {
                   {trNow('Hints sturen', 'Send hints')}
                 </p>
               </div>
+              <Lightbulb aria-hidden="true" className={`home-card__mark ${
+                    (isDark ? 'text-white' : 'text-[#F445A3]')
+                  }`} />
             </button>
 
             {/* 4. Chat (#EE42BC - Fade stap 3) */}
             <button
               onClick={() => navigate(createPageUrl('Chat'))}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(238, 66, 188, 0.22) 0%, rgba(238, 66, 188, 0.08) 100%)'
@@ -1230,12 +1235,13 @@ export default function Home() {
                 <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>CHAT</p>
                 <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Chat</p>
               </div>
+              <MessageCircle aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
             </button>
 
             {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars met rustig pulserend lichtgoud randje) */}
             <button
               onClick={() => setShowDiscountsModal(true)}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(234, 63, 211, 0.22) 0%, rgba(234, 63, 211, 0.08) 100%)'
@@ -1267,12 +1273,13 @@ export default function Home() {
                 <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
                 <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{trNow('VIP kortingen', 'VIP discounts')}</p>
               </div>
+              <Crown aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
             </button>
 
             {/* 6. Story's (#FF4B72 - Brand signature gradient & icon) */}
             <button
               onClick={() => navigate(createPageUrl('Hints'))}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
+              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
               style={{
                 background: isDark
                   ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.22) 0%, rgba(234, 63, 211, 0.12) 100%)'
@@ -1302,6 +1309,7 @@ export default function Home() {
                 <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>STORIES</p>
                 <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Story's</p>
               </div>
+              <Camera aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
             </button>
           </div>
 

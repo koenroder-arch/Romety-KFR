@@ -5,11 +5,12 @@ import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { 
   Mail, Loader2, UserPlus, User, CheckCircle2, Sparkles, 
-  Clock, ArrowLeft, RefreshCw, ExternalLink, Heart, ClipboardPaste, KeyRound, Check 
+  Clock, ArrowLeft, RefreshCw, ExternalLink, Heart, KeyRound
 } from 'lucide-react';
 import { authStorage } from '@/lib/authStorage';
 import { getSessionWithRetry } from '@/lib/sessionUtils';
 import LaunchScreen from '@/components/welove/LaunchScreen';
+import RometyLogo from '@/components/welove/RometyLogo';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
@@ -31,7 +32,6 @@ export default function Login() {
   // 8-digit OTP verification state
   const [otpCode, setOtpCode] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [pastedSuccess, setPastedSuccess] = useState(false);
   // Eerst kijken of je al ingelogd bent, zodat het formulier niet onnodig verschijnt
   const [checkingExisting, setCheckingExisting] = useState(true);
   const redirectingRef = useRef(false);
@@ -345,30 +345,6 @@ export default function Login() {
     }
   };
 
-  const handlePasteCode = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      const cleanDigits = (text || '').replace(/\D/g, '').slice(0, 8);
-      if (cleanDigits.length >= 6) {
-        setOtpCode(cleanDigits);
-        setPastedSuccess(true);
-        setTimeout(() => setPastedSuccess(false), 2000);
-        handleVerifyOtp(cleanDigits);
-      } else if (cleanDigits.length > 0) {
-        setOtpCode(cleanDigits);
-        otpInputRef.current?.focus();
-      } else {
-        setMessage({
-          type: 'error',
-          text: lang === 'nl' ? 'Geen code gevonden op het klembord. Kopieer eerst de code uit je e-mail.' : 'No code found on the clipboard. Copy the code from your email first.'
-        });
-      }
-    } catch (err) {
-      console.warn('Clipboard read error:', err);
-      otpInputRef.current?.focus();
-    }
-  };
-
   const handleResendEmail = async () => {
     if (resendCooldown > 0 || !email) return;
     setLoading(true);
@@ -523,15 +499,7 @@ export default function Login() {
         {/* Brand/Logo Header */}
         <div className="text-center flex flex-col items-center">
           <div className="flex flex-col items-center mb-3">
-            <img 
-              src="/romety-logo-transparent.png?v=3" 
-              alt="Romety" 
-              className="h-16 w-auto object-contain select-none mb-1" 
-              style={{
-                mixBlendMode: isDark ? 'screen' : 'normal',
-                filter: isDark ? 'drop-shadow(0 0 16px rgba(234, 63, 211, 0.5))' : 'drop-shadow(0 4px 12px rgba(255, 75, 114, 0.3))'
-              }}
-            />
+            <RometyLogo className="h-16 w-auto select-none mb-2" />
             <div className="flex items-center justify-center gap-2 mt-1">
               <div className="h-px w-8" style={{ background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
               <span className="text-[10px] font-semibold tracking-[0.2em] uppercase" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }}>Connect &amp; Meet</span>
@@ -551,9 +519,7 @@ export default function Login() {
         >          {waitingForVerification ? (
             /* ── WAITING FOR EMAIL VERIFICATION STATE (CALM, 8-DIGIT, ZERO-LAG) ── */
             <div>
-              <div className="w-13 h-13 rounded-2xl mx-auto mb-3 bg-gradient-to-tr from-pink-500/20 to-purple-500/10 border border-pink-500/30 flex items-center justify-center text-pink-500">
-                <Mail className="w-6 h-6" />
-              </div>
+              <Mail className="w-8 h-8 mx-auto mb-3 text-pink-500" aria-hidden="true" />
 
               <h2 className={`text-xl font-black text-center mb-1 ${textMain}`}>
                 {lang === 'nl' ? 'Check je e-mail' : 'Check your email'}
@@ -564,33 +530,10 @@ export default function Login() {
 
               {/* ── 8-DIGIT OTP FIELD (ONE NATIVE INPUT = ZERO STUTTER) ── */}
               <div className="mb-4">
-                <div className="flex items-center justify-between mb-2 px-0.5">
+                <div className="flex items-center mb-2 px-0.5">
                   <span className="text-[11px] font-bold uppercase tracking-wider opacity-60">
                     {lang === 'nl' ? '8-cijferige code' : '8-digit code'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handlePasteCode}
-                    className={`text-xs font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all active:scale-95 cursor-pointer ${
-                      pastedSuccess
-                        ? 'bg-emerald-500/15 border-emerald-500 text-emerald-500 dark:text-emerald-400'
-                        : isDark
-                          ? 'bg-pink-500/10 border-pink-500/30 text-pink-400 hover:bg-pink-500/20'
-                          : 'bg-pink-50 border-pink-200 text-pink-600 hover:bg-pink-100'
-                    }`}
-                  >
-                    {pastedSuccess ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>{lang === 'nl' ? 'Geplakt!' : 'Pasted!'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <ClipboardPaste className="w-3.5 h-3.5" />
-                        <span>{lang === 'nl' ? 'Plakken' : 'Paste'}</span>
-                      </>
-                    )}
-                  </button>
                 </div>
 
                 {/* Visual 8 slots */}

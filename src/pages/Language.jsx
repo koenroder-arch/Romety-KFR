@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLang } from '@/lib/LanguageContext';
+import RometyLogo from '@/components/welove/RometyLogo';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -43,15 +44,8 @@ export default function Language() {
 
       <div className="lang-fadein w-full max-w-sm px-6 text-center">
         <div className="flex flex-col items-center mb-8">
-          <img 
-            src="/romety-logo-transparent.png?v=3" 
-            alt="Romety" 
-            className="h-20 w-auto object-contain select-none mb-2" 
-            style={{
-              mixBlendMode: 'screen',
-              filter: 'drop-shadow(0 0 20px rgba(234, 63, 211, 0.6)) drop-shadow(0 0 40px rgba(255, 75, 114, 0.35))'
-            }}
-          />
+          {/* Deze pagina is altijd donker, dus altijd de donkere versie van het logo */}
+          <RometyLogo mode="dark" className="h-20 w-auto select-none mb-3" />
           <div className="flex items-center justify-center gap-2 mt-1">
             <div className="h-px w-8" style={{ background: 'rgba(255,255,255,0.25)' }} />
             <span className="text-[10px] font-semibold tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.45)' }}>Connect &amp; Meet</span>

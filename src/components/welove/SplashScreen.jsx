@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLang } from '@/lib/LanguageContext';
 import { useAuth } from '@/lib/AuthContext';
 import LaunchScreen, { LAUNCH_BG } from './LaunchScreen';
+import RometyLogo from './RometyLogo';
 
 // Zo lang blijft de R minimaal in beeld, ook als de app al klaar is
 const MIN_SPLASH_MS = 1100;
@@ -89,26 +90,8 @@ export default function SplashScreen({ onDone }) {
       {phase === 'language' && (
         <div className="w-full max-w-sm px-6 text-center">
           <div className="flex flex-col items-center mb-7">
-            <img
-              src="/icon-192.png"
-              alt="Romety"
-              className="w-16 h-16 object-cover rounded-2xl mb-3 border border-white/10"
-              style={{
-                boxShadow: '0 10px 30px rgba(255, 75, 114, 0.3)',
-              }}
-              draggable={false}
-            />
-            <h1
-              className="text-xl font-black"
-              style={{
-                background: GRAD,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                color: 'transparent',
-              }}
-            >
-              Romety
+            <h1 className="m-0">
+              <RometyLogo mode="dark" className="h-16 w-auto select-none" />
             </h1>
           </div>
           <h2 className="text-white text-2xl font-black mb-1">{selectedLang === 'en' ? 'Choose your language' : 'Kies jouw taal'}</h2>
