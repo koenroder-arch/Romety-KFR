@@ -1,5 +1,6 @@
 import { supabase, supabaseAdmin } from './supabaseClient';
 import { authStorage } from '@/lib/authStorage';
+import { getSessionWithRetry, hasStoredSupabaseSession } from '@/lib/sessionUtils';
 
 const parseOrder = (orderStr, defaultCol = 'created_date') => {
   if (!orderStr) return { column: defaultCol, ascending: false };
@@ -203,10 +204,12 @@ export const base44 = {
     me: async () => {
       // Alleen een echte Supabase-sessie telt als ingelogd. Een opgeslagen gebruiker
       // zonder sessie zou voor de database anoniem zijn en door RLS geblokkeerd worden.
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getSessionWithRetry();
       const user = session?.user;
       if (!user) {
-        authStorage.clearUser();
+        // Alleen echt uitloggen als er ook geen sessie meer op het apparaat staat.
+        // Mislukte het vernieuwen door een tijdelijk netwerkprobleem, dan blijft de sessie bewaard.
+        if (!hasStoredSupabaseSession()) authStorage.clearUser();
         return null;
       }
       const emailLower = (user.email || '').toLowerCase().trim();

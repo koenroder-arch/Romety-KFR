@@ -8,6 +8,7 @@ import {
   Clock, ArrowLeft, RefreshCw, ExternalLink, Heart, ClipboardPaste, KeyRound, Check 
 } from 'lucide-react';
 import { authStorage } from '@/lib/authStorage';
+import { getSessionWithRetry } from '@/lib/sessionUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
@@ -30,6 +31,9 @@ export default function Login() {
   const [otpCode, setOtpCode] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [pastedSuccess, setPastedSuccess] = useState(false);
+  // Eerst kijken of je al ingelogd bent, zodat het formulier niet onnodig verschijnt
+  const [checkingExisting, setCheckingExisting] = useState(true);
+  const redirectingRef = useRef(false);
   const otpInputRef = useRef(null);
 
   const t = {
@@ -104,9 +108,60 @@ export default function Login() {
   const textMain = isDark ? 'text-white' : 'text-gray-900';
   const textSub = isDark ? 'text-white/60' : 'text-gray-500';
 
-  const getRedirectUrl = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('redirectTo') || '/Onboarding';
+  // Alleen terugsturen naar een pagina binnen Romety zelf
+  const getSafeRedirectPath = () => {
+    const target = new URLSearchParams(window.location.search).get('redirectTo');
+    if (!target) return null;
+    try {
+      const url = new URL(target, window.location.origin);
+      if (url.origin !== window.location.origin || url.pathname.toLowerCase().startsWith('/login')) return null;
+      return url.pathname + url.search + url.hash;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const readPending = () => {
+    try {
+      return JSON.parse(sessionStorage.getItem('romety_pending_verification') || 'null');
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const sameEmail = (a, b) => (a || '').toLowerCase().trim() === (b || '').toLowerCase().trim();
+
+  // Je was al ingelogd (bijvoorbeeld na een tijdelijk netwerkprobleem): direct door naar de app
+  const goToAppAsLoggedIn = async (supaUser) => {
+    if (redirectingRef.current) return;
+    redirectingRef.current = true;
+    let destination = '/Language';
+    try {
+      const profiles = await base44.entities.UserProfile.filter({ user_email: (supaUser.email || '').toLowerCase().trim() });
+      if (profiles?.[0]?.onboarding_complete) destination = getSafeRedirectPath() || '/';
+    } catch (e) {}
+    window.location.replace(destination);
+  };
+
+  /**
+   * Bepaalt wat er met een gevonden sessie gebeurt. Wacht je op een code voor een e-mailadres,
+   * dan telt alleen een sessie van precies dat adres. Geeft true terug als er wordt doorgestuurd.
+   */
+  const acceptSession = (session) => {
+    if (!session?.user) return false;
+    const pending = readPending();
+    if (pending?.email) {
+      if (!sameEmail(pending.email, session.user.email)) return false;
+      handleAuthSuccess(session.user, pending.username);
+      return true;
+    }
+    const cameFromEmailLink = window.location.hash.includes('access_token') || window.location.search.includes('verified=true');
+    if (cameFromEmailLink) {
+      handleAuthSuccess(session.user);
+      return true;
+    }
+    goToAppAsLoggedIn(session.user);
+    return true;
   };
 
   // Handles successful authentication, displays grand celebration, and redirects to Onboarding
@@ -189,29 +244,19 @@ export default function Login() {
   useEffect(() => {
     // 1. Initial check (in case user opened email link in this tab or browser)
     const checkCurrentSession = async () => {
+      let redirecting = false;
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const pendingRaw = sessionStorage.getItem('romety_pending_verification');
-          const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
-          
-          const hasHash = window.location.hash.includes('access_token') || window.location.hash.includes('type=');
-          const isVerifiedParam = window.location.search.includes('verified=true');
-          
-          if (hasHash || isVerifiedParam || pending || waitingForVerification) {
-            handleAuthSuccess(session.user, pending?.username);
-          }
-        }
+        const session = await getSessionWithRetry(2);
+        redirecting = acceptSession(session);
       } catch (e) {}
+      if (!redirecting) setCheckingExisting(false);
     };
     checkCurrentSession();
 
     // 2. onAuthStateChange from Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED')) {
-        const pendingRaw = sessionStorage.getItem('romety_pending_verification');
-        const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
-        handleAuthSuccess(session.user, pending?.username);
+        acceptSession(session);
       }
     });
 
@@ -220,11 +265,7 @@ export default function Login() {
       if (!waitingForVerification && !sessionStorage.getItem('romety_pending_verification')) return;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const pendingRaw = sessionStorage.getItem('romety_pending_verification');
-          const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
-          handleAuthSuccess(session.user, pending?.username);
-        }
+        acceptSession(session);
       } catch (e) {}
     }, 1500);
 
@@ -233,11 +274,7 @@ export default function Login() {
       if (document.visibilityState === 'visible') {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            const pendingRaw = sessionStorage.getItem('romety_pending_verification');
-            const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
-            handleAuthSuccess(session.user, pending?.username);
-          }
+          acceptSession(session);
         } catch (e) {}
       }
     };
@@ -249,11 +286,7 @@ export default function Login() {
       if (e.key && (e.key.includes('sb-') || e.key.includes('auth-token') || e.key.includes('romety_user'))) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            const pendingRaw = sessionStorage.getItem('romety_pending_verification');
-            const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
-            handleAuthSuccess(session.user, pending?.username);
-          }
+          acceptSession(session);
         } catch (e) {}
       }
     };
@@ -384,6 +417,18 @@ export default function Login() {
       const emailLower = email.trim().toLowerCase();
       const usernameTrim = username.trim();
 
+      // Al ingelogd op dit apparaat? Met hetzelfde adres: gewoon door naar de app.
+      // Met een ander adres: eerst die sessie hier afsluiten, zodat je niet als iemand anders binnenkomt.
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession?.user) {
+        if (sameEmail(existingSession.user.email, emailLower)) {
+          sessionStorage.removeItem('romety_pending_verification');
+          await goToAppAsLoggedIn(existingSession.user);
+          return;
+        }
+        await supabase.auth.signOut({ scope: 'local' });
+      }
+
       // Check of er al een account is via een beveiligde databasefunctie
       // (de profieltabel zelf is niet leesbaar zonder login).
       const { data: hasAccount, error: checkError } = await supabase.rpc('account_exists', { p_email: emailLower });
@@ -462,6 +507,14 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  if (checkingExisting) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center" style={{ background: bg }}>
+        <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div
