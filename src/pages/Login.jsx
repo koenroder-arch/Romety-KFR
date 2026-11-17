@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { authStorage } from '@/lib/authStorage';
 import { getSessionWithRetry } from '@/lib/sessionUtils';
+import LaunchScreen from '@/components/welove/LaunchScreen';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
@@ -508,12 +509,9 @@ export default function Login() {
     }
   };
 
+  // Hetzelfde opstartscherm als bij het openen van de app, zodat er niets verspringt
   if (checkingExisting) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center" style={{ background: bg }}>
-        <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LaunchScreen />;
   }
 
   return (

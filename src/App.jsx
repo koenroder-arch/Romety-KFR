@@ -11,6 +11,7 @@ import { LanguageProvider } from '@/lib/LanguageContext';
 import { ThemeProvider } from '@/lib/ThemeContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import OfflineIndicator from '@/components/OfflineIndicator';
+import LaunchScreen from '@/components/welove/LaunchScreen';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -63,7 +64,7 @@ const OnboardingGate = ({ children }) => {
   }, [user?.email, isLoadingAuth]);
 
   if (isLoadingAuth || (checking && localStorage.getItem('romety_onboarding_complete') !== 'true')) {
-    return null;
+    return <LaunchScreen />;
   }
 
   // If needs onboarding, redirect to onboarding page
@@ -81,12 +82,9 @@ const AuthenticatedApp = () => {
   const isLanguagePage = window.location.pathname.toLowerCase().startsWith('/language');
 
   // Show loading while auth is being checked
+  // Zolang de inlogcontrole loopt: hetzelfde opstartscherm (R met laadrad)
   if (isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#08090E]">
-        <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <LaunchScreen />;
   }
 
   // Not logged in → redirect to login (allow login and language selection)

@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLang } from '@/lib/LanguageContext';
+import { useAuth } from '@/lib/AuthContext';
+import LaunchScreen, { LAUNCH_BG } from './LaunchScreen';
+
+// Zo lang blijft de R minimaal in beeld, ook als de app al klaar is
+const MIN_SPLASH_MS = 1100;
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -10,6 +15,9 @@ const LANGUAGES = [
 
 export default function SplashScreen({ onDone }) {
   const { setLang } = useLang();
+  // De splash blijft staan tot de inlogcontrole klaar is; het laadrad laat zien dat de app bezig is
+  const { isLoadingAuth } = useAuth();
+  const [minTimePassed, setMinTimePassed] = useState(false);
   const [phase, setPhase] = useState('logo');
   const [selectedLang, setSelectedLang] = useState(null);
   const [isFadingOut, setIsFadingOut] = useState(false);
@@ -28,13 +36,13 @@ export default function SplashScreen({ onDone }) {
     // Zorg ervoor dat het hele scherm (statusbalk, viewport en overscroll) echt pikzwart (#000000) is tijdens splash
     const originalBg = document.documentElement.style.backgroundColor;
     const originalBodyBg = document.body.style.backgroundColor;
-    document.documentElement.style.backgroundColor = '#000000';
-    document.body.style.backgroundColor = '#000000';
+    document.documentElement.style.backgroundColor = LAUNCH_BG;
+    document.body.style.backgroundColor = LAUNCH_BG;
 
     const metaTheme = document.querySelector('meta[name="theme-color"]');
     const originalMetaColor = metaTheme ? metaTheme.getAttribute('content') : null;
     if (metaTheme) {
-      metaTheme.setAttribute('content', '#000000');
+      metaTheme.setAttribute('content', LAUNCH_BG);
     }
 
     return () => {
@@ -47,12 +55,13 @@ export default function SplashScreen({ onDone }) {
   }, []);
 
   useEffect(() => {
-    if (phase !== 'logo') return;
-    const timer = setTimeout(() => {
-      finishSplash();
-    }, 1500);
+    const timer = setTimeout(() => setMinTimePassed(true), MIN_SPLASH_MS);
     return () => clearTimeout(timer);
-  }, [phase]);
+  }, []);
+
+  useEffect(() => {
+    if (phase === 'logo' && minTimePassed && !isLoadingAuth) finishSplash();
+  }, [phase, minTimePassed, isLoadingAuth]);
 
   const handleLangSelect = (code) => {
     setSelectedLang(code);
@@ -63,31 +72,19 @@ export default function SplashScreen({ onDone }) {
     }, 350);
   };
 
+  if (phase === 'logo') {
+    return <LaunchScreen animateIn fadingOut={isFadingOut} />;
+  }
+
   return (
     <div
-      onClick={phase === 'logo' ? finishSplash : undefined}
       className={`fixed inset-0 w-full h-[100dvh] flex items-center justify-center bg-black select-none transition-opacity duration-300 ${isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       style={{
         zIndex: 2147483647,
         fontFamily: "'Inter', sans-serif",
-        backgroundColor: '#000000',
+        backgroundColor: LAUNCH_BG,
       }}
     >
-      {/* Logo Phase - Only the logo image, centered, static & zero-lag with the iconic glow */}
-      {phase === 'logo' && (
-        <div className="flex items-center justify-center cursor-pointer select-none">
-          <img
-            src="/icon-192.png"
-            alt="Romety"
-            className="w-28 h-28 object-cover rounded-[28px]"
-            style={{
-              filter: 'drop-shadow(0 0 20px rgba(234, 63, 211, 0.65)) drop-shadow(0 0 40px rgba(255, 75, 114, 0.4))',
-            }}
-            draggable={false}
-          />
-        </div>
-      )}
-
       {/* Language Selection Phase */}
       {phase === 'language' && (
         <div className="w-full max-w-sm px-6 text-center">
