@@ -141,6 +141,17 @@ export default function ProfilePhotoCarousel({
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 
+    // Zonder dubbeltik-functie hoeft er niet gewacht te worden: meteen wisselen
+    if (!onDoubleTap) {
+      if (hasMultiplePhotos) {
+        if (x < rect.width * 0.4) goToPrev();
+        else goToNext();
+      } else if (onClick) {
+        onClick(e, profile);
+      }
+      return;
+    }
+
     if (now - lastTap < DOUBLE_TAP_DELAY) {
       // Double tap detected
       if (singleTapTimeoutRef.current) {
@@ -183,17 +194,32 @@ export default function ProfilePhotoCarousel({
       onClick={handleTap}
       style={{ touchAction: 'pan-y manipulation' }}
     >
-      {/* Background Image / Avatar — absolute inset-0 to prevent any layout shifts or scroll-snap jumps */}
+      {/* Alle foto's liggen op elkaar en zijn al geladen; wisselen = zacht overvloeien.
+          (Eerst werd bij elke wissel een nieuwe foto geladen: kort grijs vlak en een schok.) */}
       {currentPhotoUrl ? (
-        <img
-          key={currentPhotoUrl}
-          src={currentPhotoUrl}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
-          style={{ objectPosition: 'center 20%' }}
-          draggable={false}
-          decoding="async"
-        />
+        photos.map((url, idx) => {
+          const isActive = idx === currentIndex;
+          return (
+            <img
+              key={`${idx}-${url}`}
+              src={url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+              style={{
+                objectPosition: 'center 20%',
+                opacity: isActive ? 1 : 0,
+                transform: isActive ? 'scale(1)' : 'scale(1.03)',
+                transition: 'opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+                willChange: hasMultiplePhotos ? 'opacity, transform' : undefined,
+                zIndex: isActive ? 1 : 0,
+              }}
+              draggable={false}
+              decoding="async"
+              loading="eager"
+              aria-hidden={!isActive}
+            />
+          );
+        })
       ) : (
         <div 
           className="absolute inset-0 w-full h-full flex flex-col items-center justify-center" 
