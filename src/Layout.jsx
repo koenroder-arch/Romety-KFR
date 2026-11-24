@@ -275,11 +275,6 @@ export default function Layout({ children, currentPageName }) {
           .romety-notif-card { animation: none; }
         }
 
-        /* In een open chat geen navigatiebalk (zie ChatRoomView) */
-        body.romety-chat-open .romety-bottom-nav {
-          display: none !important;
-        }
-
         [data-sonner-toast][data-styled="false"] {
           width: 100% !important;
           padding: 0 !important;
@@ -301,7 +296,7 @@ export default function Layout({ children, currentPageName }) {
 
       {showNav && (
         <nav
-          className="romety-bottom-nav fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[200]"
+          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[200]"
           style={{
             transform: 'translateX(-50%) translateZ(0)',
             background: isDark ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)',

@@ -95,14 +95,6 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const textInputRef = useRef(null);
   const composerRef = useRef(null);
   const keepKeyboardRef = useRef(false);
-  const rootRef = useRef(null);
-
-  // Zolang een chat open is: de navigatiebalk onderin verbergen (die schoof anders mee
-  // omhoog met het toetsenbord en bleef daar staan)
-  useEffect(() => {
-    document.body.classList.add('romety-chat-open');
-    return () => document.body.classList.remove('romety-chat-open');
-  }, []);
 
   // Toetsenbord blijft open na verzenden; tik je ergens anders, dan gaat het weg
   useEffect(() => {
@@ -411,7 +403,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       smoothScrollUntilRef.current = Date.now() + 700;
       container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
       setIsReadyToShow(true);
-    } else if (isInitial || (hasNewMessages && (isMyMessage || isNearBottom))) {
+    } else if (isInitial || isMyMessage || (hasNewMessages && isNearBottom)) {
       stickToBottomRef.current = true;
       if (container) {
         container.scrollTop = container.scrollHeight;
@@ -454,49 +446,18 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     flyFromRef.current = null;
     if (typeof el.animate !== 'function') return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const host = rootRef.current;
-    if (!host) return;
     const to = el.getBoundingClientRect();
     const from = fly.rect;
     const dx = from.left - to.left;
     const dy = (from.top + from.height / 2) - (to.top + to.height / 2);
-
-    // Een losse kopie vliegt over alles heen (de berichtenlijst zou hem bij de rand afknippen);
-    // het echte appje is zolang onzichtbaar en neemt het daarna naadloos over.
-    const clone = el.cloneNode(true);
-    clone.removeAttribute('data-fly-key');
-    Object.assign(clone.style, {
-      position: 'fixed',
-      left: `${to.left}px`,
-      top: `${to.top}px`,
-      width: `${to.width}px`,
-      height: `${to.height}px`,
-      margin: '0',
-      zIndex: '400',
-      pointerEvents: 'none',
-      transformOrigin: 'left center',
-      willChange: 'transform, opacity',
-    });
-    host.appendChild(clone);
-    el.style.visibility = 'hidden';
-
-    let finished = false;
-    const done = () => {
-      if (finished) return;
-      finished = true;
-      el.style.visibility = '';
-      clone.remove();
-    };
-    const anim = clone.animate(
+    el.animate(
       [
-        { transform: `translate(${dx}px, ${dy}px) scale(0.94)`, opacity: 0.6 },
-        { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(0.92)`, opacity: 0.35 },
+        { transform: `translate(${dx * 0.15}px, ${dy * 0.15}px) scale(0.98)`, opacity: 1, offset: 0.6 },
+        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
       ],
-      { duration: 420, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'both' }
+      { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
     );
-    anim.onfinish = done;
-    anim.oncancel = done;
-    setTimeout(done, 900);
   }, [messages]);
 
   // Foto's laden later in en het scherm kan van hoogte veranderen (toetsenbord, adresbalk).
@@ -858,7 +819,6 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
 
   return (
     <div
-      ref={rootRef}
       className="fixed inset-x-0 top-0 z-[300] flex flex-col max-w-md mx-auto overflow-hidden select-none"
       style={{
         background: bg,
@@ -1375,10 +1335,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 setShowPhotoRequiredAlert(true);
                 return;
               }
-              // Alleen opnieuw focussen als de focus toch weg is (anders schiet de chat omhoog)
-              if (keepKeyboardRef.current && document.activeElement !== textInputRef.current) {
-                textInputRef.current?.focus({ preventScroll: true });
-              }
+              if (keepKeyboardRef.current) textInputRef.current?.focus({ preventScroll: true });
               keepKeyboardRef.current = false;
               sendMessage();
             }}
