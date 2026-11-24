@@ -219,7 +219,8 @@ export default function Layout({ children, currentPageName }) {
           justify-content: center !important;
         }
         
-        [data-sonner-toast] {
+        /* Alleen gewone toasts; eigen meldingskaarten (toast.custom) hebben hun eigen opmaak */
+        [data-sonner-toast][data-styled="true"] {
           border-radius: 20px !important;
           padding: 14px 20px !important;
           font-size: 14px !important;
@@ -230,11 +231,10 @@ export default function Layout({ children, currentPageName }) {
           align-items: center !important;
           gap: 12px !important;
           box-sizing: border-box !important;
-          transition: all 0.3s ease !important;
           border: 1px solid rgba(255, 255, 255, 0.08) !important;
         }
 
-        .dark [data-sonner-toast] {
+        .dark [data-sonner-toast][data-styled="true"] {
           background: rgba(14, 14, 28, 0.93) !important;
           color: #ffffff !important;
           border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -243,13 +243,44 @@ export default function Layout({ children, currentPageName }) {
           -webkit-backdrop-filter: blur(20px) !important;
         }
 
-        html:not(.dark) [data-sonner-toast] {
+        html:not(.dark) [data-sonner-toast][data-styled="true"] {
           background: rgba(255, 255, 255, 0.93) !important;
           color: #111827 !important;
           border: 1px solid rgba(0, 0, 0, 0.06) !important;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
           backdrop-filter: blur(20px) !important;
           -webkit-backdrop-filter: blur(20px) !important;
+        }
+
+        /* Meldingen soepel laten in- en uitglijden (zachte afremming i.p.v. een harde klap) */
+        [data-sonner-toast] {
+          transition:
+            transform 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 0.5s ease,
+            height 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow 0.2s ease !important;
+        }
+        [data-sonner-toast][data-swiping="true"] {
+          transition: none !important;
+        }
+        .romety-notif-card {
+          animation: romety-notif-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes romety-notif-in {
+          from { opacity: 0; transform: scale(0.94); filter: blur(4px); }
+          to { opacity: 1; transform: scale(1); filter: blur(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-sonner-toast] { transition: opacity 0.2s ease !important; }
+          .romety-notif-card { animation: none; }
+        }
+
+        [data-sonner-toast][data-styled="false"] {
+          width: 100% !important;
+          padding: 0 !important;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
         }
 
         [data-sonner-toast] [data-icon] {

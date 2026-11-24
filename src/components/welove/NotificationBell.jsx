@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Bell, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { base44 } from '@/api/base44Client';
-import { useNotifications } from './useNotifications';
+import { useNotifications, isChatMessageNotif } from './useNotifications';
 import { useAuth } from '@/lib/AuthContext';
 import { format } from 'date-fns';
 import { nl, enGB } from 'date-fns/locale';
@@ -38,20 +38,21 @@ export default function NotificationBell({ isDark = true }) {
     if (!user) return;
     setLoading(true);
     try {
-      const notifs = await base44.entities.Notification.filter({ to_email: user.email }, '-created_date', 30);
-      setNotifications(notifs || []);
+      const all = (await base44.entities.Notification.filter({ to_email: user.email }, '-created_date', 100)) || [];
+      // Gewone chatberichten horen niet bij het belletje (die gaven alleen een pop-up)
+      const chatMessages = all.filter(isChatMessageNotif);
+      const bellNotifs = all.filter((n) => !isChatMessageNotif(n));
+      setNotifications(bellNotifs.slice(0, 30));
       setLoading(false);
       markAllRead();
 
-      // Op de achtergrond overtollige meldingen opruimen zonder de interface te laten haperen
-      if (notifs && notifs.length > 20) {
+      // Op de achtergrond opruimen zonder de interface te laten haperen:
+      // meldingen van chatberichten en alles boven de 20 meldingen
+      const excess = [...chatMessages, ...bellNotifs.slice(20)];
+      if (excess.length > 0) {
         setTimeout(async () => {
           try {
-            const all = await base44.entities.Notification.filter({ to_email: user.email }, '-created_date', 100);
-            if (all.length > 20) {
-              const excess = all.slice(20);
-              await Promise.all(excess.map(n => n.id ? base44.entities.Notification.delete(n.id).catch(() => {}) : Promise.resolve()));
-            }
+            await Promise.all(excess.map(n => n.id ? base44.entities.Notification.delete(n.id).catch(() => {}) : Promise.resolve()));
           } catch (_) {}
         }, 1500);
       }

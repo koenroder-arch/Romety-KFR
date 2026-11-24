@@ -8,6 +8,132 @@ import { toast } from 'sonner';
 import { trNow } from '@/lib/LanguageContext';
 import { dt } from '@/lib/displayText';
 
+/**
+ * Meldingen van gewone chatberichten geven alleen een pop-up (niet als je die chat al open
+ * hebt) en komen NOOIT bij het belletje: niet in de lijst en niet in het rode getal.
+ *
+ * Nieuwe berichten hebben het type 'chat_message'. Oudere versies van de app gebruikten
+ * 'chat' voor zowel berichten als uitnodigingen; daarvan blijven alleen de uitnodigingen
+ * ("Wil met je chatten!") bij het belletje.
+ */
+export const CHAT_MESSAGE_TYPE = 'chat_message';
+// Deze 'chat'-meldingen gaan over een uitnodiging en blijven dus wél bij het belletje
+const CHAT_INVITE_TEXTS = ['Wil met je chatten! 💬', 'Je chat-uitnodiging is geaccepteerd! 🎉'];
+export const isChatMessageNotif = (n) => {
+  if (!n) return false;
+  if (n.type === CHAT_MESSAGE_TYPE) return true;
+  if (n.type !== 'chat') return false;
+  return !CHAT_INVITE_TEXTS.includes(parseRoomInfo(n.venue_name).text);
+};
+
+/** De chat die nu open staat (gezet door ChatRoomView), zodat je daar geen pop-up van krijgt. */
+export function getOpenChatRoomId() {
+  try { return window.__romety_open_chat_room_id || null; } catch (e) { return null; }
+}
+
+function parseRoomInfo(venueName) {
+  if (!venueName) return { roomId: null, text: null };
+  try {
+    const parsed = JSON.parse(venueName);
+    if (parsed?.roomId) return { roomId: parsed.roomId, text: parsed.text || null };
+  } catch (e) {
+    if (venueName.length > 20 && !venueName.includes(' ')) return { roomId: venueName, text: null };
+  }
+  return { roomId: null, text: null };
+}
+
+const ACCENTS = {
+  chat: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+  match: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+  game: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+  hint: 'linear-gradient(135deg, #EA3FD3 0%, #A061FF 100%)',
+  warn: 'linear-gradient(135deg, #F97316 0%, #FB923C 100%)',
+  default: 'linear-gradient(135deg, #3B82F6 0%, #8E54E9 100%)',
+};
+
+function NotificationToast({ isDark, photoUrl, avatarIcon, badgeIcon, accent, title, body, onClick }) {
+  return (
+    <div
+      role="button"
+      onClick={onClick}
+      className="romety-notif-card w-full flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform duration-200 select-none"
+      style={{
+        padding: '12px 14px',
+        borderRadius: 22,
+        background: isDark ? 'rgba(22, 22, 36, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+        border: isDark ? '1px solid rgba(255, 255, 255, 0.09)' : '1px solid rgba(0, 0, 0, 0.06)',
+        boxShadow: isDark ? '0 14px 36px rgba(0, 0, 0, 0.55)' : '0 14px 36px rgba(17, 24, 39, 0.14)',
+        backdropFilter: 'blur(22px)',
+        WebkitBackdropFilter: 'blur(22px)',
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      {/* Profielfoto of icoon, met klein type-icoontje */}
+      <div className="relative flex-shrink-0" style={{ width: 46, height: 46 }}>
+        {photoUrl ? (
+          <img src={photoUrl} alt="" className="w-full h-full rounded-full object-cover" />
+        ) : (
+          <div
+            className="w-full h-full rounded-full flex items-center justify-center text-[22px] leading-none"
+            style={{ background: accent }}
+          >
+            {avatarIcon}
+          </div>
+        )}
+        <div
+          className="absolute flex items-center justify-center rounded-full text-[10px] leading-none"
+          style={{
+            right: -3,
+            bottom: -3,
+            width: 20,
+            height: 20,
+            background: accent,
+            border: `2px solid ${isDark ? '#161624' : '#FFFFFF'}`,
+          }}
+        >
+          {badgeIcon}
+        </div>
+      </div>
+
+      {/* Tekst */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="text-[10px] font-extrabold uppercase tracking-[0.08em]"
+            style={{
+              background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              color: 'transparent',
+            }}
+          >
+            Romety
+          </span>
+          <span className="text-[11px] flex-shrink-0" style={{ color: isDark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.4)' }}>
+            {trNow('nu', 'now')}
+          </span>
+        </div>
+        <p className="text-[14px] font-bold leading-snug truncate mt-0.5" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
+          {title}
+        </p>
+        <p
+          className="text-[13px] leading-snug mt-0.5"
+          style={{
+            color: isDark ? 'rgba(255,255,255,0.68)' : 'rgba(17,24,39,0.62)',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {body}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function useNotifications() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -19,23 +145,36 @@ export function useNotifications() {
     if (!user) return;
     let unsubscribe = null;
 
-    // Initial unread count
+    // Initial unread count (chatberichten tellen niet mee bij het belletje)
     base44.entities.Notification.filter({ to_email: user.email, is_read: false }).then(notifs => {
-      setUnreadCount(notifs.length);
+      setUnreadCount(notifs.filter((n) => !isChatMessageNotif(n)).length);
     }).catch(() => {});
 
     // Real-time subscription
     unsubscribe = base44.entities.Notification.subscribe(async (event) => {
       if (event.type === 'create' && event.data?.to_email === user.email) {
-        setUnreadCount(prev => prev + 1);
+        const type = event.data.type;
+        const isChatMessage = isChatMessageNotif(event.data);
+        const isMatch = type === 'match';
+        const isChat = type === 'chat' || type === 'chat_message' || type === 'chat_invite';
+        const { roomId: parsedRoomId, text: parsedMessageText } = parseRoomInfo(event.data.venue_name);
+
+        if (!isChatMessage) setUnreadCount(prev => prev + 1);
+
+        // Zit je al in deze chat, dan geen pop-up
+        if (isChat && parsedRoomId) {
+          const openRoomId = getOpenChatRoomId();
+          const urlHasRoom = window.location.pathname.toLowerCase().includes('/chat') && window.location.href.includes(parsedRoomId);
+          if (openRoomId === parsedRoomId || urlHasRoom) return;
+        }
 
         let photoUrl = null;
+        let senderAvatar = null;
         if (event.data.from_email) {
           try {
             const profiles = await base44.entities.UserProfile.filter({ user_email: event.data.from_email });
-            if (profiles && profiles[0]?.photo_url) {
-              photoUrl = profiles[0].photo_url;
-            }
+            photoUrl = profiles?.[0]?.photo_url || null;
+            senderAvatar = profiles?.[0]?.avatar || null;
           } catch (e) {
             console.error("Error fetching notification sender profile:", e);
           }
@@ -43,109 +182,83 @@ export function useNotifications() {
 
         let titleText = trNow('Nieuwe update', 'New update');
         let bodyText = trNow('Iemand vindt je leuk! 💜', 'Someone likes you! 💜');
-        let toastIcon = '👤';
-        let toastBorderColor = 'rgba(255, 255, 255, 0.08)';
-        let toastBadgeIcon = '💜';
-        let routePage = 'Home';
-        let targetUrl = createPageUrl(routePage);
-
-        let parsedRoomId = null;
-        let parsedMessageText = null;
-        if (event.data.venue_name) {
-          try {
-            const parsed = JSON.parse(event.data.venue_name);
-            if (parsed.roomId) {
-              parsedRoomId = parsed.roomId;
-              parsedMessageText = parsed.text;
-            }
-          } catch (e) {
-            if (event.data.venue_name.length > 20 && !event.data.venue_name.includes(' ')) {
-              parsedRoomId = event.data.venue_name;
-            }
-          }
-        }
-
-        const isMatch = event.data.type === 'match';
-        const isChat = event.data.type === 'chat' || event.data.type === 'chat_message' || event.data.type === 'chat_invite';
+        let avatarIcon = '💜';
+        let badgeIcon = '💜';
+        let accent = ACCENTS.default;
+        let targetUrl = createPageUrl('Home');
 
         if (isChat) {
-          // If the user is already inside this specific room, suppress the banner overlay
-          if (parsedRoomId && window.location.href.includes(parsedRoomId) && window.location.pathname.toLowerCase().includes('/chat')) {
-            return;
-          }
-          titleText = event.data.from_name ? `${dt(event.data.from_name)} 💬` : trNow('Nieuw bericht 💬', 'New message 💬');
+          titleText = event.data.from_name ? dt(event.data.from_name) : trNow('Nieuw bericht', 'New message');
           bodyText = dt(parsedMessageText) || dt(event.data.message) || trNow('Heeft je een bericht gestuurd!', 'Sent you a message!');
-          toastIcon = '💬';
-          toastBorderColor = '#EE42BC';
-          toastBadgeIcon = '💬';
+          // Zonder foto: het dier-emoji van de afzender als avatar
+          avatarIcon = (senderAvatar && [...senderAvatar.trim()][0]) || '💬';
+          badgeIcon = '💬';
+          accent = ACCENTS.chat;
           targetUrl = parsedRoomId
             ? `${createPageUrl('Chat')}?roomId=${encodeURIComponent(parsedRoomId)}`
             : createPageUrl('Chat');
         } else if (isMatch) {
           titleText = trNow('Nieuwe match! 🎉', 'New match! 🎉');
           bodyText = trNow('Jij en je match hebben elkaar geliked! 💖', 'You and your match liked each other! 💖');
-          toastIcon = '💖';
-          toastBorderColor = '#FF4B72';
-          toastBadgeIcon = '💖';
+          avatarIcon = '💖';
+          badgeIcon = '💖';
+          accent = ACCENTS.match;
           targetUrl = createPageUrl('Matches');
-        } else if (event.data.type === 'game_invite') {
-          titleText = trNow('🎮 Speluitnodiging', '🎮 Game invite');
+        } else if (type === 'game_invite') {
+          titleText = trNow('Speluitnodiging', 'Game invite');
           bodyText = trNow('Je match heeft je uitgenodigd voor een game!', 'Your match invited you to a game!');
-          toastIcon = '🎮';
-          toastBorderColor = '#8B5CF6';
-          toastBadgeIcon = '🎮';
-          routePage = 'Games';
+          avatarIcon = '🎮';
+          badgeIcon = '🎮';
+          accent = ACCENTS.game;
           targetUrl = createPageUrl('Games');
-        } else if (event.data.type === 'game_accepted') {
-          titleText = trNow('🎮 Uitnodiging geaccepteerd', '🎮 Invite accepted');
+        } else if (type === 'game_accepted') {
+          titleText = trNow('Uitnodiging geaccepteerd', 'Invite accepted');
           bodyText = trNow('Je match heeft je uitnodiging geaccepteerd! 🚀', 'Your match accepted your invite! 🚀');
-          toastIcon = '🎮';
-          toastBorderColor = '#10B981';
-          toastBadgeIcon = '🎮';
-          routePage = 'Games';
+          avatarIcon = '🎮';
+          badgeIcon = '✅';
+          accent = ACCENTS.game;
           targetUrl = createPageUrl('Games');
-        } else if (event.data.type === 'game') {
-          titleText = trNow('🎮 Spel-update', '🎮 Game update');
+        } else if (type === 'game') {
+          titleText = trNow('Spel-update', 'Game update');
           bodyText = trNow('Het is jouw beurt in het spel met je match! 🎲', 'It is your turn in the game with your match! 🎲');
-          toastIcon = '🎮';
-          toastBorderColor = '#8B5CF6';
-          toastBadgeIcon = '🎮';
-          routePage = 'Games';
+          avatarIcon = '🎮';
+          badgeIcon = '🎲';
+          accent = ACCENTS.game;
           targetUrl = createPageUrl('Games');
-        } else if (event.data.type === 'hint') {
-          titleText = trNow('💬 Hint ontvangen', '💬 Hint received');
+        } else if (type === 'hint') {
+          titleText = trNow('Hint ontvangen', 'Hint received');
           bodyText = trNow('Je hebt een hint gekregen van een match! 💜', 'You received a hint from a match! 💜');
-          toastIcon = '💬';
-          toastBorderColor = '#EA3FD3';
-          toastBadgeIcon = '💬';
-          routePage = 'Home';
+          avatarIcon = '💬';
+          badgeIcon = '💜';
+          accent = ACCENTS.hint;
           targetUrl = createPageUrl('Home');
-        } else if (event.data.type === 'report') {
-          titleText = trNow('🚩 Nieuwe melding', '🚩 New report');
+        } else if (type === 'report') {
+          titleText = trNow('Nieuwe melding', 'New report');
           bodyText = trNow('Er is een gebruiker gemeld. Tik om te behandelen.', 'A user was reported. Tap to handle it.');
-          toastIcon = '🚩';
-          toastBorderColor = '#F97316';
-          toastBadgeIcon = '🚩';
-          routePage = 'Account';
+          avatarIcon = '🚩';
+          badgeIcon = '🚩';
+          accent = ACCENTS.warn;
           targetUrl = `${createPageUrl('Account')}?moderation=1`;
-        } else if (event.data.type === 'warning') {
-          titleText = trNow('⚠️ Waarschuwing', '⚠️ Warning');
+        } else if (type === 'warning') {
+          titleText = trNow('Waarschuwing', 'Warning');
           bodyText = trNow('Je gedrag is gemeld. Houd je aan de regels van Romety.', 'Your behaviour was reported. Please follow the Romety rules.');
-          toastIcon = '⚠️';
-          toastBorderColor = '#F97316';
-          toastBadgeIcon = '⚠️';
+          avatarIcon = '⚠️';
+          badgeIcon = '⚠️';
+          accent = ACCENTS.warn;
         }
 
+        // Alleen bij een afzender (chat, match) de profielfoto tonen
+        const showPhoto = (isChat || isMatch) ? photoUrl : null;
+
         toast.custom((t) => (
-          <div 
-            className="flex items-center gap-3 p-3 rounded-[20px] shadow-xl w-full max-w-sm border cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-            style={{
-              background: isDark ? 'rgba(15, 15, 27, 0.95)' : '#FFFFFF',
-              borderColor: isDark ? (isMatch || isChat || event.data.type?.startsWith('game') || event.data.type === 'hint' ? toastBorderColor : 'rgba(255, 255, 255, 0.08)') : 'rgba(0, 0, 0, 0.08)',
-              boxShadow: isDark ? '0 12px 32px rgba(0, 0, 0, 0.5)' : '0 12px 32px rgba(0, 0, 0, 0.12)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-            }}
+          <NotificationToast
+            isDark={isDark}
+            photoUrl={showPhoto}
+            avatarIcon={avatarIcon}
+            badgeIcon={badgeIcon}
+            accent={accent}
+            title={titleText}
+            body={bodyText}
             onClick={() => {
               toast.dismiss(t);
               if (targetUrl) {
@@ -156,66 +269,12 @@ export function useNotifications() {
                 }
               }
             }}
-          >
-            {/* Left side: Profile Photo / Fallback Avatar */}
-            <div className="relative flex-shrink-0">
-              {photoUrl && !isChat ? (
-                <img 
-                  src={photoUrl} 
-                  alt="" 
-                  className="w-11 h-11 rounded-full object-cover border" 
-                  style={{ borderColor: isMatch ? '#FF4B72' : '#3B82F6' }}
-                />
-              ) : (
-                <div 
-                  className="w-11 h-11 rounded-full flex items-center justify-center text-white font-black text-lg select-none"
-                  style={{
-                    background: isMatch
-                      ? 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)'
-                      : 'linear-gradient(135deg, #3B82F6 0%, #8E54E9 100%)'
-                  }}
-                >
-                  {isChat && event.data.from_name ? event.data.from_name.split(' ')[0] : toastIcon}
-                </div>
-              )}
-              {/* WhatsApp Green Notification dot / App Badge */}
-              <div 
-                className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] border-2 text-white"
-                style={{
-                  background: isMatch
-                    ? 'linear-gradient(135deg, #FF4B72, #EA3FD3)'
-                    : event.data.type?.startsWith('game')
-                    ? 'linear-gradient(135deg, #8B5CF6, #6366F1)'
-                    : 'linear-gradient(135deg, #EA3FD3, #A061FF)',
-                  borderColor: isDark ? '#0F0F1B' : '#FFFFFF'
-                }}
-              >
-                {toastBadgeIcon}
-              </div>
-            </div>
-
-            {/* Middle: WhatsApp style message text */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-green-500 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  Romety
-                </span>
-                <span className="text-[10px]" style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }}>{trNow('nu', 'now')}</span>
-              </div>
-              <p className="text-sm font-extrabold mt-0.5 truncate" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
-                {titleText}
-              </p>
-              <p className="text-xs mt-0.5 truncate" style={{ color: isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.6)' }}>
-                {bodyText}
-              </p>
-            </div>
-          </div>
+          />
         // Deze hook draait op meerdere plekken tegelijk (navigatiebalk, belletje, Matches).
         // Met een vaste id per melding verschijnt de pop-up maar één keer.
-        ), { duration: 5000, ...(event.data.id ? { id: `notif-${event.data.id}` } : {}) });
+        ), { duration: 5500, ...(event.data.id ? { id: `notif-${event.data.id}` } : {}) });
       }
-      if (event.type === 'update' && event.data?.to_email === user.email && event.data?.is_read) {
+      if (event.type === 'update' && event.data?.to_email === user.email && event.data?.is_read && !isChatMessageNotif(event.data)) {
         // Decrement locally instead of doing a full DB fetch on every read event
         setUnreadCount(prev => Math.max(0, prev - 1));
       }

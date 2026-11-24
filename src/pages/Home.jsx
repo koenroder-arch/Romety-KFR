@@ -24,6 +24,7 @@ const VENUE_TOAST_VISIBLE_MS = 5000;
 import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
+import { isChatMessageNotif } from '@/components/welove/useNotifications';
 import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
 import { BLOCK_EVENT } from '@/lib/blockUtils';
 import { fetchActiveCheckIns, fetchActiveDestinations, fetchProfilesForCountry, fetchMessageMetaByRoom } from '@/lib/dataQueries';
@@ -506,11 +507,12 @@ export default function Home() {
           // Clean up excess Notification rows (> 20) for current user
           base44.entities.Notification.filter({ to_email: u.email }, '-created_date', 500)
             .then(myNotifs => {
-              if (myNotifs.length > 20) {
-                myNotifs.slice(20).forEach(n => {
-                  if (n.id) base44.entities.Notification.delete(n.id).catch(() => {});
-                });
-              }
+              // Meldingen van chatberichten (alleen een pop-up) tellen niet mee en mogen weg
+              const bellNotifs = myNotifs.filter(n => !isChatMessageNotif(n));
+              const excess = [...myNotifs.filter(isChatMessageNotif), ...bellNotifs.slice(20)];
+              excess.forEach(n => {
+                if (n.id) base44.entities.Notification.delete(n.id).catch(() => {});
+              });
             }).catch(() => {});
         } catch (e) {}
       }, 1000);

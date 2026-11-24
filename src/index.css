@@ -227,3 +227,26 @@ img {
   transform: rotate(-12deg);
   pointer-events: none;
 }
+
+/* Nieuwe chatberichten glijden zacht in beeld (eigen berichten van rechts, die van de ander van links) */
+.romety-msg-in {
+  animation: romety-msg-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.romety-msg-in-me { transform-origin: bottom right; }
+.romety-msg-in-them { transform-origin: bottom left; }
+@keyframes romety-msg-in {
+  0% { opacity: 0; transform: translateY(18px) scale(0.9); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* Tijd onder een net verstuurd appje komt rustig na het appje in beeld */
+.romety-msg-time-in {
+  animation: romety-msg-time-in 0.4s ease 0.25s both;
+}
+@keyframes romety-msg-time-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .romety-msg-in, .romety-msg-time-in { animation: none; }
+}

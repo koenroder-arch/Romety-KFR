@@ -10,6 +10,7 @@ import { countUnread, markRoomRead } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
 import BlockUserDialog from './BlockUserDialog';
 import { dt } from '@/lib/displayText';
+import { CHAT_MESSAGE_TYPE } from './useNotifications';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -84,12 +85,44 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   // Blijft onderaan "plakken" (laatste berichten) zolang je niet zelf omhoog scrolt
   const stickToBottomRef = useRef(true);
   const prevMsgCountRef = useRef(0);
+  // Tot wanneer er zacht naar beneden wordt gescrold (dan niet hard laten springen)
+  const smoothScrollUntilRef = useRef(0);
+  // Berichten die er al waren bij het openen; alleen nieuwe berichten krijgen een in-animatie
+  const initialMsgIdsRef = useRef(null);
+  // Verzendanimatie: startpositie (invoerveld) en vaste sleutels voor verstuurde appjes
+  const flyFromRef = useRef(null);
+  const msgKeyAliasRef = useRef({});
+  const textInputRef = useRef(null);
+  const composerRef = useRef(null);
+  const keepKeyboardRef = useRef(false);
+
+  // Toetsenbord blijft open na verzenden; tik je ergens anders, dan gaat het weg
+  useEffect(() => {
+    const handlePointerDown = (e) => {
+      const input = textInputRef.current;
+      if (!input || document.activeElement !== input) return;
+      if (composerRef.current && composerRef.current.contains(e.target)) return;
+      input.blur();
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, []);
   const bottomRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const fileInputRef = useRef(null);
   const pollRef = useRef(null);
   const timerRef = useRef(null);
   const optionsMenuRef = useRef(null);
+
+  // Laat de meldingen weten welke chat open staat: daar komt dan geen pop-up van
+  useEffect(() => {
+    const roomId = localRoom?.id;
+    if (!roomId) return;
+    window.__romety_open_chat_room_id = roomId;
+    return () => {
+      if (window.__romety_open_chat_room_id === roomId) window.__romety_open_chat_room_id = null;
+    };
+  }, [localRoom?.id]);
 
   // Close options menu when clicking anywhere outside
   useEffect(() => {
@@ -214,8 +247,26 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     try {
       // De LAATSTE 200 berichten ophalen (nieuwste eerst) en daarna op volgorde zetten (oudste boven)
       const newest = await base44.entities.ChatMessage.filter({ room_id: rId }, '-created_at', 200);
-      const msgs = [...(newest || [])].reverse();
+      const serverMsgs = [...(newest || [])].reverse();
       setMessages(prev => {
+        // Appjes die nog verstuurd worden blijven staan; staat het bericht al op de server,
+        // dan neemt dat de plek (en sleutel) van het tijdelijke appje over
+        const pending = prev.filter((m) => m._pending);
+        let msgs = serverMsgs;
+        if (pending.length > 0) {
+          const stillPending = pending.filter((p) => {
+            const match = serverMsgs.find((m) => !msgKeyAliasRef.current[m.id]
+              && m.sender_email === p.sender_email
+              && m.content === p.content
+              && Math.abs(new Date(m.created_at || 0).getTime() - new Date(p.created_at).getTime()) < 60000);
+            if (match) {
+              msgKeyAliasRef.current[match.id] = p.id;
+              return false;
+            }
+            return true;
+          });
+          msgs = [...serverMsgs, ...stillPending];
+        }
         // Prevent state update if message list has not changed (prevents re-render and scroll jumps)
         if (prev.length === (msgs || []).length && prev.length > 0) {
           const lastPrev = prev[prev.length - 1];
@@ -323,9 +374,13 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   // Instant auto-scroll on layout pass: sets scroll position to the bottom before browser paint
   useLayoutEffect(() => {
     if (loading || !messages || messages.length === 0) {
-      if (!loading) setIsReadyToShow(true);
+      if (!loading) {
+        if (!initialMsgIdsRef.current) initialMsgIdsRef.current = new Set();
+        setIsReadyToShow(true);
+      }
       return;
     }
+    if (!initialMsgIdsRef.current) initialMsgIdsRef.current = new Set(messages.map((m) => m.id));
 
     const container = messagesContainerRef.current;
     const isNearBottom = container
@@ -337,7 +392,18 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     const lastMsg = messages[messages.length - 1];
     const isMyMessage = lastMsg?.sender_email === currentUserEmail;
 
-    if (isInitial || isMyMessage || (hasNewMessages && isNearBottom)) {
+    // Nieuw bericht terwijl de chat al open is: zacht naar beneden glijden i.p.v. springen
+    if (!isInitial && hasNewMessages && lastMsg?._pending) {
+      // Eigen appje dat net verstuurd wordt: direct onderaan, de verzendanimatie zorgt voor de beweging
+      stickToBottomRef.current = true;
+      if (container) container.scrollTop = container.scrollHeight;
+      setIsReadyToShow(true);
+    } else if (!isInitial && hasNewMessages && (isMyMessage || isNearBottom)) {
+      stickToBottomRef.current = true;
+      smoothScrollUntilRef.current = Date.now() + 700;
+      container?.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      setIsReadyToShow(true);
+    } else if (isInitial || isMyMessage || (hasNewMessages && isNearBottom)) {
       stickToBottomRef.current = true;
       if (container) {
         container.scrollTop = container.scrollHeight;
@@ -370,12 +436,38 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     }
   }, [loading, messages, localRoom.id, currentUserEmail]);
 
+  // Verzendanimatie: het nieuwe appje start op de plek van de getypte tekst in het invoerveld
+  // en glijdt soepel naar zijn plek in de chat (na het scrollen hierboven gemeten).
+  useLayoutEffect(() => {
+    const fly = flyFromRef.current;
+    if (!fly) return;
+    const el = messagesContainerRef.current?.querySelector(`[data-fly-key="${fly.key}"]`);
+    if (!el) return;
+    flyFromRef.current = null;
+    if (typeof el.animate !== 'function') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const to = el.getBoundingClientRect();
+    const from = fly.rect;
+    const dx = from.left - to.left;
+    const dy = (from.top + from.height / 2) - (to.top + to.height / 2);
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(0.92)`, opacity: 0.35 },
+        { transform: `translate(${dx * 0.15}px, ${dy * 0.15}px) scale(0.98)`, opacity: 1, offset: 0.6 },
+        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+      ],
+      { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+    );
+  }, [messages]);
+
   // Foto's laden later in en het scherm kan van hoogte veranderen (toetsenbord, adresbalk).
   // Zolang je onderaan zat, blijven we onderaan bij de laatste berichten.
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container || typeof ResizeObserver === 'undefined') return;
     const keepAtBottom = () => {
+      // Niet onderbreken terwijl er net zacht naar een nieuw bericht wordt gescrold
+      if (Date.now() < smoothScrollUntilRef.current) return;
       if (stickToBottomRef.current) container.scrollTop = container.scrollHeight;
     };
     const ro = new ResizeObserver(keepAtBottom);
@@ -414,7 +506,8 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       await base44.entities.Notification.create({
         to_email: otherEmail,
         from_email: currentUserEmail,
-        type: 'chat',
+        // Gewoon chatbericht: alleen een pop-up, geen melding bij het belletje
+        type: CHAT_MESSAGE_TYPE,
         from_name: senderLabel,
         venue_name: JSON.stringify({ roomId: localRoom.id, text: messagePreview }),
         is_read: false,
@@ -429,19 +522,41 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     if (!text.trim() || sending || !canChat) return;
     setSending(true);
     const content = text.trim();
+    // Het appje verschijnt meteen (tijdelijk) en vliegt vanuit het invoerveld naar zijn plek
+    const tempId = `temp-${Date.now()}`;
+    if (textInputRef.current) {
+      flyFromRef.current = { key: tempId, rect: textInputRef.current.getBoundingClientRect() };
+    }
     setText('');
+    setMessages((prev) => [...prev, {
+      id: tempId,
+      room_id: localRoom.id,
+      sender_email: currentUserEmail,
+      content,
+      type: 'text',
+      is_system: false,
+      created_at: new Date().toISOString(),
+      _pending: true,
+    }]);
     try {
-      await base44.entities.ChatMessage.create({
+      const created = await base44.entities.ChatMessage.create({
         room_id: localRoom.id,
         sender_email: currentUserEmail,
         content,
         type: 'text',
         is_system: false,
       });
+      if (created?.id) {
+        // Zelfde sleutel houden, zodat het appje niet opnieuw in beeld springt
+        msgKeyAliasRef.current[created.id] = tempId;
+        setMessages((prev) => (prev.some((m) => m.id === created.id)
+          ? prev.filter((m) => m.id !== tempId)
+          : prev.map((m) => (m.id === tempId ? created : m))));
+      }
       notifyPartner(content);
       await loadMessages();
-      scrollToBottom(true);
     } catch (e) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       toast.error(trNow('Bericht kon niet worden verstuurd', 'Message could not be sent'));
       setText(content);
     }
@@ -938,10 +1053,15 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             const msg = item.msg;
             const isMe = msg.sender_email === currentUserEmail;
             const isSystem = msg.is_system || msg.type === 'system';
+            // Vaste sleutel: een verstuurd appje houdt de sleutel van het tijdelijke appje
+            const msgKey = msgKeyAliasRef.current[msg.id] || msg.id;
+            const isSentByMeNow = msg._pending || !!msgKeyAliasRef.current[msg.id];
+            const isNewMsg = !!initialMsgIdsRef.current && !initialMsgIdsRef.current.has(msg.id) && !isSentByMeNow;
+            const enterClass = isNewMsg ? (isSystem ? ' romety-msg-in' : isMe ? ' romety-msg-in romety-msg-in-me' : ' romety-msg-in romety-msg-in-them') : '';
 
             if (isSystem) {
               return (
-                <div key={msg.id} className="flex items-center justify-center my-3">
+                <div key={msgKey} className={`flex items-center justify-center my-3${enterClass}`}>
                   <span className="text-[11px] font-semibold text-center px-4 py-2 rounded-2xl max-w-[280px]" style={{ background: isDark ? 'rgba(255,75,114,0.15)' : 'rgba(255,75,114,0.08)', color: '#FF4B72' }}>
                     {dt(msg.content)}
                   </span>
@@ -950,7 +1070,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             }
 
             return (
-              <div key={msg.id} className={`flex mb-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+              <div key={msgKey} className={`flex mb-2 ${isMe ? 'justify-end' : 'justify-start'}${enterClass}`}>
                 {!isMe && (
                   <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mr-2 self-end">
                     {otherAvatar
@@ -966,8 +1086,10 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                     </div>
                   ) : (
                     <div
+                      data-fly-key={msgKey}
                       className={`px-4 py-2.5 rounded-2xl shadow-sm ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
                       style={{
+                        transformOrigin: 'left center',
                         background: isMe ? msgBubbleMe : msgBubbleOther,
                         border: isMe ? 'none' : (isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)'),
                       }}
@@ -977,9 +1099,9 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       </p>
                     </div>
                   )}
-                  <span className="text-[9px] px-1" style={{ color: textSub }}>
+                  <span className={`text-[9px] px-1${isSentByMeNow ? ' romety-msg-time-in' : ''}`} style={{ color: textSub }}>
                     {formatMessageTime(msg.created_at || msg.created_date)}
-                    {isMe && ' ✓✓'}
+                    {isMe && (msg._pending ? ' ✓' : ' ✓✓')}
                   </span>
                 </div>
               </div>
@@ -1061,6 +1183,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       {/* Input bar (phases 1-3) */}
       {canChat && phase < 4 && !isArchived && (
         <div
+          ref={composerRef}
           className="flex-shrink-0 sticky bottom-0 z-20 flex items-center gap-2 px-3 py-2.5"
           onTouchMove={(e) => e.stopPropagation()}
           style={{
@@ -1100,6 +1223,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           />
           {/* Text input */}
           <input
+            ref={textInputRef}
             value={text}
             onChange={e => {
               if (isWaitingForOther) {
@@ -1192,6 +1316,11 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           />
           {/* Send button */}
           <button
+            // Tikken op verzenden haalt de focus niet weg: het toetsenbord blijft open
+            onPointerDown={() => {
+              keepKeyboardRef.current = document.activeElement === textInputRef.current;
+            }}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               if (isWaitingForOther) {
                 setShowWaitingAlert(true);
@@ -1206,6 +1335,8 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 setShowPhotoRequiredAlert(true);
                 return;
               }
+              if (keepKeyboardRef.current) textInputRef.current?.focus({ preventScroll: true });
+              keepKeyboardRef.current = false;
               sendMessage();
             }}
             disabled={!text.trim() || sending}
