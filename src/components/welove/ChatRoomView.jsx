@@ -454,49 +454,21 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
     flyFromRef.current = null;
     if (typeof el.animate !== 'function') return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const host = rootRef.current;
-    if (!host) return;
     const to = el.getBoundingClientRect();
     const from = fly.rect;
-    const dx = from.left - to.left;
-    const dy = (from.top + from.height / 2) - (to.top + to.height / 2);
-
-    // Een losse kopie vliegt over alles heen (de berichtenlijst zou hem bij de rand afknippen);
-    // het echte appje is zolang onzichtbaar en neemt het daarna naadloos over.
-    const clone = el.cloneNode(true);
-    clone.removeAttribute('data-fly-key');
-    Object.assign(clone.style, {
-      position: 'fixed',
-      left: `${to.left}px`,
-      top: `${to.top}px`,
-      width: `${to.width}px`,
-      height: `${to.height}px`,
-      margin: '0',
-      zIndex: '400',
-      pointerEvents: 'none',
-      transformOrigin: 'left center',
-      willChange: 'transform, opacity',
-    });
-    host.appendChild(clone);
-    el.style.visibility = 'hidden';
-
-    let finished = false;
-    const done = () => {
-      if (finished) return;
-      finished = true;
-      el.style.visibility = '';
-      clone.remove();
-    };
-    const anim = clone.animate(
+    // Het echte appje zelf glijdt van onder (achter het invoerveld) omhoog naar zijn plek.
+    // Geen losse kopie meer: die landde op het vorige appje als de chat intussen verschoof,
+    // en het echte appje bleef zolang onzichtbaar.
+    const dy = Math.max(0, Math.min(140, (from.top + from.height / 2) - (to.top + to.height / 2)));
+    el.animate(
       [
-        { transform: `translate(${dx}px, ${dy}px) scale(0.94)`, opacity: 0.6 },
-        { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+        { transform: `translateY(${dy}px) scale(0.96)`, opacity: 0 },
+        { opacity: 1, offset: 0.35 },
+        { transform: 'translateY(0px) scale(1)', opacity: 1 },
       ],
-      { duration: 420, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'both' }
+      // 'backwards': vanaf het eerste beeld in de beginstand, dus geen flits op de eindplek
+      { duration: 380, easing: 'cubic-bezier(0.25, 1, 0.5, 1)', fill: 'backwards' }
     );
-    anim.onfinish = done;
-    anim.oncancel = done;
-    setTimeout(done, 900);
   }, [messages]);
 
   // Foto's laden later in en het scherm kan van hoogte veranderen (toetsenbord, adresbalk).
@@ -1129,7 +1101,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                       data-fly-key={msgKey}
                       className={`px-4 py-2.5 rounded-2xl shadow-sm ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
                       style={{
-                        transformOrigin: 'left center',
+                        transformOrigin: isMe ? 'right bottom' : 'left bottom',
                         background: isMe ? msgBubbleMe : msgBubbleOther,
                         border: isMe ? 'none' : (isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)'),
                       }}
