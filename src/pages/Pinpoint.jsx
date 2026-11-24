@@ -1006,6 +1006,14 @@ export default function Pinpoint() {
 
               <input
                 ref={searchInputRef}
+                // Geen automatische suggesties (zoals een locatie/adres) boven het toetsenbord
+                type="search"
+                name="romety-venue-search"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="search"
+                data-form-type="other"
                 className={`flex-1 min-w-[50px] bg-transparent focus:outline-none ${searchTextColor} ${searchPlaceholderColor}`}
                 style={{ fontSize: '16px' }}
                 placeholder={useNearbyFilter ? 'Zoek...' : t.searchPlaceholder}

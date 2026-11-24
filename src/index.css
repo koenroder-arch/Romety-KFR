@@ -250,3 +250,14 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .romety-msg-in, .romety-msg-time-in { animation: none; }
 }
+
+/* Zoekvelden: geen eigen opmaak of extra kruisje van de browser (we hebben er zelf een) */
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  display: none;
+}

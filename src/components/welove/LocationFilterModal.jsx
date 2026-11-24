@@ -211,6 +211,14 @@ export default function LocationFilterModal({
               >
                 <Search className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
                 <input
+                  // Geen automatische suggesties (zoals een locatie/adres) boven het toetsenbord
+                  type="search"
+                  name="romety-city-search"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="search"
+                  data-form-type="other"
                   value={cityQuery}
                   onChange={(e) => handleSearchCity(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
