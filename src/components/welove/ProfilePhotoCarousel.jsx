@@ -72,13 +72,13 @@ export default function ProfilePhotoCarousel({
     // Trigger swipe if horizontal movement is significant
     if (Math.abs(deltaX) > 25 && Math.abs(deltaX) > Math.abs(deltaY)) {
       isSwiping.current = true;
-      if (deltaX > 0) {
-        // Swiped Left -> Next
+      if (deltaX < 0) {
+        // Vinger naar rechts -> volgende foto
         if (currentIndex < totalPhotos - 1) {
           setCurrentIndex(prev => prev + 1);
         }
       } else {
-        // Swiped Right -> Prev
+        // Vinger naar links -> terug naar de vorige foto
         if (currentIndex > 0) {
           setCurrentIndex(prev => prev - 1);
         }
@@ -102,7 +102,8 @@ export default function ProfilePhotoCarousel({
     const deltaX = mouseStartX.current - e.clientX;
     if (Math.abs(deltaX) > 30) {
       isSwiping.current = true;
-      if (deltaX > 0) {
+      // Zelfde richting als op de telefoon: naar rechts slepen = volgende foto
+      if (deltaX < 0) {
         goToNext();
       } else {
         goToPrev();
@@ -141,14 +142,10 @@ export default function ProfilePhotoCarousel({
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 
-    // Zonder dubbeltik-functie hoeft er niet gewacht te worden: meteen wisselen
+    // Foto's wisselen gaat alleen nog met swipen, niet met tikken.
+    // Tikken is er alleen voor dubbeltik (liken) en een eventuele onClick.
     if (!onDoubleTap) {
-      if (hasMultiplePhotos) {
-        if (x < rect.width * 0.4) goToPrev();
-        else goToNext();
-      } else if (onClick) {
-        onClick(e, profile);
-      }
+      if (onClick) onClick(e, profile);
       return;
     }
 
@@ -168,15 +165,7 @@ export default function ProfilePhotoCarousel({
         clearTimeout(singleTapTimeoutRef.current);
       }
       singleTapTimeoutRef.current = setTimeout(() => {
-        if (hasMultiplePhotos) {
-          if (x < rect.width * 0.4) {
-            goToPrev();
-          } else {
-            goToNext();
-          }
-        } else if (onClick) {
-          onClick(e, profile);
-        }
+        if (onClick) onClick(e, profile);
         singleTapTimeoutRef.current = null;
       }, DOUBLE_TAP_DELAY);
     }
