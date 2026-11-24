@@ -1,6 +1,7 @@
 import { base44 } from '@/api/base44Client';
 import { isMatch } from '@/lib/matchUtils';
 import { fetchReportedEmails } from '@/lib/reportUtils';
+import { fetchActiveCheckIns, fetchActiveDestinations, fetchProfilesForCountry } from '@/lib/dataQueries';
 
 /**
  * Telt hoeveel matches er bij jouw actieve venue zijn, met dezelfde regels als de Matches-pagina:
@@ -22,9 +23,10 @@ export async function countVenueMatches(email) {
   const myProf = myProfs[0] || null;
 
   const [allProfiles, allCheckIns, allDestinations, reportedEmails] = await Promise.all([
-    base44.entities.UserProfile.list('-created_date', 500),
-    base44.entities.VenueCheckIn.list(),
-    base44.entities.UserDestination.list(),
+    // Alleen je eigen land en actieve locaties: de rest viel hieronder toch af
+    fetchProfilesForCountry(myProf?.country),
+    fetchActiveCheckIns(),
+    fetchActiveDestinations(),
     fetchReportedEmails(email),
   ]);
 

@@ -26,6 +26,7 @@ import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
 import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
 import { BLOCK_EVENT } from '@/lib/blockUtils';
+import { fetchActiveCheckIns, fetchActiveDestinations, fetchProfilesForCountry, fetchMessageMetaByRoom } from '@/lib/dataQueries';
 import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 import { countUnread, fetchChatUnreadSummary, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
@@ -246,7 +247,6 @@ export default function Home() {
         myDestinations = [],
         likesISent = [],
         likesIReceived = [],
-        allProfilesData = [],
         allCheckIns = [],
         allDestinations = [],
         allClubs = [],
@@ -261,9 +261,9 @@ export default function Home() {
         base44.entities.UserDestination.filter({ user_email: u.email }).catch(() => []),
         base44.entities.Like.filter({ from_email: u.email }).catch(() => []),
         base44.entities.Like.filter({ to_email: u.email }).catch(() => []),
-        base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
-        base44.entities.VenueCheckIn.list().catch(() => []),
-        base44.entities.UserDestination.list().catch(() => []),
+        // Alleen actieve locaties: verlopen rijen werden hieronder toch weggefilterd
+        fetchActiveCheckIns().catch(() => []),
+        fetchActiveDestinations().catch(() => []),
         base44.entities.Club.list().catch(() => []),
         base44.entities.Hint.list('-created_date', 100).catch(() => []),
         base44.entities.Story.list('-created_date', 100).catch(() => []),
@@ -272,8 +272,15 @@ export default function Home() {
         base44.entities.ChatRoom.filter({ user_b_email: u.email }).catch(() => []),
       ]);
 
-      const safeProfiles = allProfilesData.filter((p) => p && p.user_email && !reportedEmails.has(p.user_email));
       const myProf = myProfiles[0] || null;
+      // Profielen uit je eigen land (voor matches en verhalen) plus iedereen met wie je likes hebt
+      // (voor supermatches en ontvangen likes), zonder grens van 500
+      const likeEmails = [
+        ...likesISent.map((l) => l && l.to_email),
+        ...likesIReceived.map((l) => l && l.from_email),
+      ];
+      const allProfilesData = await fetchProfilesForCountry(myProf?.country, likeEmails).catch(() => []);
+      const safeProfiles = allProfilesData.filter((p) => p && p.user_email && !reportedEmails.has(p.user_email));
       setMyProfile(myProf);
 
       // Check-in
@@ -288,6 +295,22 @@ export default function Home() {
         if (!myCI.venue_city && allDestinations.length > 0) {
           const found = allDestinations.find((d) => d.venue_city && (d.venue_id === myCI.venue_id || d.venue_name === myCI.venue_name));
           if (found) myCI.venue_city = found.venue_city;
+        }
+        if (!myCI.venue_city) {
+          // Ook oudere (verlopen) bestemmingen bij deze venue kennen soms de stad
+          const conds = [];
+          if (myCI.venue_id) conds.push(`venue_id.eq."${myCI.venue_id}"`);
+          if (myCI.venue_name) conds.push(`venue_name.eq."${myCI.venue_name.replace(/"/g, '\\"')}"`);
+          if (conds.length > 0) {
+            const { data: withCity } = await supabase
+              .from('UserDestination')
+              .select('venue_city')
+              .not('venue_city', 'is', null)
+              .neq('venue_city', '')
+              .or(conds.join(','))
+              .limit(1);
+            if (withCity?.[0]?.venue_city) myCI.venue_city = withCity[0].venue_city;
+          }
         }
       }
       setMyCheckIn(myCI);
@@ -383,17 +406,19 @@ export default function Home() {
         const activeRooms = uniqueRooms.filter(r => r.status === 'active');
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
         const nowMs = Date.now();
+        // Berichten van alle chats in één verzoek; lukt dat niet, dan per chat zoals voorheen
+        const msgsByRoom = await fetchMessageMetaByRoom(activeRooms.map((r) => r.id)).catch(() => null);
         await Promise.all(
           activeRooms.map(async (r) => {
             try {
-              const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
+              const msgs = msgsByRoom ? msgsByRoom[r.id] || [] : await base44.entities.ChatMessage.filter({ room_id: r.id });
               const latestMsgTime = msgs && msgs.length > 0
                 ? Math.max(...msgs.map(m => new Date(m.created_at || m.created_date || 0).getTime()))
                 : new Date(r.created_at || 0).getTime();
 
               // If inactive for > 7 days, trigger deletion and do NOT count towards badge
               if (nowMs - latestMsgTime > SEVEN_DAYS_MS) {
-                deleteChatRoomAndMedia(r.id, { reason: 'inactivity' }).catch(() => {});
+                deleteChatRoomAndMedia(r.id, { reason: 'inactivity', notifyFrom: u.email }).catch(() => {});
                 return;
               }
 

@@ -8,6 +8,7 @@ import { authStorage } from '@/lib/authStorage';
 import { toast } from 'sonner';
 import { trNow } from '@/lib/LanguageContext';
 import { dt } from '@/lib/displayText';
+import { fetchActiveCheckIns, fetchActiveDestinations } from '@/lib/dataQueries';
 
 const MAX_CHARS = 40;
 
@@ -83,8 +84,9 @@ export default function SendHintSheet({
     const loadLocations = async () => {
       try {
         const [checkIns = [], dests = []] = await Promise.all([
-          base44.entities.VenueCheckIn.list().catch(() => []),
-          base44.entities.UserDestination.list().catch(() => []),
+          // Alleen actieve locaties: verlopen rijen werden hieronder toch genegeerd
+          fetchActiveCheckIns().catch(() => []),
+          fetchActiveDestinations().catch(() => []),
         ]);
         if (active) {
           setAllCheckIns(checkIns);
@@ -173,7 +175,7 @@ export default function SendHintSheet({
     setSending(true);
 
     try {
-      const senderEmail = user?.email || myProfile?.user_email || authStorage.getUserEmail();
+      const senderEmail = user?.email || myProfile?.user_email || authStorage.getUserSync()?.email;
       if (!senderEmail) {
         toast.error(trNow('Je moet ingelogd zijn om een hint te sturen.', 'You need to be logged in to send a hint.'));
         setSending(false);

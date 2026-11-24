@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { COUNTRIES, countryName } from '@/lib/countries';
 import { trNow } from '@/lib/LanguageContext';
 import { dt } from '@/lib/displayText';
+import { fetchActiveCheckIns, fetchActiveDestinations, fetchProfilesForCountry } from '@/lib/dataQueries';
 
 // Engelse versie van de veelgestelde vragen op de Account-pagina
 const FAQS_EN = [
@@ -314,7 +315,6 @@ export default function Account() {
         roomsB = [],
         likesISent = [],
         likesIReceived = [],
-        allProfiles = [],
         allCheckIns = [],
         allDestinations = []
       ] = await Promise.all([
@@ -323,12 +323,14 @@ export default function Account() {
         base44.entities.ChatRoom.filter({ user_b_email: u.email }).catch(() => []),
         base44.entities.Like.filter({ from_email: u.email }),
         base44.entities.Like.filter({ to_email: u.email }),
-        base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
-        base44.entities.VenueCheckIn.list().catch(() => []),
-        base44.entities.UserDestination.list().catch(() => []),
+        // Alleen actieve locaties: verlopen rijen werden hieronder toch weggefilterd
+        fetchActiveCheckIns().catch(() => []),
+        fetchActiveDestinations().catch(() => []),
       ]);
 
       const p = profiles[0] || null;
+      // Alleen profielen uit je eigen land zijn nodig voor de teller (voorheen de 500 nieuwste)
+      const allProfiles = await fetchProfilesForCountry(p?.country).catch(() => []);
       setMyProfile(p);
       const initialVals = {
         display_name: p?.display_name || u.full_name || '',

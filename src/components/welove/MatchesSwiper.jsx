@@ -8,6 +8,7 @@ import ProfilePhotoCarousel from './ProfilePhotoCarousel';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
 import { trNow } from '@/lib/LanguageContext';
 import BlockUserDialog from './BlockUserDialog';
+import { createLikeOnce } from '@/lib/likeUtils';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -70,7 +71,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
     }
     const myName = myProf?.display_name || 'Iemand';
 
-    await base44.entities.Like.create({ from_email: currentUserEmail, to_email: profile.user_email });
+    await createLikeOnce(currentUserEmail, profile.user_email);
 
     const existingLikes = await base44.entities.Like.filter({ from_email: profile.user_email, to_email: currentUserEmail });
     if (existingLikes.length > 0) {
@@ -100,7 +101,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
           }
           const myName = myProf?.display_name || 'Iemand';
 
-          await base44.entities.Like.create({ from_email: currentUserEmail, to_email: profile.user_email });
+          await createLikeOnce(currentUserEmail, profile.user_email);
 
           const existingLikes = await base44.entities.Like.filter({ from_email: profile.user_email, to_email: currentUserEmail });
           if (existingLikes.length > 0) {

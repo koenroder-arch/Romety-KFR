@@ -12,6 +12,7 @@ import { T } from '@/lib/translations';
 import { base44 } from '@/api/base44Client';
 import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 import { countUnread, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
+import { fetchMessageMetaByRoom } from '@/lib/dataQueries';
 
 const NAV_CONFIG = [
   { key: 'navHome', icon: Home, page: 'Home' },
@@ -139,17 +140,21 @@ export default function Layout({ children, currentPageName }) {
         if (activeRooms.length > 0) {
           const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
           const nowMs = Date.now();
+          // Berichten van alle chats in één verzoek; lukt dat niet, dan per chat zoals voorheen
+          const msgsByRoom = await fetchMessageMetaByRoom(activeRooms.map((r) => r.id)).catch(() => null);
           await Promise.all(
             activeRooms.map(async (r) => {
               try {
-                const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id }).catch(() => []);
+                const msgs = msgsByRoom
+                  ? msgsByRoom[r.id] || []
+                  : await base44.entities.ChatMessage.filter({ room_id: r.id }).catch(() => []);
                 const latestMsgTime = msgs && msgs.length > 0
                   ? Math.max(...msgs.map(m => new Date(m.created_at || m.created_date || 0).getTime()))
                   : new Date(r.created_at || 0).getTime();
 
                 // If inactive for > 7 days, trigger deletion and do NOT count towards badge
                 if (nowMs - latestMsgTime > SEVEN_DAYS_MS) {
-                  deleteChatRoomAndMedia(r.id, { reason: 'inactivity' }).catch(() => {});
+                  deleteChatRoomAndMedia(r.id, { reason: 'inactivity', notifyFrom: email }).catch(() => {});
                   return;
                 }
 

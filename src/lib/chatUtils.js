@@ -1,14 +1,60 @@
 import { supabase } from '@/api/supabaseClient';
 import { base44 } from '@/api/base44Client';
 
+const INACTIVITY_TEXT = 'Een chat is beëindigd wegens 7 dagen inactiviteit.';
+const inactivityInFlight = new Set();
+
 /**
- * Verwijdert een chatroom en alle daarin verstuurde foto's:
+ * Verwijdert een chatroom en alle daarin verstuurde foto's (zie removeChatRoom).
+ *
+ * Bij reason 'inactivity' (7 dagen geen berichten) wordt dit vanaf meerdere plekken
+ * tegelijk aangeroepen (navigatiebalk, Home, Chat). Daarom gebeurt het hier maar één keer:
+ * een chat die al verwijderd is of nu al verwerkt wordt, wordt overgeslagen. Alleen als
+ * de chat echt net beëindigd is, krijgen beide deelnemers één melding (notifyFrom = jouw e-mail).
+ * Geeft true terug als de chat nu beëindigd is.
+ */
+export async function deleteChatRoomAndMedia(roomId, options = {}) {
+  if (options.reason !== 'inactivity') return removeChatRoom(roomId, options);
+  if (!roomId || inactivityInFlight.has(roomId)) return false;
+  inactivityInFlight.add(roomId);
+  try {
+    const { data: room } = await supabase
+      .from('ChatRoom')
+      .select('status, user_a_email, user_b_email')
+      .eq('id', roomId)
+      .maybeSingle();
+    if (!room || room.status === 'deleted') return false;
+
+    const ok = await removeChatRoom(roomId, options);
+    if (ok && options.notifyFrom) {
+      const now = new Date().toISOString();
+      await Promise.all([room.user_a_email, room.user_b_email].filter(Boolean).map((to_email) =>
+        base44.entities.Notification.create({
+          to_email,
+          from_email: options.notifyFrom,
+          type: 'chat_inactive',
+          venue_name: INACTIVITY_TEXT,
+          is_read: false,
+          created_date: now,
+        }).catch(() => {})
+      ));
+    }
+    return ok;
+  } catch (e) {
+    console.warn('[deleteChatRoomAndMedia] Inactiviteit verwerken mislukt:', e);
+    return false;
+  } finally {
+    inactivityInFlight.delete(roomId);
+  }
+}
+
+/**
  * 1. Zoekt alle berichten met een foto in deze chat.
  * 2. Verwijdert EERST alle mediabestanden uit de Supabase Storage bucket ('chat-uploads' / 'uploads').
  * 3. Verwijdert de berichten uit de database.
  * 4. Markeert de chatroom als verwijderd (of verwijdert deze definitief).
  */
-export async function deleteChatRoomAndMedia(roomId, { hardDelete = false, deletedBy = null, reason = null } = {}) {
+async function removeChatRoom(roomId, { hardDelete = false, deletedBy = null, reason = null } = {}) {
   if (!roomId) return false;
   try {
     const client = supabase;

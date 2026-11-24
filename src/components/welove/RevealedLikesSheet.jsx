@@ -8,6 +8,7 @@ import { base44 } from '@/api/base44Client';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
 import { trNow } from '@/lib/LanguageContext';
 import BlockUserDialog from './BlockUserDialog';
+import { createLikeOnce } from '@/lib/likeUtils';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -74,10 +75,7 @@ export default function RevealedLikesSheet({
     // Voer de like en notificaties asynchroon uit in de database
     (async () => {
       try {
-        await base44.entities.Like.create({
-          from_email: currentUser.email,
-          to_email: profile.user_email,
-        });
+        await createLikeOnce(currentUser.email, profile.user_email);
 
         await Promise.all([
           base44.entities.Notification.create({

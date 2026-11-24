@@ -12,6 +12,7 @@ import { T } from '@/lib/translations';
 
 import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import { fetchReportedEmails } from '@/lib/reportUtils';
+import { fetchActiveCheckIns, fetchActiveDestinations, fetchProfilesForCountry } from '@/lib/dataQueries';
 import NotificationBell from '@/components/welove/NotificationBell';
 import SendHintSheet from '@/components/welove/SendHintSheet';
 
@@ -77,9 +78,10 @@ export default function Matches() {
 
     // Fetch all needed data in one batch
     const [allProfiles, allCheckIns, allDestinations, myLikes, myHints] = await Promise.all([
-      base44.entities.UserProfile.list('-created_date', 500),
-      base44.entities.VenueCheckIn.list(),
-      base44.entities.UserDestination.list(),
+      // Alleen je eigen land en actieve locaties: de rest viel hieronder toch af
+      fetchProfilesForCountry(myProf?.country),
+      fetchActiveCheckIns(),
+      fetchActiveDestinations(),
       base44.entities.Like.filter({ from_email: u.email }),
       base44.entities.Hint.filter({ from_email: u.email }),
     ]);
@@ -134,7 +136,7 @@ export default function Matches() {
       if (diffMs > 0) {
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        setTimeLeft(`${hours}u ${mins}m`);
+        setTimeLeft(`${hours}${tr('u', 'h')} ${mins}m`);
       } else {
         setTimeLeft('0m');
       }

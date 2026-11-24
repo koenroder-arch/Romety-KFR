@@ -12,6 +12,7 @@ import NotificationBell from '@/components/welove/NotificationBell';
 import { createPageUrl } from '@/utils';
 import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 import { countUnread, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
+import { fetchMessageMetaByRoom, fetchProfilesByEmails } from '@/lib/dataQueries';
 import { trNow } from '@/lib/LanguageContext';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -275,7 +276,8 @@ export default function Chat() {
       const otherEmails = [...new Set(visible.map(r => r.user_a_email === user.email ? r.user_b_email : r.user_a_email))];
       let profMap = {};
       if (otherEmails.length > 0) {
-        const allProfs = await base44.entities.UserProfile.list('-created_date', 500).catch(() => []);
+        // Alleen de profielen van je chatpartners (voorheen de 500 nieuwste van iedereen)
+        const allProfs = await fetchProfilesByEmails(otherEmails).catch(() => []);
         for (const p of allProfs) {
           if (otherEmails.includes(p.user_email)) profMap[p.user_email] = p;
         }
@@ -284,10 +286,12 @@ export default function Chat() {
       // Load message counts & latest message timestamp for active rooms
       const counts = {};
       const latestActivity = {};
+      // Berichten van alle chats in één verzoek; lukt dat niet, dan per chat zoals voorheen
+      const msgsByRoom = await fetchMessageMetaByRoom(visible.map((r) => r.id)).catch(() => null);
       await Promise.all(
         visible.map(async (r) => {
           try {
-            const msgs = await base44.entities.ChatMessage.filter({ room_id: r.id });
+            const msgs = msgsByRoom ? msgsByRoom[r.id] || [] : await base44.entities.ChatMessage.filter({ room_id: r.id });
             // Ongelezen = berichten van de ander, nieuwer dan jouw laatste keer lezen (staat in de database)
             counts[r.id] = r.status === 'pending' ? 0 : countUnread(r, msgs, user.email);
 
@@ -313,7 +317,8 @@ export default function Chat() {
           const lastTime = latestActivity[r.id] || new Date(r.created_at || 0).getTime();
           if (now.getTime() - lastTime > SEVEN_DAYS_MS) {
             // Delete media and update room status in DB as deleted with 24h expiry
-            await deleteChatRoomAndMedia(r.id, { reason: 'inactivity' });
+            // (stuurt beide deelnemers één melding, ook als dit al elders gebeurde niet dubbel)
+            await deleteChatRoomAndMedia(r.id, { reason: 'inactivity', notifyFrom: user?.email });
 
             // Mutate in-memory object so it renders immediately as a deleted room for 24 hours
             r.status = 'deleted';
@@ -323,25 +328,6 @@ export default function Chat() {
             r.extension_accepted_b = true;
             r.chat_closed_at = now.toISOString();
             r.deleted_at = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-
-            // Notify both users
-            base44.entities.Notification.create({
-              to_email: r.user_a_email,
-              from_email: user?.email,
-              type: 'chat_inactive',
-              venue_name: 'Een chat is beëindigd wegens 7 dagen inactiviteit.',
-              is_read: false,
-              created_date: now.toISOString(),
-            }).catch(() => {});
-
-            base44.entities.Notification.create({
-              to_email: r.user_b_email,
-              from_email: user?.email,
-              type: 'chat_inactive',
-              venue_name: 'Een chat is beëindigd wegens 7 dagen inactiviteit.',
-              is_read: false,
-              created_date: now.toISOString(),
-            }).catch(() => {});
           }
         })
       );

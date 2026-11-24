@@ -13,6 +13,7 @@ import LocationFilterModal from '@/components/welove/LocationFilterModal';
 import { useTheme } from '@/lib/ThemeContext';
 import { fetchReportedEmails } from '@/lib/reportUtils';
 import { getCountryByName, venueInCountry, DEFAULT_COUNTRY } from '@/lib/countries';
+import { fetchActiveCheckIns, fetchActiveDestinations, fetchProfilesForCountry } from '@/lib/dataQueries';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 
@@ -240,18 +241,22 @@ export default function Pinpoint() {
         searches = [],
         allCheckIns = [],
         allDests = [],
-        allProfs = [],
         reportedEmails = new Set()
       ] = await Promise.all([
         base44.entities.UserProfile.filter({ user_email: u.email }).catch(() => []),
         base44.entities.Club.list().catch(() => []),
         base44.entities.VenueCheckIn.filter({ user_email: u.email }).catch(() => []),
         base44.entities.SearchHistory.filter({ user_email: u.email }, '-created_date', 10).catch(() => []),
-        base44.entities.VenueCheckIn.list().catch(() => []),
-        base44.entities.UserDestination.list().catch(() => []),
-        base44.entities.UserProfile.list('-created_date', 500).catch(() => []),
+        // Alleen actieve locaties: verlopen rijen werden hieronder toch weggefilterd
+        fetchActiveCheckIns().catch(() => []),
+        fetchActiveDestinations().catch(() => []),
         fetchReportedEmails(u.email).catch(() => new Set())
       ]);
+      // Profielen uit je eigen land, plus iedereen die nu ergens heen gaat (voorheen de 500 nieuwste)
+      const allProfs = await fetchProfilesForCountry(
+        profiles[0]?.country,
+        [...allCheckIns, ...allDests].map((x) => x && x.user_email)
+      ).catch(() => []);
 
       const safeProfs = allProfs.filter(p => p && p.user_email && !reportedEmails.has(p.user_email));
       const safeDests = allDests.filter(d => d && d.user_email && !reportedEmails.has(d.user_email));
@@ -596,7 +601,7 @@ export default function Pinpoint() {
         expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
       });
       setMyDestination(newDest);
-      const all = await base44.entities.UserDestination.list();
+      const all = await fetchActiveDestinations();
       const refreshNow = new Date().toISOString();
       setAllDestinations(all.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > refreshNow)));
 
@@ -643,7 +648,7 @@ export default function Pinpoint() {
     }
     // Laat de navigatiebalk weten dat er geen venue meer is (rood bolletje op Matches weg)
     try { window.dispatchEvent(new CustomEvent('romety_venue_changed')); } catch (e) {}
-    const all = await base44.entities.UserDestination.list();
+    const all = await fetchActiveDestinations();
     const refreshNow = new Date().toISOString();
     setAllDestinations(all.filter((d) => d.status === 'active' && (!d.expires_at || d.expires_at > refreshNow)));
   };

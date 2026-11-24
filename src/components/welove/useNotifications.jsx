@@ -211,7 +211,9 @@ export function useNotifications() {
               </p>
             </div>
           </div>
-        ), { duration: 5000 });
+        // Deze hook draait op meerdere plekken tegelijk (navigatiebalk, belletje, Matches).
+        // Met een vaste id per melding verschijnt de pop-up maar één keer.
+        ), { duration: 5000, ...(event.data.id ? { id: `notif-${event.data.id}` } : {}) });
       }
       if (event.type === 'update' && event.data?.to_email === user.email && event.data?.is_read) {
         // Decrement locally instead of doing a full DB fetch on every read event
