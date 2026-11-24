@@ -283,6 +283,11 @@ export default function Layout({ children, currentPageName }) {
           box-shadow: none !important;
         }
 
+        /* In een open chat geen navigatiebalk (zie ChatRoomView) */
+        body.romety-chat-open .romety-bottom-nav {
+          display: none !important;
+        }
+
         [data-sonner-toast] [data-icon] {
           color: #FF4B72 !important; /* Premium brand pink */
           margin-top: 0 !important;
@@ -296,7 +301,7 @@ export default function Layout({ children, currentPageName }) {
 
       {showNav && (
         <nav
-          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[200]"
+          className="romety-bottom-nav fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[200]"
           style={{
             transform: 'translateX(-50%) translateZ(0)',
             background: isDark ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)',
