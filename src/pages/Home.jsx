@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { supabase } from '@/api/supabaseClient';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
-import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame, Loader2, Camera, MapPin, Clock } from 'lucide-react';
+import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame, Camera, MapPin, Clock } from 'lucide-react';
 import { usePullToRefresh } from '@/components/welove/usePullToRefresh';
 import { InstagramSpinner } from '@/components/welove/PullToRefreshSpinner';
 import { useLang } from '@/lib/LanguageContext';
@@ -29,7 +29,6 @@ import { BLOCK_EVENT } from '@/lib/blockUtils';
 import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 import { countUnread, fetchChatUnreadSummary, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
-import { dt } from '@/lib/displayText';
 
 const REPORT_REASONS = [
   { id: 'ongepaste_foto', get label() { return trNow('Ongepaste foto', 'Inappropriate photo'); }, emoji: '🖼️' },

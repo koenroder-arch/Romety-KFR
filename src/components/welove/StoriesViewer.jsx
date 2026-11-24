@@ -6,7 +6,6 @@ import { base44 } from '@/api/base44Client';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
 import { trNow } from '@/lib/LanguageContext';
 import BlockUserDialog from './BlockUserDialog';
-import { dt } from '@/lib/displayText';
 
 const REPORT_REASONS = [
   { id: 'ongepaste_foto', get label() { return trNow('Ongepaste foto', 'Inappropriate photo'); }, emoji: '🖼️' },

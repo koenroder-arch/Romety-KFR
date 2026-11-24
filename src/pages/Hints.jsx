@@ -1188,6 +1188,8 @@ export default function Hints() {
                 ref={videoRef}
                 autoPlay
                 playsInline
+                // Nodig voor oudere iOS-versies, ook al kent React dit attribuut niet
+                // eslint-disable-next-line react/no-unknown-property
                 webkit-playsinline="true"
                 muted
                 className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}

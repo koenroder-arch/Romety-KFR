@@ -9,7 +9,6 @@
  * Lengte, eigenschappen (traits), interesses en relatiedoel zijn GEEN harde uitsluitingscriteria,
  * waardoor gebruikers veel sneller en gemakkelijker matches kunnen vinden.
  * 
- * (Het strikte originele algoritme is veilig opgeslagen in: src/lib/matchUtils.strict.js)
  */
 
 const TRAIT_MAP = {

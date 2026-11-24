@@ -4,8 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { 
-  Mail, Loader2, UserPlus, User, CheckCircle2, Sparkles, 
-  Clock, ArrowLeft, RefreshCw, ExternalLink, Heart, KeyRound
+  Mail, Loader2, UserPlus, User, CheckCircle2, Sparkles, ArrowLeft, RefreshCw, KeyRound
 } from 'lucide-react';
 import { authStorage } from '@/lib/authStorage';
 import { getSessionWithRetry } from '@/lib/sessionUtils';

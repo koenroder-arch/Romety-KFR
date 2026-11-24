@@ -13,7 +13,6 @@ import { createPageUrl } from '@/utils';
 import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
 import { countUnread, CHAT_UNREAD_EVENT } from '@/lib/chatUnread';
 import { trNow } from '@/lib/LanguageContext';
-import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 

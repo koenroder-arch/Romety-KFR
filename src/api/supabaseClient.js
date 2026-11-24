@@ -12,6 +12,3 @@ export const supabase = createClient(
   supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY' ? supabaseAnonKey : 'placeholder'
 );
 
-// In client-side Vite builds, never expose the service_role secret key!
-// supabaseAdmin safely aliases the authenticated supabase client.
-export const supabaseAdmin = supabase;

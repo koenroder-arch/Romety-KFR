@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from './supabaseClient';
+import { supabase } from './supabaseClient';
 import { authStorage } from '@/lib/authStorage';
 import { getSessionWithRetry, hasStoredSupabaseSession } from '@/lib/sessionUtils';
 
@@ -310,7 +310,7 @@ export const base44 = {
             return true;
           }
 
-          const clientToUse = supabaseAdmin || supabase;
+          const clientToUse = supabase;
           const { data, error } = await clientToUse.storage.from(targetBucket).remove([targetPath]);
           if (error) {
             console.error(`[DeleteFile] Supabase Storage error deleting "${targetPath}" from "${targetBucket}":`, error);

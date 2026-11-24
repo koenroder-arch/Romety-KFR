@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useUser } from '@/lib/useUser';
-import { Search, MapPin, X, Building2, Crosshair, Navigation, SlidersHorizontal } from 'lucide-react';
+import { Search, MapPin, X, Building2, Crosshair, SlidersHorizontal } from 'lucide-react';
 import { useLang } from '@/lib/LanguageContext';
 import { T } from '@/lib/translations';
 import { isMatch, calculateCompatibility, getArray, normalizeTrait, normalizeInterest, genderMatch } from '@/lib/matchUtils';
-import { calculateDistanceKm, formatDistance, sortVenuesByDistance } from '@/lib/geoUtils';
+import { calculateDistanceKm, sortVenuesByDistance } from '@/lib/geoUtils';
 import MapView from '@/components/welove/MapView';
 import VenueBottomSheet from '@/components/welove/VenueBottomSheet';
 import HomeInfoSheet from '@/components/welove/HomeInfoSheet';

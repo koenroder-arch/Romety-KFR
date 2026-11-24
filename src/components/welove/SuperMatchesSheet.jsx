@@ -10,7 +10,6 @@ import { createPageUrl } from '@/utils';
 import { useNavigate } from 'react-router-dom';
 import { trNow } from '@/lib/LanguageContext';
 import BlockUserDialog from './BlockUserDialog';
-import { dt } from '@/lib/displayText';
 
 const GRAD = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
 

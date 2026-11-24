@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, MapPin, Crosshair, Search, Check, RotateCcw } from 'lucide-react';
+import { X, MapPin, Crosshair, Search, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DEFAULT_COUNTRY } from '@/lib/countries';
 import { trNow } from '@/lib/LanguageContext';

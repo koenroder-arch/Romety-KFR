@@ -1,39 +1,40 @@
-**Welcome to your Base44 project** 
+# Romety
 
-**About**
+Datingapp voor uitgaan: kies waar je vanavond heen gaat, zie wie daar ook is en match.
+Gebouwd met React + Vite, als native Android/iOS-app verpakt met Capacitor, met Supabase
+als backend (database, inloggen, opslag en realtime).
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+## Lokaal draaien
 
-This project contains everything you need to run your app locally.
+1. `npm install`
+2. Maak `.env.local` met:
 
-**Edit the code in your local development environment**
+   ```
+   VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+   VITE_SUPABASE_ANON_KEY=<publishable/anon key>
+   ```
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+   Zet hier nooit de `service_role`-sleutel: deze code draait op de telefoon.
+3. `npm run dev` (http://localhost:5173)
 
-**Prerequisites:** 
-
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+## Native app bouwen
 
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+npm run build
+npx cap sync
+npx cap open android   # of: npx cap open ios
 ```
 
-Run the app: `npm run dev`
+De Android-release wordt ondertekend met `android/keystore.properties`. Dat bestand
+staat niet in Git.
 
-**Publish your changes**
+## Mappen
 
-Open [Base44.com](http://Base44.com) and click on Publish.
-
-**Docs & Support**
-
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+- `src/pages` – schermen (de routes staan in `src/pages.config.js`)
+- `src/components/welove` – onderdelen van de schermen
+- `src/lib` – logica (inloggen, matchen, chats, blokkeren, vertalingen)
+- `src/api/base44Client.js` – dunne laag over Supabase (naam is historisch)
+- `supabase/migrations` – databasewijzigingen (beveiligingsregels, functies)
+- `supabase/rollback` – scripts om migraties terug te draaien
+- `supabase/email-templates` – e-mails voor inloggen en aanmelden
+- `supabase/legacy` – oude, handmatig uitgevoerde SQL (alleen naslag)

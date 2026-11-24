@@ -11,9 +11,9 @@ import ModerationSheet from '@/components/welove/ModerationSheet';
 import RometyLogo from '@/components/welove/RometyLogo';
 import { createPageUrl } from '@/utils';
 import { 
-  Ban, Flag, LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart, Gamepad2,
-  Bell, HelpCircle, MessageCircle, MessageSquare, ArrowRightLeft, AlertTriangle, Globe, ArrowLeft,
-  User, Calendar, Ruler, FileText, Sparkles, Target, Compass, Users, Smile, Send, Loader2, MapPin
+  Ban, Flag, LogOut, Camera, ChevronRight, Edit2, Check, X, Trash2, Plus, Moon, Sun, Eye, Heart,
+  Bell, HelpCircle, MessageCircle, MessageSquare, AlertTriangle, Globe, ArrowLeft,
+  User, Calendar, Ruler, FileText, Sparkles, Target, Compass, Users, Smile, Send, MapPin
 } from 'lucide-react';
 import { usePullToRefresh } from '@/components/welove/usePullToRefresh';
 import { InstagramSpinner } from '@/components/welove/PullToRefreshSpinner';

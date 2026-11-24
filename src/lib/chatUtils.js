@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/api/supabaseClient';
+import { supabase } from '@/api/supabaseClient';
 import { base44 } from '@/api/base44Client';
 
 /**
@@ -11,7 +11,7 @@ import { base44 } from '@/api/base44Client';
 export async function deleteChatRoomAndMedia(roomId, { hardDelete = false, deletedBy = null, reason = null } = {}) {
   if (!roomId) return false;
   try {
-    const client = supabaseAdmin || supabase;
+    const client = supabase;
 
     // Haal eerst gegevens van de chatroom op om de deelnemers te bepalen
     let userA = null;
@@ -116,74 +116,3 @@ export async function deleteChatRoomAndMedia(roomId, { hardDelete = false, delet
     return false;
   }
 }
-
-/**
- * Synchroniseert de gelezen chatstatus tussen apparaten via Supabase Notification table.
- */
-export async function syncChatReadState(userEmail, roomId, readCount) {
-  if (!userEmail || !roomId) return;
-  try {
-    const client = supabaseAdmin || supabase;
-    const { data: existing } = await client
-      .from('Notification')
-      .select('id, from_name')
-      .eq('to_email', userEmail)
-      .eq('type', 'chat_read')
-      .eq('venue_name', roomId);
-
-    if (existing && existing.length > 0) {
-      const currentStored = parseInt(existing[0].from_name || '0', 10);
-      if (readCount >= currentStored) {
-        await client.from('Notification').update({
-          from_name: String(readCount),
-          is_read: true,
-          created_date: new Date().toISOString()
-        }).eq('id', existing[0].id);
-      }
-    } else {
-      await client.from('Notification').insert([{
-        to_email: userEmail,
-        from_email: 'system',
-        type: 'chat_read',
-        venue_name: roomId,
-        from_name: String(readCount),
-        is_read: true,
-        created_date: new Date().toISOString()
-      }]);
-    }
-  } catch (e) {
-    console.warn('[syncChatReadState] Sync failed:', e);
-  }
-}
-
-/**
- * Haalt alle gesynchroniseerde gelezen tellers op voor een gebruiker en synchroniseert deze naar localStorage
- */
-export async function getSyncedChatReadCounts(userEmail) {
-  if (!userEmail) return {};
-  try {
-    const client = supabaseAdmin || supabase;
-    const { data: records } = await client
-      .from('Notification')
-      .select('venue_name, from_name')
-      .eq('to_email', userEmail)
-      .eq('type', 'chat_read');
-
-    const counts = {};
-    if (records && records.length > 0) {
-      for (const r of records) {
-        if (r.venue_name) {
-          const serverCount = parseInt(r.from_name || '0', 10);
-          const localCount = parseInt(localStorage.getItem(`chat_read_count_${r.venue_name}`) || '0', 10);
-          const bestCount = Math.max(serverCount, localCount);
-          counts[r.venue_name] = bestCount;
-          localStorage.setItem(`chat_read_count_${r.venue_name}`, String(bestCount));
-        }
-      }
-    }
-    return counts;
-  } catch (e) {
-    return {};
-  }
-}
-

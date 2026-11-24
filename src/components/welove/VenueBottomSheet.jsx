@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, CheckCircle2, Navigation, Users, XCircle, Copy, Heart, MapPin } from 'lucide-react';
+import { X, CheckCircle2, Navigation, Users, XCircle, Copy, Heart } from 'lucide-react';
 import { motion, useMotionValue, useTransform, animate, useDragControls } from 'framer-motion';
 import { useTheme } from '@/lib/ThemeContext';
 import { toast } from 'sonner';
