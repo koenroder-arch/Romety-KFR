@@ -57,3 +57,7 @@ Desktop.ini
 *.njsproj
 *.sln
 *.sw?
+# Ondertekening voor Google Play: nooit in Git
+android/keystore.properties
+*.jks
+*.keystore
