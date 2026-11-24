@@ -344,6 +344,20 @@ export default function Login() {
     }
   };
 
+  // Geplakte tekst kan meer bevatten dan alleen de code ("1234 5678" of "Je code is 12345678").
+  // Staan er precies 8 cijfers achter elkaar in, dan is dat de code; anders alle cijfers.
+  const extractOtp = (text) => {
+    const str = String(text || '');
+    const run = str.match(/(?<!\d)\d{8}(?!\d)/);
+    return run ? run[0] : str.replace(/\D/g, '').slice(0, 8);
+  };
+
+  const handleOtpPaste = (e) => {
+    const pasted = e.clipboardData?.getData('text');
+    if (!pasted) return;
+    e.preventDefault();
+    handleOtpChange(extractOtp(pasted));
+  };
   const handleResendEmail = async () => {
     if (resendCooldown > 0 || !email) return;
     setLoading(true);
@@ -569,11 +583,13 @@ export default function Login() {
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
-                    maxLength={8}
+                    // Geen maxLength: anders wordt geplakte tekst als "1234 5678" afgekapt
                     autoComplete="one-time-code"
                     value={otpCode}
-                    onChange={e => handleOtpChange(e.target.value)}
+                    onChange={e => handleOtpChange(extractOtp(e.target.value))}
+                    onPaste={handleOtpPaste}
                     className="absolute inset-0 opacity-0 cursor-text w-full h-full text-transparent selection:bg-transparent"
+                    style={{ fontSize: '16px' }}
                     autoFocus
                   />
                 </div>
