@@ -26,6 +26,18 @@ export const isChatMessageNotif = (n) => {
   return !CHAT_INVITE_TEXTS.includes(parseRoomInfo(n.venue_name).text);
 };
 
+/**
+ * Instelling "Push Notificaties" (Account). Staat die uit, dan krijg je in de app geen
+ * meldingen meer als pop-up. Bewaard op dit apparaat.
+ */
+const NOTIF_PREF_KEY = 'romety_notifications_enabled';
+export function getNotificationsEnabled() {
+  try { return localStorage.getItem(NOTIF_PREF_KEY) !== 'false'; } catch (e) { return true; }
+}
+export function saveNotificationsEnabled(enabled) {
+  try { localStorage.setItem(NOTIF_PREF_KEY, enabled ? 'true' : 'false'); } catch (e) { /* niet erg */ }
+}
+
 /** De chat die nu open staat (gezet door ChatRoomView), zodat je daar geen pop-up van krijgt. */
 export function getOpenChatRoomId() {
   try { return window.__romety_open_chat_room_id || null; } catch (e) { return null; }
@@ -160,6 +172,9 @@ export function useNotifications() {
         const { roomId: parsedRoomId, text: parsedMessageText } = parseRoomInfo(event.data.venue_name);
 
         if (!isChatMessage) setUnreadCount(prev => prev + 1);
+
+        // Meldingen uitgezet op de Account-pagina: geen pop-up tonen
+        if (!getNotificationsEnabled()) return;
 
         // Zit je al in deze chat, dan geen pop-up
         if (isChat && parsedRoomId) {

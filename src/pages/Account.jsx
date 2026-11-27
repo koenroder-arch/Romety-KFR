@@ -7,6 +7,7 @@ import { authStorage } from '@/lib/authStorage';
 import { isAppAdmin } from '@/lib/moderation';
 import { useUser } from '@/lib/useUser';
 import BlockedUsersSheet from '@/components/welove/BlockedUsersSheet';
+import { getNotificationsEnabled, saveNotificationsEnabled } from '@/components/welove/useNotifications';
 import ModerationSheet from '@/components/welove/ModerationSheet';
 import RometyLogo from '@/components/welove/RometyLogo';
 import { createPageUrl } from '@/utils';
@@ -177,7 +178,7 @@ export default function Account() {
   const [stats, setStats] = useState({ chats: 0, locations: 0, matches: 0 });
 
   // Toggles & Modals
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => getNotificationsEnabled());
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteSurvey, setShowDeleteSurvey] = useState(false);
@@ -1395,13 +1396,15 @@ export default function Account() {
               </div>
               <div>
                 <p className={`text-sm font-bold ${textMain}`}>{trNow('Push Notificaties', 'Push Notifications')}</p>
-                <p className="text-[11px] font-medium" style={{ color: textSub }}>{trNow('Meldingen voor games & hints', 'Notifications for games & hints')}</p>
+                <p className="text-[11px] font-medium" style={{ color: textSub }}>{trNow('Meldingen voor matches, berichten & hints', 'Notifications for matches, messages & hints')}</p>
               </div>
             </div>
             <button
               onClick={() => {
                 const nextVal = !notificationsEnabled;
                 setNotificationsEnabled(nextVal);
+                // Uit = geen meldingen meer als pop-up in de app
+                saveNotificationsEnabled(nextVal);
                 toast.success(nextVal ? trNow('Notificaties ingeschakeld 🔔', 'Notifications enabled 🔔') : trNow('Notificaties uitgeschakeld', 'Notifications disabled'));
               }}
               className="w-12 h-6 rounded-full transition-all flex items-center p-0.5 cursor-pointer select-none"
