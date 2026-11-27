@@ -166,6 +166,9 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   // Phase 2: chat locked until both sent a camera photo
   const phase2Locked = phase === 2 && (!myPhotoSent || !otherPhotoSent);
   const canChat = isActive && !isDeleted && !isArchived && !isTimeExpired && !phase2Locked && phase !== 4;
+  // Fase 2 vergrendeld: de chatbalk blijft staan, maar je kunt alleen een foto maken (geen tekst)
+  const showComposer = canChat || (phase2Locked && isActive && !isDeleted && !isArchived && !isTimeExpired);
+  const waitingForOtherPhoto = phase2Locked && !!myPhotoSent && !otherPhotoSent;
 
   const bg = isDark ? '#08090E' : '#F8F9FB';
   const msgBubbleMe = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -1193,7 +1196,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
       )}
 
       {/* Input bar (phases 1-3) */}
-      {canChat && phase < 4 && !isArchived && (
+      {showComposer && phase < 4 && !isArchived && (
         <div
           ref={composerRef}
           className="flex-shrink-0 sticky bottom-0 z-20 flex items-center gap-2 px-3 py-2.5"
@@ -1219,12 +1222,17 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
               }
               fileInputRef.current?.click();
             }}
-            disabled={sending}
-            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-            style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}
+            disabled={sending || waitingForOtherPhoto}
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform disabled:opacity-40"
+            style={{
+              background: isPhotoRequired ? 'rgba(255,75,114,0.18)' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
+              boxShadow: isPhotoRequired ? '0 0 0 2px rgba(255,75,114,0.45)' : 'none',
+            }}
+            aria-label={trNow('Foto maken', 'Take a photo')}
           >
             <Camera className="w-5 h-5" style={{ color: '#FF4B72' }} />
           </button>
+          {/* capture: direct de camera openen, niet de fotobibliotheek */}
           <input
             ref={fileInputRef}
             type="file"
@@ -1251,6 +1259,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 setShowPhotoRequiredAlert(true);
                 return;
               }
+              if (phase2Locked) return;
               setText(e.target.value);
             }}
             onFocus={(e) => {
@@ -1268,6 +1277,11 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
               if (isPhotoRequired) {
                 e.target.blur();
                 setShowPhotoRequiredAlert(true);
+                return;
+              }
+              if (phase2Locked) {
+                e.target.blur();
+                toast.info(trNow('Je kunt chatten zodra je match ook een foto heeft gestuurd.', 'You can chat once your match has sent a photo too.'));
                 return;
               }
               window.scrollTo(0, 0);
@@ -1315,11 +1329,16 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                 : isExtensionPending
                 ? trNow('Verleng de chat om te typen...', 'Extend the chat to type...')
                 : isPhotoRequired
-                ? trNow('Stuur eerst een foto om te chatten...', 'Send a photo first to chat...')
+                ? trNow('Maak eerst een foto om te chatten...', 'Take a photo first to chat...')
+                : waitingForOtherPhoto
+                ? trNow('Wachten op de foto van je match...', "Waiting for your match's photo...")
                 : trNow('Stuur een bericht...', 'Send a message...')
             }
+            // Fase 2 vergrendeld: geen tekst typen (geen toetsenbord), alleen een foto maken
+            readOnly={phase2Locked}
             className="flex-1 px-4 py-2.5 rounded-full text-base sm:text-sm focus:outline-none"
             style={{
+              opacity: phase2Locked ? 0.6 : 1,
               fontSize: '16px',
               background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
               color: textMain,
