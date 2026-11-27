@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import MatchAnimation from './MatchAnimation';
 import { Heart, MessageCircle, MoreVertical, AlertTriangle, Ban, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ProfilePhotoCarousel from './ProfilePhotoCarousel';
+import ProfilePhotoCarousel, { getProfilePhotos } from './ProfilePhotoCarousel';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
 import { trNow } from '@/lib/LanguageContext';
 import BlockUserDialog from './BlockUserDialog';
@@ -20,7 +20,11 @@ const REPORT_REASONS = [
   { id: 'stalking', get label() { return trNow('Stalking', 'Stalking'); }, emoji: '🚫' },
 ];
 
-export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremium, currentUserEmail, onShowPremium, isMutual = false, isDark = true, onSendHint, hasSentToday }) {
+export default function MatchesSwiper({ profiles, initialLikedIds = [], likedMeEmails = [], isPremium, currentUserEmail, onShowPremium, isMutual = false, isDark = true, onSendHint, hasSentToday }) {
+  // Wie jou heeft geliked (kleine letters); samen met jouw like = supermatch
+  const [likedMe, setLikedMe] = useState(() => new Set(likedMeEmails));
+  React.useEffect(() => { setLikedMe(new Set(likedMeEmails)); }, [likedMeEmails]);
+  const markLikedMe = (email) => setLikedMe((prev) => new Set(prev).add((email || '').toLowerCase().trim()));
   const navigate = useNavigate();
   const [matchAnim, setMatchAnim] = useState(null);
   const [myProfileCache, setMyProfileCache] = useState(null);
@@ -79,6 +83,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
         base44.entities.Notification.create({ to_email: profile.user_email, from_email: currentUserEmail, type: 'match', from_name: myName }),
         base44.entities.Notification.create({ to_email: currentUserEmail, from_email: profile.user_email, type: 'match', from_name: 'Een Match' }),
       ]);
+      markLikedMe(profile.user_email);
       setMatchAnim({ myProfile: myProf, matchedProfile: profile });
     }
   };
@@ -109,6 +114,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               base44.entities.Notification.create({ to_email: profile.user_email, from_email: currentUserEmail, type: 'match', from_name: myName }),
               base44.entities.Notification.create({ to_email: currentUserEmail, from_email: profile.user_email, type: 'match', from_name: 'Een Match' }),
             ]);
+            markLikedMe(profile.user_email);
             setMatchAnim({ myProfile: myProf, matchedProfile: profile });
           }
         } catch (err) {
@@ -213,10 +219,13 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
         const activeAnims = doubleTapAnims.filter(a => a.profileId === profile.id);
         const isMenuOpen = openMenuProfileId === profile.id;
         const isBioExpanded = expandedBioId === profile.id;
+        // Supermatch: jullie hebben elkaar allebei geliked
+        const isSuperMatch = isLiked && likedMe.has((profile.user_email || '').toLowerCase().trim());
+        const hasPhotoDots = getProfilePhotos(profile).length >= 2;
 
         return (
           <div key={profile.id} className="w-full h-full flex-shrink-0 snap-start snap-always relative select-none">
-            
+
             {/* Photo Background Carousel with Swipe & Indicator Dots */}
             <ProfilePhotoCarousel
               profile={profile}
@@ -224,6 +233,39 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
               onDoubleTap={(x, y, p) => handleDoubleTapAtCoord(x, y, p)}
               dotsClassName="top-4 left-4 z-30"
             />
+
+            {/* Gouden "Supermatch" linksboven (onder de fotobolletjes); groeit soepel van klein naar groot
+                zodra het profiel in beeld komt */}
+            <AnimatePresence>
+              {isSuperMatch && (
+                <motion.div
+                  key="supermatch"
+                  className="absolute left-4 z-30 pointer-events-none select-none origin-left"
+                  style={{ top: hasPhotoDots ? 48 : 16 }}
+                  initial={{ opacity: 0, scale: 0.3, rotate: -8 }}
+                  whileInView={{ opacity: 1, scale: 1, rotate: -8 }}
+                  exit={{ opacity: 0, scale: 0.6, rotate: -8 }}
+                  viewport={{ amount: 0.6 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 18, mass: 0.8 }}
+                >
+                  {/* Blijft constant zacht van klein naar groot gaan (ademend) */}
+                  <motion.span
+                    className="block text-[26px] font-black italic tracking-tight leading-none origin-left"
+                    animate={{ scale: [1, 1.07, 1] }}
+                    transition={{ duration: 3.2, ease: 'easeInOut', repeat: Infinity }}
+                    style={{
+                      background: 'linear-gradient(135deg, #FFF3C4 0%, #FFD45C 35%, #F2B01E 65%, #C98A0B 100%)',
+                      WebkitBackgroundClip: 'text',
+                      backgroundClip: 'text',
+                      color: 'transparent',
+                      filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(255,200,60,0.35))',
+                    }}
+                  >
+                    Supermatch!!
+                  </motion.span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* ── Top-Level Double Tap Hearts Animation (Pops over entire card with glow) ── */}
             <AnimatePresence>

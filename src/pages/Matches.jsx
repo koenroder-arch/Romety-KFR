@@ -39,6 +39,7 @@ export default function Matches() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [hintingProfile, setHintingProfile] = useState(null);
   const [initialLikedIds, setInitialLikedIds] = useState([]);
+  const [likedMeEmails, setLikedMeEmails] = useState([]);
   const [hasSentToday, setHasSentToday] = useState(false);
   const [myTodayHint, setMyTodayHint] = useState(null);
   const [timeLeft, setTimeLeft] = useState('');
@@ -77,17 +78,20 @@ export default function Matches() {
     setMyCheckIn(activeCheckIn || activeDestination || null);
 
     // Fetch all needed data in one batch
-    const [allProfiles, allCheckIns, allDestinations, myLikes, myHints] = await Promise.all([
+    const [allProfiles, allCheckIns, allDestinations, myLikes, myHints, likesToMe] = await Promise.all([
       // Alleen je eigen land en actieve locaties: de rest viel hieronder toch af
       fetchProfilesForCountry(myProf?.country),
       fetchActiveCheckIns(),
       fetchActiveDestinations(),
       base44.entities.Like.filter({ from_email: u.email }),
       base44.entities.Hint.filter({ from_email: u.email }),
+      // Wie jou heeft geliked: samen met jouw like is dat een supermatch
+      base44.entities.Like.filter({ to_email: u.email }).catch(() => []),
     ]);
 
     const reportedEmails = await fetchReportedEmails(u.email);
     const likedEmails = new Set(myLikes.map(l => l.to_email));
+    setLikedMeEmails((likesToMe || []).map((l) => (l.from_email || '').toLowerCase().trim()).filter(Boolean));
 
     const userCountry = myProf?.country || 'Nederland';
     const others = allProfiles.filter((p) => p.user_email !== u.email && p.onboarding_complete && !reportedEmails.has(p.user_email) && (p.country || 'Nederland') === userCountry);
@@ -241,6 +245,7 @@ export default function Matches() {
           <MatchesSwiper
             profiles={matches.map(m => m.profile)}
             initialLikedIds={initialLikedIds}
+            likedMeEmails={likedMeEmails}
             isPremium={true}
             currentUserEmail={user?.email}
             onShowPremium={() => {}}
