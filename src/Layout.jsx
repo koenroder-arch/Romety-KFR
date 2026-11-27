@@ -1,8 +1,7 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
 import { MapPin, Heart, User, Home } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
+import BottomNav from '@/components/welove/BottomNav';
 import { countVenueMatches } from '@/lib/venueMatches';
 import { useNotifications } from '@/components/welove/useNotifications';
 import { useLang } from '@/lib/LanguageContext';
@@ -295,77 +294,20 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
 
-      <main className={`flex-1 w-full ${showNav ? 'pb-[72px]' : ''}`}>
+      <main className={`flex-1 w-full ${showNav ? 'pb-[84px]' : ''}`}>
         {children}
       </main>
 
       {showNav && (
-        <nav
-          className="romety-bottom-nav fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[200]"
-          style={{
-            transform: 'translateX(-50%) translateZ(0)',
-            background: isDark ? 'rgba(11, 12, 16, 0.92)' : 'rgba(255, 255, 255, 0.92)',
-            borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)',
-            boxShadow: isDark ? '0 -4px 24px rgba(0,0,0,0.5)' : '0 -4px 24px rgba(0,0,0,0.06)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-            touchAction: 'none',
-          }}
-        >
-          <div className="flex justify-around items-center px-2 pt-3 pb-2">
-            {NAV_ITEMS.map(({ name, icon: Icon, page }) => {
-              const isActive = currentPageName === page;
-              const inactiveColor = isDark ? 'rgba(255,255,255,0.5)' : '#888888';
-              const targetUrl = createPageUrl(page);
-
-              const handleNavClick = (e) => {
-                if (typeof window !== 'undefined' && window.__romety_nav_blocker) {
-                  const blocked = window.__romety_nav_blocker(targetUrl);
-                  if (blocked) {
-                    e.preventDefault();
-                    return;
-                  }
-                }
-                if (page === 'Matches') markAllRead();
-                if (navigator.vibrate) navigator.vibrate(40);
-              };
-
-              return (
-                <Link
-                  key={name}
-                  to={targetUrl}
-                  className="px-4 py-0 rounded flex flex-col items-center gap-0.5 active:scale-90 transition-transform duration-200"
-                  onClick={handleNavClick}
-                >
-                  <div className="relative">
-                    <Icon
-                      className="w-6 h-6 transition-all duration-200"
-                      style={isActive ? { color: '#FF4B72', filter: 'drop-shadow(0 0 8px rgba(255,75,114,0.8))' } : { color: inactiveColor }}
-                    />
-
-                    {page === 'Matches' && hasActiveVenue && (
-                      <span
-                        className="absolute top-0 right-0 w-2 h-2 rounded-full"
-                        style={{
-                          // Zelfde roze als het actieve hartje op de Matches-pagina
-                          background: '#FF4B72',
-                          boxShadow: `0 0 0 1.5px ${isDark ? '#08090E' : '#FFFFFF'}, 0 0 5px rgba(255,75,114,0.6)`,
-                        }}
-                        aria-label={lang === 'en' ? 'Venue active' : 'Venue actief'}
-                      />
-                    )}
-                    {page === 'Chat' && unreadChatCount > 0 && (
-                      <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full bg-pink-500 text-white text-[9px] font-black flex items-center justify-center px-0.5" style={{ boxShadow: '0 2px 6px rgba(236,72,153,0.5)' }}>
-                        {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
+        <BottomNav
+          items={NAV_ITEMS}
+          currentPageName={currentPageName}
+          isDark={isDark}
+          hasActiveVenue={hasActiveVenue}
+          unreadChatCount={unreadChatCount}
+          lang={lang}
+          markAllRead={markAllRead}
+        />
       )}
       <Toaster position="top-center" />
     </div>);
