@@ -152,14 +152,13 @@ const MainAppContent = () => {
     <ErrorBoundary>
       <QueryClientProvider client={queryClientInstance}>
         <AuthProvider>
-          {showSplash ? (
-            <SplashScreen onDone={handleSplashDone} />
-          ) : (
-            <Router>
-              <NavigationTracker />
-              <AuthenticatedApp />
-            </Router>
-          )}
+          {/* De app laadt al onder het opstartscherm; dat blijft erover liggen tot alles klaar is,
+              zodat je bij het openen één keer de R met laadrad ziet en daarna meteen de app */}
+          <Router>
+            <NavigationTracker />
+            <AuthenticatedApp />
+          </Router>
+          {showSplash && <SplashScreen onDone={handleSplashDone} />}
           <OfflineIndicator />
         </AuthProvider>
       </QueryClientProvider>
