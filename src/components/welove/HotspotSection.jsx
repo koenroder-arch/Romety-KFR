@@ -51,37 +51,33 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick, us
           {hotspots.map((spot, i) => {
             const isFirst = i === 0;
             const isSecond = i === 1;
+            const dist = spot.distanceKm != null
+              ? spot.distanceKm
+              : (userPosition && spot.lat && spot.lng ? calculateDistanceKm(userPosition[0], userPosition[1], spot.lat, spot.lng) : null);
+            const dLabel = dist != null ? formatDistance(dist) : null;
 
-            // Tiered Styles
-            let cardWidth = 155;
-            let cardBg = '';
-            let cardBorder = '';
-            let boxShadow = 'none';
+            // Kaartvlak; #1 krijgt een dunne goud-roze rand en een zachte gloed
+            // Iets meer kleur: een zachte kleurtint die vanuit de hoek over het vlak loopt
+            const base = isDark ? '#15151F' : '#FFFFFF';
+            const tint = isFirst
+              ? (isDark ? 'rgba(242,176,30,0.20), rgba(255,75,114,0.12)' : 'rgba(242,176,30,0.16), rgba(255,75,114,0.08)')
+              : isSecond
+              ? (isDark ? 'rgba(255,75,114,0.20), rgba(234,63,211,0.10)' : 'rgba(255,75,114,0.12), rgba(234,63,211,0.06)')
+              : (isDark ? 'rgba(234,63,211,0.14), rgba(255,75,114,0.06)' : 'rgba(234,63,211,0.08), rgba(255,75,114,0.04)');
+            const surface = `linear-gradient(150deg, ${tint} 55%, transparent 100%), ${base}`;
+            const accentBorder = isFirst
+              ? 'linear-gradient(135deg, #FFD45C 0%, #FF4B72 55%, #EA3FD3 100%)'
+              : isSecond
+              ? 'linear-gradient(135deg, rgba(255,75,114,0.8) 0%, rgba(234,63,211,0.6) 100%)'
+              : (isDark ? 'linear-gradient(135deg, rgba(234,63,211,0.45) 0%, rgba(255,75,114,0.2) 100%)' : 'linear-gradient(135deg, rgba(234,63,211,0.35) 0%, rgba(255,75,114,0.15) 100%)');
 
-            if (isFirst) {
-              cardWidth = 195;
-              cardBg = isDark
-                ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.35) 0%, rgba(234, 63, 211, 0.3) 50%, rgba(245, 158, 11, 0.25) 100%)'
-                : 'linear-gradient(135deg, rgba(255, 75, 114, 0.18) 0%, rgba(234, 63, 211, 0.15) 50%, rgba(245, 158, 11, 0.15) 100%)';
-              cardBorder = isDark
-                ? '2px solid rgba(245, 158, 11, 0.8)'
-                : '2px solid rgba(255, 107, 74, 0.6)';
-              boxShadow = 'none';
-            } else if (isSecond) {
-              cardWidth = 170;
-              cardBg = isDark
-                ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.2) 0%, rgba(234, 63, 211, 0.15) 100%)'
-                : 'linear-gradient(135deg, rgba(255, 75, 114, 0.1) 0%, rgba(234, 63, 211, 0.08) 100%)';
-              cardBorder = isDark
-                ? '1.5px solid rgba(255, 75, 114, 0.5)'
-                : '1.5px solid rgba(255, 75, 114, 0.3)';
-              boxShadow = 'none';
-            } else {
-              cardWidth = 155;
-              cardBg = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)';
-              cardBorder = isDark ? '1px solid rgba(255, 255, 255, 0.09)' : '1px solid rgba(0, 0, 0, 0.08)';
-              boxShadow = 'none';
-            }
+            const rankStyle = isFirst
+              ? { background: 'linear-gradient(135deg, #FFE08A 0%, #F2B01E 100%)', color: '#3B2600' }
+              : isSecond
+              ? { background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)', color: '#FFFFFF' }
+              : { background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)', color: isDark ? 'rgba(255,255,255,0.75)' : '#374151' };
+
+            const peopleColor = isFirst ? '#F2B01E' : '#FF4B72';
 
             return (
               <button
@@ -93,68 +89,70 @@ export default function HotspotSection({ hotspots, isPremium, onHotspotClick, us
                     navigate(`/Pinpoint?venueId=${encodeURIComponent(spot.venue_id || spot.venue_name)}`);
                   }
                 }}
-                className="flex-shrink-0 rounded-[24px] p-4 text-left relative transition-all active:scale-[0.96] hover:brightness-[1.06] duration-200 cursor-pointer flex flex-col justify-between overflow-hidden"
+                className="flex-shrink-0 rounded-[22px] p-[1.5px] text-left relative transition-transform active:scale-[0.96] duration-200 cursor-pointer"
                 style={{
-                  width: cardWidth,
-                  background: cardBg,
-                  border: cardBorder,
-                  boxShadow: 'none',
+                  width: isFirst ? 200 : 168,
+                  background: accentBorder,
+                  boxShadow: isFirst
+                    ? (isDark ? '0 10px 28px rgba(242,176,30,0.18)' : '0 10px 24px rgba(242,176,30,0.22)')
+                    : (isDark ? '0 6px 18px rgba(0,0,0,0.35)' : '0 6px 16px rgba(17,24,39,0.07)'),
                 }}
               >
+                <div
+                  className="relative h-full rounded-[20.5px] px-4 pt-3.5 pb-3 flex flex-col overflow-hidden"
+                  style={{ background: surface }}
+                >
+                  {/* Zachte kleurgloed in de hoek */}
+                  <div
+                    aria-hidden
+                    className="absolute -top-10 -right-10 w-28 h-28 rounded-full pointer-events-none"
+                    style={{
+                      background: isFirst
+                        ? 'radial-gradient(circle, rgba(242,176,30,0.28) 0%, transparent 70%)'
+                        : 'radial-gradient(circle, rgba(255,75,114,0.16) 0%, transparent 70%)',
+                    }}
+                  />
 
-                <div>
-                  {/* Header Row: Rank Badge & Crown */}
-                  <div className="flex items-center justify-between mb-3">
+                  {/* Bovenrij: plek in de ranglijst + afstand */}
+                  <div className="relative flex items-center justify-between mb-3">
                     <div
-                      className={`h-7 px-2.5 rounded-full flex items-center justify-center font-black text-xs shadow-sm ${
-                        isFirst
-                          ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-gray-950 font-black tracking-wider shadow-amber-500/30'
-                          : isSecond
-                          ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white font-black'
-                          : isDark ? 'bg-white/15 text-white/70' : 'bg-gray-200 text-gray-700'
-                      }`}
+                      className="h-7 min-w-[28px] px-2 rounded-full flex items-center justify-center gap-1 text-[12px] font-black"
+                      style={rankStyle}
                     >
-                      {isFirst ? '🏆 #1' : isSecond ? '🥈 #2' : `#${i + 1}`}
+                      {isFirst && <Crown className="w-3.5 h-3.5" fill="currentColor" strokeWidth={0} />}
+                      {i + 1}
                     </div>
-
-                    {isFirst && (
-                      <div className="flex items-center gap-1 bg-amber-400/20 backdrop-blur-md px-2 py-0.5 rounded-full border border-amber-400/40">
-                        <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
-                        <span className="text-[9px] font-black uppercase tracking-wider text-amber-300">Hot</span>
-                      </div>
+                    {dLabel && (
+                      <span
+                        className="text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-0.5"
+                        style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', color: subColor }}
+                      >
+                        <MapPin className="w-2.5 h-2.5" />
+                        {dLabel}
+                      </span>
                     )}
                   </div>
 
-                  {/* Venue Name */}
-                  <p className={`font-black tracking-wide leading-tight truncate ${isFirst ? 'text-base' : 'text-sm'}`} style={{ color: titleColor }}>
+                  {/* Naam en locatie */}
+                  <p className={`relative font-black leading-tight truncate ${isFirst ? 'text-[16px]' : 'text-[15px]'}`} style={{ color: titleColor }}>
                     {spot.venue_name}
                   </p>
-                  
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    <p className="text-[11px] font-medium truncate" style={{ color: subColor }}>
-                      {spot.city || 'Utrecht, NL'}
-                    </p>
-                    {(() => {
-                      const dist = spot.distanceKm != null
-                        ? spot.distanceKm
-                        : (userPosition && spot.lat && spot.lng ? calculateDistanceKm(userPosition[0], userPosition[1], spot.lat, spot.lng) : null);
-                      const dLabel = dist != null ? formatDistance(dist) : null;
-                      return dLabel ? (
-                        <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5" style={{ background: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.12)', color: '#3B82F6' }}>
-                          <MapPin className="w-2.5 h-2.5" />
-                          {dLabel}
-                        </span>
-                      ) : null;
-                    })()}
-                  </div>
-                </div>
+                  <p className="relative text-[11.5px] font-medium truncate mt-0.5 flex items-center gap-1" style={{ color: subColor }}>
+                    <MapPin className="w-3 h-3 flex-shrink-0 opacity-70" />
+                    <span className="truncate">{spot.city || 'Utrecht, NL'}</span>
+                  </p>
 
-                {/* Footer Count */}
-                <div className="mt-4 pt-2.5" style={{ borderTop: isFirst ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="flex items-center gap-1.5">
-                    <Users className={`w-3.5 h-3.5 ${isFirst ? 'text-amber-300 animate-bounce' : 'text-pink-500'}`} />
-                    <span className={`text-xs font-black ${isFirst ? 'text-amber-300' : 'text-pink-500'}`}>
-                      {spot.count} gaan hierheen
+                  {/* Aantal mensen; bij #1 springen de poppetjes op en neer */}
+                  <div className="relative mt-3.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11.5px] font-black"
+                      style={{
+                        background: isFirst ? 'rgba(242,176,30,0.14)' : 'rgba(255,75,114,0.12)',
+                        color: peopleColor,
+                      }}
+                    >
+                      <Users className={`w-3.5 h-3.5 ${isFirst ? 'animate-bounce' : ''}`} />
+                      {spot.count} {tr('gaan hierheen', 'going')}
                     </span>
                   </div>
                 </div>

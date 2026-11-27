@@ -121,6 +121,15 @@ export default function VenueBottomSheet({
 
   if (!venue) return null;
 
+  // Zelfde kaartstijl als "Beste locaties vanavond"
+  const CARD_TONES = {
+    green: { border: ['rgba(74,222,128,0.8)', 'rgba(34,197,94,0.3)'], tint: isDark ? ['rgba(74,222,128,0.16)', 'rgba(34,197,94,0.05)'] : ['rgba(74,222,128,0.12)', 'rgba(34,197,94,0.03)'] },
+    red: { border: ['rgba(248,113,113,0.75)', 'rgba(239,68,68,0.3)'], tint: isDark ? ['rgba(248,113,113,0.14)', 'rgba(239,68,68,0.04)'] : ['rgba(248,113,113,0.1)', 'rgba(239,68,68,0.03)'] },
+    pink: { border: ['rgba(255,75,114,0.8)', 'rgba(234,63,211,0.45)'], tint: isDark ? ['rgba(255,75,114,0.18)', 'rgba(234,63,211,0.08)'] : ['rgba(255,75,114,0.1)', 'rgba(234,63,211,0.05)'] },
+  };
+  const cardBorder = (tone) => `linear-gradient(135deg, ${CARD_TONES[tone].border[0]} 0%, ${CARD_TONES[tone].border[1]} 100%)`;
+  const cardSurface = (tone) => `linear-gradient(150deg, ${CARD_TONES[tone].tint[0]}, ${CARD_TONES[tone].tint[1]} 55%, transparent 100%), ${isDark ? '#15151F' : '#FFFFFF'}`;
+
   return (
     <>
       {/* Backdrop — only visible when fully open */}
@@ -209,55 +218,52 @@ export default function VenueBottomSheet({
 
           {/* ── Content without internal scrolling ── */}
           <div className="flex-1 overflow-hidden px-5 pb-6 space-y-4">
+            {/* Kaartstijl zoals "Beste locaties vanavond": dunne verlooprand + zachte kleurtint over het vlak */}
 
             {/* CTA */}
             {isCheckedIn ? (
               <div className="flex items-center gap-2">
-                <div 
-                  className="flex-1 py-4 rounded-[18px] flex items-center justify-center gap-2" 
-                  style={{ 
-                    background: isDark ? 'rgba(34,197,94,0.05)' : 'rgba(34,197,94,0.03)', 
-                    border: isDark ? '1.5px solid rgba(34,197,94,0.4)' : '1.5px solid rgba(34,197,94,0.3)' 
-                  }}
+                <div className="flex-1 rounded-[18px] p-[1.5px]" style={{ background: cardBorder('green') }}>
+                <div
+                  className="py-[14.5px] rounded-[16.5px] flex items-center justify-center gap-2"
+                  style={{ background: cardSurface('green') }}
                 >
                   <CheckCircle2 className="w-5 h-5 text-green-400" />
                   <span className="text-sm font-bold text-green-400">{trNow('Je bent hier live ingecheckt!', 'You are checked in here live!')}</span>
                 </div>
+                </div>
                 {onCancelGoing && (
                   <button
                     onClick={onCancelGoing}
-                    className="w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
-                    style={{ 
-                      background: isDark ? 'rgba(239,68,68,0.05)' : 'rgba(239,68,68,0.03)', 
-                      border: isDark ? '1.5px solid rgba(239,68,68,0.4)' : '1.5px solid rgba(239,68,68,0.3)' 
-                    }}
+                    className="w-12 h-12 rounded-[18px] p-[1.5px] flex-shrink-0 active:scale-95 transition-transform"
+                    style={{ background: cardBorder('red') }}
                   >
-                    <XCircle className="w-5 h-5 text-red-400" />
+                    <span className="w-full h-full rounded-[16.5px] flex items-center justify-center" style={{ background: cardSurface('red') }}>
+                      <XCircle className="w-5 h-5 text-red-400" />
+                    </span>
                   </button>
                 )}
               </div>
             ) : isGoing ? (
               <div className="flex items-center gap-2">
-                <div 
-                  className="flex-1 py-4 rounded-[18px] flex items-center justify-center gap-2" 
-                  style={{ 
-                    background: isDark ? 'rgba(34,197,94,0.05)' : 'rgba(34,197,94,0.03)', 
-                    border: isDark ? '1.5px solid rgba(34,197,94,0.4)' : '1.5px solid rgba(34,197,94,0.3)' 
-                  }}
+                <div className="flex-1 rounded-[18px] p-[1.5px]" style={{ background: cardBorder('green') }}>
+                <div
+                  className="py-[14.5px] rounded-[16.5px] flex items-center justify-center gap-2"
+                  style={{ background: cardSurface('green') }}
                 >
                   <CheckCircle2 className="w-5 h-5 text-green-400" />
                   <span className="text-sm font-bold text-green-400">{trNow('Je gaat hiernaartoe vanavond!', 'You are going here tonight!')}</span>
                 </div>
+                </div>
                 {onCancelGoing && (
                   <button
                     onClick={onCancelGoing}
-                    className="w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
-                    style={{ 
-                      background: isDark ? 'rgba(239,68,68,0.05)' : 'rgba(239,68,68,0.03)', 
-                      border: isDark ? '1.5px solid rgba(239,68,68,0.4)' : '1.5px solid rgba(239,68,68,0.3)' 
-                    }}
+                    className="w-12 h-12 rounded-[18px] p-[1.5px] flex-shrink-0 active:scale-95 transition-transform"
+                    style={{ background: cardBorder('red') }}
                   >
-                    <XCircle className="w-5 h-5 text-red-400" />
+                    <span className="w-full h-full rounded-[16.5px] flex items-center justify-center" style={{ background: cardSurface('red') }}>
+                      <XCircle className="w-5 h-5 text-red-400" />
+                    </span>
                   </button>
                 )}
               </div>
@@ -273,9 +279,10 @@ export default function VenueBottomSheet({
             )}
 
             {/* Match info card */}
+            <div className="rounded-[20px] p-[1.5px]" style={{ background: cardBorder('pink') }}>
             <div
-              className="rounded-[20px] px-4 py-4"
-              style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)', border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)' }}
+              className="rounded-[18.5px] px-4 py-4"
+              style={{ background: cardSurface('pink') }}
             >
               <div className="flex items-center gap-3">
                 <div
@@ -328,6 +335,7 @@ export default function VenueBottomSheet({
                     </button>
                   </div>
                 )}
+              </div>
               </div>
           </div>
         </div>

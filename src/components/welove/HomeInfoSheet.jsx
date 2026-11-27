@@ -174,6 +174,22 @@ export default function HomeInfoSheet({
   const cardShadow = isDark ? '0 0 12px rgba(255,107,74,0.3)' : '0 4px 20px rgba(0,0,0,0.08)';
   const plainCardBorder = isDark ? '1px solid rgba(255,255,255,0.06)' : 'none';
   const plainCardShadow = isDark ? 'none' : '0 4px 16px rgba(0,0,0,0.06)';
+
+  // Zelfde kaartstijl als "Beste locaties vanavond": egaal vlak, dunne verlooprand, zachte gloed
+  const cardSurface = isDark ? '#15151F' : '#FFFFFF';
+  const neutralBorder = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)';
+  const cardShell = (border, glow) => ({
+    outer: {
+      background: border,
+      boxShadow: isDark ? '0 6px 18px rgba(0,0,0,0.35)' : '0 6px 16px rgba(17,24,39,0.07)',
+    },
+    inner: { background: cardSurface },
+    glow: { background: `radial-gradient(circle, ${glow} 0%, transparent 70%)` },
+  });
+  const greenShell = cardShell('linear-gradient(135deg, rgba(74,222,128,0.75) 0%, rgba(34,197,94,0.25) 100%)', 'rgba(74,222,128,0.18)');
+  const pinkShell = cardShell('linear-gradient(135deg, rgba(255,75,114,0.75) 0%, rgba(234,63,211,0.3) 100%)', 'rgba(234,63,211,0.18)');
+  const plainShell = cardShell(neutralBorder, 'rgba(255,75,114,0.10)');
+  const orangeShell = cardShell('linear-gradient(135deg, rgba(251,146,60,0.7) 0%, rgba(251,146,60,0.2) 100%)', 'rgba(251,146,60,0.16)');
   const textMain = isDark ? 'text-white' : 'text-gray-900';
   const textSub = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)';
 
@@ -231,33 +247,31 @@ export default function HomeInfoSheet({
           <div className="flex-1 overflow-hidden px-5 space-y-4">
             {/* Active Checkin CTA or Destination Banner */}
             {myCheckIn ? (
-              <div className="rounded-[20px] p-4 flex items-center justify-between" style={{ background: cardBg, border: plainCardBorder, boxShadow: plainCardShadow }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(74,222,128,0.15)' }}>
+              <div className="rounded-[20px] p-[1.5px]" style={greenShell.outer}>
+              <div className="relative rounded-[18.5px] px-4 py-3.5 flex items-center justify-between overflow-hidden" style={greenShell.inner}>
+                <div className="relative flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(74,222,128,0.15)' }}>
                     <MapPin className="w-5 h-5 text-green-400" />
                   </div>
-                  <div>
-                    <p className={`text-sm font-bold ${textMain}`}>{myCheckIn.venue_name}</p>
-                    <p className="text-xs text-green-400 font-semibold">Live ingecheckt</p>
+                  <div className="min-w-0">
+                    <p className="text-[10.5px] font-black uppercase tracking-wider text-green-500 mb-0.5">{trNow('Live ingecheckt', 'Checked in live')}</p>
+                    <p className={`text-[15px] font-black leading-tight truncate ${textMain}`}>{myCheckIn.venue_name}</p>
                   </div>
                 </div>
-                <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+                <div className="relative w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+              </div>
               </div>
             ) : myDestination ? (
-              <div 
-                className="rounded-[20px] p-4 flex items-center justify-between border" 
-                style={{ 
-                  background: isDark ? 'rgba(34, 197, 94, 0.05)' : 'rgba(34, 197, 94, 0.03)', 
-                  borderColor: isDark ? 'rgba(34, 197, 94, 0.35)' : 'rgba(34, 197, 94, 0.25)' 
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: isDark ? 'rgba(34,197,94,0.15)' : 'rgba(34,197,94,0.08)' }}>
+              <div className="rounded-[20px] p-[1.5px]" style={greenShell.outer}>
+              <div className="relative rounded-[18.5px] px-4 py-3.5 flex items-center justify-between overflow-hidden" style={greenShell.inner}>
+                <div className="relative flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: isDark ? 'rgba(34,197,94,0.15)' : 'rgba(34,197,94,0.1)' }}>
                     <MapPin className="w-5 h-5 text-green-500" />
                   </div>
-                  <div>
-                    <h3 className="font-bold text-sm" style={{ color: isDark ? '#4ade80' : '#15803d' }}>
-                      Je gaat naar {myDestination.venue_name}
+                  <div className="min-w-0">
+                    <p className="text-[10.5px] font-black uppercase tracking-wider text-green-500 mb-0.5">{trNow('Je gaat naar', "You're going to")}</p>
+                    <h3 className={`font-black text-[15px] leading-tight truncate ${textMain}`}>
+                      {myDestination.venue_name}
                     </h3>
                   </div>
                 </div>
@@ -277,9 +291,11 @@ export default function HomeInfoSheet({
                   <X className="w-4 h-4" />
                 </button>
               </div>
+              </div>
             ) : (
-              <div className="rounded-[18px] p-3 px-4 border flex items-center justify-between gap-3" style={{ background: isDark ? 'rgba(251,146,60,0.1)' : 'rgba(251,146,60,0.06)', borderColor: 'rgba(251,146,60,0.3)' }}>
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="rounded-[20px] p-[1.5px]" style={orangeShell.outer}>
+              <div className="relative rounded-[18.5px] p-3 px-4 flex items-center justify-between gap-3 overflow-hidden" style={orangeShell.inner}>
+                <div className="relative flex items-center gap-3 min-w-0">
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(249,115,22,0.2)' }}>
                     <AlertCircle className="w-4.5 h-4.5 text-orange-400" />
                   </div>
@@ -288,6 +304,7 @@ export default function HomeInfoSheet({
                     <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: textSub }}>{trNow('Kies een bestemming om matches te ontdekken', 'Pick a destination to discover matches')}</p>
                   </div>
                 </div>
+              </div>
               </div>
             )}
 
@@ -317,16 +334,11 @@ export default function HomeInfoSheet({
                     });
                   }
                 }}
-                className="w-full rounded-[18px] sm:rounded-[20px] p-3.5 px-4 flex items-center justify-between text-left transition-all active:scale-[0.98] shadow-sm relative overflow-hidden"
-                style={{ 
-                  background: isDark 
-                    ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.16) 0%, rgba(234, 63, 211, 0.08) 100%)' 
-                    : 'linear-gradient(135deg, rgba(255, 75, 114, 0.08) 0%, rgba(234, 63, 211, 0.03) 100%), #FFFFFF',
-                  border: isDark ? '1.5px solid rgba(255, 75, 114, 0.35)' : '1.5px solid rgba(255, 75, 114, 0.22)',
-                  boxShadow: isDark ? '0 4px 16px rgba(255, 75, 114, 0.10)' : '0 2px 12px rgba(255, 75, 114, 0.05)'
-                }}
+                className="w-full block rounded-[20px] p-[1.5px] text-left transition-transform active:scale-[0.98]"
+                style={pinkShell.outer}
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+              <div className="relative rounded-[18.5px] p-3.5 px-4 flex items-center justify-between overflow-hidden" style={pinkShell.inner}>
+                <div className="relative flex items-center gap-3 min-w-0 flex-1 pr-2">
                   <div 
                     className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ background: isDark ? 'rgba(255, 75, 114, 0.22)' : 'rgba(255, 75, 114, 0.12)' }}
@@ -365,8 +377,8 @@ export default function HomeInfoSheet({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div 
+                <div className="relative flex items-center gap-2 flex-shrink-0">
+                  <div
                     className="px-2.5 py-1 rounded-full text-[11.5px] sm:text-xs font-black text-white shadow-sm flex items-center gap-1"
                     style={{ background: GRAD }}
                   >
@@ -377,24 +389,27 @@ export default function HomeInfoSheet({
                     <ChevronRight className="w-4 h-4" />
                   </div>
                 </div>
+              </div>
               </button>
             ) : (
-              <div 
-                className="rounded-[18px] p-3 px-4 flex items-center gap-3"
-                style={{ background: cardBg, border: plainCardBorder, boxShadow: plainCardShadow }}
+              <div className="rounded-[20px] p-[1.5px]" style={plainShell.outer}>
+              <div
+                className="relative rounded-[18.5px] p-3 px-4 flex items-center gap-3 overflow-hidden"
+                style={plainShell.inner}
               >
-                <div 
-                  className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                <div
+                  className="relative w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: isDark ? 'rgba(255, 75, 114, 0.15)' : 'rgba(255, 75, 114, 0.10)' }}
                 >
                   <Heart className="w-4 h-4 text-pink-500" />
                 </div>
-                <div className="min-w-0">
+                <div className="relative min-w-0">
                   <h4 className={`font-bold text-xs ${textMain}`}>{trNow('Jouw beste locatie', 'Your best location')}</h4>
                   <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: textSub }}>
                     {trNow('Zodra matches kiezen zie je hier direct de populairste venue', 'As soon as matches choose, you will see the most popular venue here')}
                   </p>
                 </div>
+              </div>
               </div>
             )}
           </div>

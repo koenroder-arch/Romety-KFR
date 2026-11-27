@@ -867,10 +867,16 @@ export default function Pinpoint() {
 
   const showSearchPanel = searchFocused;
   const pageBg = isDark ? '#08090E' : '#F8F9FB';
-  const searchBarBg = isDark ? 'rgba(13,14,21,0.88)' : 'rgba(255,255,255,0.92)';
+  // Zoekbalk en filterknop in dezelfde glazen stijl als de navigatiebalk
+  // Donkerder glas zodat zoekbalk en filter goed opvallen op de kaart, met een roze kader
+  const searchBarBg = isDark ? 'rgba(13, 14, 21, 0.85)' : 'rgba(255, 255, 255, 0.9)';
   const searchBarBorder = (focused) => focused
-    ? 'rgba(255, 75, 114, 0.55)'
-    : isDark ? 'rgba(255, 75, 114, 0.28)' : 'rgba(255, 75, 114, 0.20)';
+    ? 'rgba(255, 75, 114, 0.75)'
+    : isDark ? 'rgba(255, 75, 114, 0.4)' : 'rgba(255, 75, 114, 0.3)';
+  const glassShadow = isDark
+    ? '0 10px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)'
+    : '0 10px 30px rgba(17,24,39,0.14), inset 0 1px 0 rgba(255,255,255,0.8)';
+  const glassBlur = 'blur(24px) saturate(180%)';
   const searchTextColor = isDark ? 'text-white' : 'text-gray-900';
   const searchPlaceholderColor = isDark ? 'placeholder-white/30' : 'placeholder-gray-400';
   const dropdownBg = isDark ? 'rgba(13,14,21,0.95)' : 'rgba(255,255,255,0.98)';
@@ -961,9 +967,9 @@ export default function Pinpoint() {
           <div className="flex items-center gap-2.5">
             {/* Search Input */}
             <div
-              className="flex-1 flex items-center gap-2 px-3 sm:px-3.5 rounded-[20px] transition-all duration-200 cursor-text overflow-hidden"
+              className="flex-1 flex items-center gap-2 px-4 rounded-full transition-all duration-200 cursor-text overflow-hidden"
               onClick={() => searchInputRef.current?.focus()}
-              style={{ height: 52, background: searchBarBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1.5px solid ${searchBarBorder(searchFocused)}`, boxShadow: searchFocused ? '0 4px 18px rgba(255,75,114,0.18)' : isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+              style={{ height: 52, background: searchBarBg, backdropFilter: glassBlur, WebkitBackdropFilter: glassBlur, border: `1.5px solid ${searchBarBorder(searchFocused)}`, boxShadow: searchFocused ? `${glassShadow}, 0 0 0 3px rgba(255,75,114,0.15)` : glassShadow, transition: 'border-color 0.2s, box-shadow 0.2s' }}
             >
               <Search className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
 
@@ -1058,15 +1064,15 @@ export default function Pinpoint() {
             <button
               type="button"
               onClick={toggleNearbyFilter}
-              className="w-[52px] h-[52px] rounded-[20px] flex items-center justify-center flex-shrink-0 transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer"
+              className="w-[52px] h-[52px] rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-150 hover:brightness-105 active:scale-95 outline-none focus:outline-none select-none cursor-pointer"
               style={{
                 background: useNearbyFilter ? GRAD : searchBarBg,
-                border: useNearbyFilter ? '1.5px solid rgba(255,255,255,0.35)' : `1.5px solid ${searchBarBorder(false)}`,
+                border: useNearbyFilter ? '1px solid rgba(255,255,255,0.35)' : `1.5px solid ${searchBarBorder(false)}`,
                 boxShadow: useNearbyFilter
-                  ? '0 4px 18px rgba(255,75,114,0.4), 0 0 12px rgba(234,63,211,0.25)'
-                  : isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(0,0,0,0.08)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
+                  ? '0 8px 22px rgba(255,75,114,0.4), inset 0 1px 0 rgba(255,255,255,0.25)'
+                  : glassShadow,
+                backdropFilter: glassBlur,
+                WebkitBackdropFilter: glassBlur,
               }}
               title={useNearbyFilter ? tr('Locatiefilter uitschakelen (toont heel Nederland)', 'Turn off location filter (shows all of the Netherlands)') : tr('Filter op jouw huidige locatie', 'Filter on your current location')}
             >

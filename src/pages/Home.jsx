@@ -4,9 +4,10 @@ import { base44 } from '@/api/base44Client';
 import { supabase } from '@/api/supabaseClient';
 import { useUser } from '@/lib/useUser';
 import { createPageUrl } from '@/utils';
-import { Crown, Plus, Eye, X, MessageCircle, ChevronRight, ChevronLeft, Lightbulb, Flame, Camera, MapPin, Clock } from 'lucide-react';
+import { Crown, Plus, Eye, X, MessageCircle, ChevronLeft, Lightbulb, Flame, Camera, MapPin, Clock } from 'lucide-react';
 import { usePullToRefresh } from '@/components/welove/usePullToRefresh';
 import { InstagramSpinner } from '@/components/welove/PullToRefreshSpinner';
+import { useBootLoader } from '@/components/welove/LaunchScreen';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
@@ -24,6 +25,7 @@ const VENUE_TOAST_VISIBLE_MS = 5000;
 import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import VenueBanner from '@/components/welove/VenueBanner';
 import NotificationBell from '@/components/welove/NotificationBell';
+import HomeActionCard from '@/components/welove/HomeActionCard';
 import { isChatMessageNotif } from '@/components/welove/useNotifications';
 import { fetchReportedEmails, addLocalReportedEmail } from '@/lib/reportUtils';
 import { BLOCK_EVENT } from '@/lib/blockUtils';
@@ -84,6 +86,8 @@ export default function Home() {
   const [matches, setMatches] = useState([]);
   const [myCheckIn, setMyCheckIn] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Bij het openen van de app blijft het opstartscherm (de R) staan tot Home geladen is
+  useBootLoader(loading);
   const initialLoadedRef = useRef(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [superMatchCount, setSuperMatchCount] = useState(0);
@@ -1019,13 +1023,16 @@ export default function Home() {
       <div className="px-5 mt-4">
         {/* Stats / Matches live indicators — unified card */}
         <div
-          className="mt-6 rounded-[24px] py-3.5 px-1 sm:px-2 shadow-sm"
+          // Zelfde glazen stijl als de navigatiebalk: doorschijnend, wazig, met een lichte bovenrand
+          className="mt-6 rounded-[28px] py-3.5 px-1 sm:px-2"
           style={{
-            background: isDark ? 'rgba(255,255,255,0.04)' : '#FFFFFF',
-            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
-            boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.04)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            background: isDark ? 'rgba(22, 22, 32, 0.55)' : 'rgba(255, 255, 255, 0.62)',
+            border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.7)',
+            boxShadow: isDark
+              ? '0 10px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)'
+              : '0 10px 30px rgba(17,24,39,0.10), inset 0 1px 0 rgba(255,255,255,0.8)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
           }}
         >
           <div className={`grid grid-cols-3 divide-x ${isDark ? 'divide-white/10' : 'divide-gray-100'} items-center`}>
@@ -1088,255 +1095,71 @@ export default function Home() {
       {/* Action Buttons List: Reveal Likes, Super Matches, Hints, Games, Discounts with 3px side margin */}
       <div className="px-[3px] mt-3.5 mb-2 relative">
         <div className={`grid grid-cols-2 gap-3 transition-all duration-300 ${!myCheckIn ? 'filter blur-[7px] pointer-events-none select-none opacity-40' : ''}`}>
-            {/* 1. Onthul wie je heeft geliked (#FF4B72 - Felroze / Kersenrood) */}
-            <button
+            {/* 1. Ontvangen likes */}
+            <HomeActionCard
               onClick={onRevealClick}
-              className={`flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left ${
-                unmatchedLikes.length > 0 ? '' : 'opacity-95'
-              }`}
-              style={{
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.22) 0%, rgba(255, 75, 114, 0.08) 100%)'
-                  : 'linear-gradient(135deg, rgba(255, 75, 114, 0.10) 0%, rgba(255, 75, 114, 0.02) 100%), #FFFFFF',
-                border: isDark ? '1.5px solid rgba(255, 75, 114, 0.48)' : '1.5px solid rgba(255, 75, 114, 0.30)',
-                boxShadow: isDark ? '0 8px 28px rgba(255, 75, 114, 0.16)' : '0 4px 20px rgba(255, 75, 114, 0.09)',
-              }}
-            >
-              <div className="flex items-center justify-between w-full">
-                <div 
-                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ 
-                    width: '52px', 
-                    height: '52px',
-                    background: isDark ? 'rgba(255, 75, 114, 0.25)' : 'rgba(255, 75, 114, 0.12)' 
-                  }}
-                >
-                  <Eye className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {unmatchedLikes.length > 0 && (
-                    <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#FF4B72] text-white text-xs font-black flex items-center justify-center shadow-md">
-                      {unmatchedLikes.length}
-                    </div>
-                  )}
-                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 min-w-0">
-                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>LIKES</p>
-                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{trNow('Ontvangen likes', 'Received likes')}</p>
-              </div>
-              <Eye aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
-            </button>
+              icon={Eye}
+              iconColor="#FF4B72"
+              label={trNow('Ontdek wie jou leuk vindt', 'See who likes you')}
+              title={trNow('Ontvangen likes', 'Received likes')}
+              badge={unmatchedLikes.length > 0 ? unmatchedLikes.length : null}
+              isDark={isDark}
+              className={unmatchedLikes.length > 0 ? '' : 'opacity-95'}
+            />
 
-            {/* 2. Super matches (#F9488A - Fade stap 1) */}
-            <button
+            {/* 2. Super matches */}
+            <HomeActionCard
               onClick={handleSuperMatchClick}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
-              style={{
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(249, 72, 138, 0.22) 0%, rgba(249, 72, 138, 0.08) 100%)'
-                  : 'linear-gradient(135deg, rgba(249, 72, 138, 0.10) 0%, rgba(249, 72, 138, 0.02) 100%), #FFFFFF',
-                border: isDark ? '1.5px solid rgba(249, 72, 138, 0.48)' : '1.5px solid rgba(249, 72, 138, 0.30)',
-                boxShadow: isDark ? '0 8px 28px rgba(249, 72, 138, 0.16)' : '0 4px 20px rgba(249, 72, 138, 0.09)',
-              }}
-            >
-              <div className="flex items-center justify-between w-full">
-                <div 
-                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ 
-                    width: '52px', 
-                    height: '52px',
-                    background: isDark ? 'rgba(249, 72, 138, 0.25)' : 'rgba(249, 72, 138, 0.12)' 
-                  }}
-                >
-                  <Flame className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {superMatchCount > 0 && (
-                    <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#F9488A] text-white text-xs font-black flex items-center justify-center shadow-md">
-                      {superMatchCount}
-                    </div>
-                  )}
-                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 min-w-0">
-                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#F9488A]'}`}>SUPER</p>
-                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Super matches</p>
-              </div>
-              <Flame aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#F9488A]'}`} />
-            </button>
+              icon={Flame}
+              iconColor="#FF4B72"
+              label={trNow('Jullie vinden elkaar leuk', 'You like each other')}
+              title="Supermatches"
+              badge={superMatchCount > 0 ? superMatchCount : null}
+              isDark={isDark}
+            />
 
-            {/* 3. Hints button */}
-            <button
+            {/* 3. Hints */}
+            <HomeActionCard
               onClick={onHintClick}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
-              style={{
-                background: (isDark
-                    ? 'linear-gradient(135deg, rgba(244, 69, 163, 0.22) 0%, rgba(244, 69, 163, 0.08) 100%)'
-                    : 'linear-gradient(135deg, rgba(244, 69, 163, 0.10) 0%, rgba(244, 69, 163, 0.02) 100%), #FFFFFF'),
-                border: (isDark ? '1.5px solid rgba(244, 69, 163, 0.48)' : '1.5px solid rgba(244, 69, 163, 0.30)'),
-                boxShadow: (isDark ? '0 8px 28px rgba(244, 69, 163, 0.14)' : '0 4px 20px rgba(244, 69, 163, 0.08)'),
-              }}
-            >
-              <div className="flex items-center justify-between w-full">
-                <div 
-                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm transition-all"
-                  style={{ 
-                    width: '52px', 
-                    height: '52px',
-                    background: (isDark ? 'rgba(244, 69, 163, 0.25)' : 'rgba(244, 69, 163, 0.12)') 
-                  }}
-                >
-                  <Lightbulb className={`w-7 h-7 ${
-                    (isDark ? 'text-white' : 'text-[#F445A3]')
-                  }`} />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`min-w-[28px] h-7 px-2 rounded-full text-xs font-black flex items-center justify-center shadow-md ${
-                    'bg-[#F445A3] text-white'
-                  }`}>
-                    {hints.length + superMatchHints.length}
-                  </div>
-                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 min-w-0">
-                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${
-                  (isDark ? 'text-white/60' : 'text-[#F445A3]')
-                }`}>
-                  HINTS
-                </p>
-                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {trNow('Hints sturen', 'Send hints')}
-                </p>
-              </div>
-              <Lightbulb aria-hidden="true" className={`home-card__mark ${
-                    (isDark ? 'text-white' : 'text-[#F445A3]')
-                  }`} />
-            </button>
+              icon={Lightbulb}
+              iconColor="#F445A3"
+              label={trNow('Laat merken dat je er bent', "Let them know you're there")}
+              title="Hints"
+              badge={hints.length + superMatchHints.length > 0 ? hints.length + superMatchHints.length : null}
+              isDark={isDark}
+            />
 
-            {/* 4. Chat (#EE42BC - Fade stap 3) */}
-            <button
+            {/* 4. Chat */}
+            <HomeActionCard
               onClick={() => navigate(createPageUrl('Chat'))}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
-              style={{
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(238, 66, 188, 0.22) 0%, rgba(238, 66, 188, 0.08) 100%)'
-                  : 'linear-gradient(135deg, rgba(238, 66, 188, 0.10) 0%, rgba(238, 66, 188, 0.02) 100%), #FFFFFF',
-                border: isDark ? '1.5px solid rgba(238, 66, 188, 0.48)' : '1.5px solid rgba(238, 66, 188, 0.30)',
-                boxShadow: isDark ? '0 8px 28px rgba(238, 66, 188, 0.16)' : '0 4px 20px rgba(238, 66, 188, 0.09)',
-              }}
-            >
-              <div className="flex items-center justify-between w-full">
-                <div 
-                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ 
-                    width: '52px', 
-                    height: '52px',
-                    background: isDark ? 'rgba(238, 66, 188, 0.25)' : 'rgba(238, 66, 188, 0.12)' 
-                  }}
-                >
-                  <MessageCircle className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {chatUnreadCount > 0 && (
-                    <div className="min-w-[28px] h-7 px-2 rounded-full bg-[#EE42BC] text-white text-xs font-black flex items-center justify-center shadow-md">
-                      {chatUnreadCount}
-                    </div>
-                  )}
-                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 min-w-0">
-                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#EE42BC]'}`}>CHAT</p>
-                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Chat</p>
-              </div>
-              <MessageCircle aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#EE42BC]'}`} />
-            </button>
+              icon={MessageCircle}
+              iconColor="#F445A3"
+              label={trNow('Je gesprekken', 'Your conversations')}
+              title="Chat"
+              badge={chatUnreadCount > 0 ? chatUnreadCount : null}
+              isDark={isDark}
+            />
 
-            {/* 5. Bekijk VIP kortingen (#EA3FD3 - Magenta / Neonpaars met rustig pulserend lichtgoud randje) */}
-            <button
+            {/* 5. VIP kortingen (met rustig draaiend lichtgoud randje) */}
+            <HomeActionCard
               onClick={() => setShowDiscountsModal(true)}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
-              style={{
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(234, 63, 211, 0.22) 0%, rgba(234, 63, 211, 0.08) 100%)'
-                  : 'linear-gradient(135deg, rgba(234, 63, 211, 0.10) 0%, rgba(234, 63, 211, 0.02) 100%), #FFFFFF',
-                border: isDark ? '1.5px solid rgba(234, 63, 211, 0.35)' : '1.5px solid rgba(234, 63, 211, 0.22)',
-                boxShadow: isDark ? '0 8px 28px rgba(234, 63, 211, 0.16)' : '0 4px 20px rgba(234, 63, 211, 0.09)',
-              }}
-            >
-              {/* Lichtgoud randje dat in een soepele, naadloze loop rond de kaart draait */}
-              <div className="gold-ring rounded-[24px]">
-                <div className="gold-ring__spin" />
-              </div>
-              <div className="flex items-center justify-between w-full relative z-10">
-                <div 
-                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ 
-                    width: '52px', 
-                    height: '52px',
-                    background: isDark ? 'rgba(234, 63, 211, 0.25)' : 'rgba(234, 63, 211, 0.12)' 
-                  }}
-                >
-                  <Crown className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
-                </div>
-                <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-4 min-w-0 relative z-10">
-                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#EA3FD3]'}`}>VIP DEALS</p>
-                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{trNow('VIP kortingen', 'VIP discounts')}</p>
-              </div>
-              <Crown aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#EA3FD3]'}`} />
-            </button>
+              icon={Crown}
+              iconColor="#EA3FD3"
+              label={trNow('Deals bij jouw venue', 'Deals at your venue')}
+              title={trNow('VIP kortingen', 'VIP discounts')}
+              goldRing
+              isDark={isDark}
+            />
 
-            {/* 6. Story's (#FF4B72 - Brand signature gradient & icon) */}
-            <button
+            {/* 6. Story's */}
+            <HomeActionCard
               onClick={() => navigate(createPageUrl('Hints'))}
-              className="flex flex-col justify-between rounded-[24px] p-4 sm:p-5 home-card relative z-30 transition-all active:scale-[0.98] overflow-hidden shadow-md min-h-[142px] text-left"
-              style={{
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(255, 75, 114, 0.22) 0%, rgba(234, 63, 211, 0.12) 100%)'
-                  : 'linear-gradient(135deg, rgba(255, 75, 114, 0.10) 0%, rgba(234, 63, 211, 0.04) 100%), #FFFFFF',
-                border: isDark ? '1.5px solid rgba(255, 75, 114, 0.48)' : '1.5px solid rgba(255, 75, 114, 0.30)',
-                boxShadow: isDark ? '0 8px 28px rgba(255, 75, 114, 0.16)' : '0 4px 20px rgba(255, 75, 114, 0.09)',
-              }}
-            >
-              <div className="flex items-center justify-between w-full">
-                <div 
-                  className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                  style={{ 
-                    width: '52px', 
-                    height: '52px',
-                    background: isDark ? 'rgba(255, 75, 114, 0.25)' : 'rgba(255, 75, 114, 0.12)' 
-                  }}
-                >
-                  <Camera className={`w-7 h-7 ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-gray-100 text-gray-700'} flex items-center justify-center`}>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 min-w-0">
-                <p className={`text-[11px] font-black tracking-wider uppercase mb-1 ${isDark ? 'text-white/60' : 'text-[#FF4B72]'}`}>STORIES</p>
-                <p className={`text-base sm:text-lg font-black leading-tight truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>Story's</p>
-              </div>
-              <Camera aria-hidden="true" className={`home-card__mark ${isDark ? 'text-white' : 'text-[#FF4B72]'}`} />
-            </button>
+              icon={Camera}
+              iconColor="#EA3FD3"
+              label={trNow('Deel je avond', 'Share your night')}
+              title="Story's"
+              isDark={isDark}
+            />
           </div>
 
           {/* Location Not Set Blur Overlay */}
