@@ -6,9 +6,12 @@ import confetti from 'canvas-confetti';
 import { Heart, MessageCircle, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { trNow } from '@/lib/LanguageContext';
+import { useTheme } from '@/lib/ThemeContext';
 
 export default function MatchAnimation({ myProfile, matchedProfile, onDone, onClose, onSendHint }) {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme !== 'light';
   const [unlockingChat, setUnlockingChat] = useState(false);
 
   const handleDone = () => {
@@ -141,254 +144,135 @@ export default function MatchAnimation({ myProfile, matchedProfile, onDone, onCl
   }, []);
 
   const fireConfetti = () => {
-    const duration = 1500;
-    const end = Date.now() + duration;
-
+    // Eén rustig confettiwolkje vanuit het midden
     const myCanvas = document.createElement('canvas');
-    myCanvas.style.position = 'fixed';
-    myCanvas.style.inset = '0';
-    myCanvas.style.width = '100vw';
-    myCanvas.style.height = '100vh';
-    myCanvas.style.zIndex = '10000';
-    myCanvas.style.pointerEvents = 'none';
+    Object.assign(myCanvas.style, { position: 'fixed', inset: '0', width: '100vw', height: '100vh', zIndex: '10000', pointerEvents: 'none' });
     document.body.appendChild(myCanvas);
-
-    const myConfetti = confetti.create(myCanvas, {
-      resize: true,
-      useWorker: true
+    const myConfetti = confetti.create(myCanvas, { resize: true, useWorker: true });
+    myConfetti({
+      particleCount: 60,
+      spread: 70,
+      startVelocity: 30,
+      origin: { x: 0.5, y: 0.4 },
+      colors: ['#FF4B72', '#EA3FD3', '#8E54E9', '#FFB84D'],
+      shapes: ['circle'],
+      scalar: 0.85,
+      ticks: 110,
+      disableForReducedMotion: true,
     });
-
-    (function frame() {
-      myConfetti({
-        particleCount: 2,
-        angle: 60,
-        spread: 55,
-        origin: { x: -0.05, y: 0.75 },
-        colors: ['#FF4B72', '#EA3FD3', '#8E54E9', '#FFB84D'],
-        shapes: ['circle'],
-        disableForReducedMotion: true,
-        scalar: 1.0,
-        gravity: 1.0,
-        ticks: 80,
-        startVelocity: 28
-      });
-      myConfetti({
-        particleCount: 2,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1.05, y: 0.75 },
-        colors: ['#FF4B72', '#EA3FD3', '#8E54E9', '#FFB84D'],
-        shapes: ['circle'],
-        disableForReducedMotion: true,
-        scalar: 1.0,
-        gravity: 1.0,
-        ticks: 80,
-        startVelocity: 28
-      });
-
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      } else {
-        setTimeout(() => {
-          if (myCanvas.parentNode) {
-            myCanvas.parentNode.removeChild(myCanvas);
-          }
-        }, 1000);
-      }
-    }());
+    setTimeout(() => { if (myCanvas.parentNode) myCanvas.parentNode.removeChild(myCanvas); }, 2500);
   };
 
   const myPhoto = myProfile?.photo_url;
   const theirPhoto = matchedProfile?.photo_url;
+  const emojiOf = (p) => (p?.avatar ? p.avatar.split(' ')[0] : '👤');
+  const cardBorder = isDark ? '#1B1622' : '#FFFFFF';
+
+  const PhotoBubble = ({ photo, profile, tilt, grad }) => (
+    <div
+      className="w-[104px] h-[104px] rounded-full overflow-hidden flex items-center justify-center text-[44px]"
+      style={{
+        transform: `rotate(${tilt}deg)`,
+        border: `4px solid ${cardBorder}`,
+        boxShadow: '0 10px 28px rgba(255,75,114,0.3)',
+        background: grad,
+      }}
+    >
+      {photo ? <img src={photo} alt="" className="w-full h-full object-cover" draggable={false} /> : emojiOf(profile)}
+    </div>
+  );
 
   const content = (
     <div
       onClick={handleDone}
-      className="fixed inset-0 flex flex-col items-center justify-center z-[9999] cursor-pointer"
+      className="fixed inset-0 z-[9999] flex items-center justify-center px-6"
       style={{
-        background: 'radial-gradient(circle at center, #2C1635 0%, #0A0A10 80%)',
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         opacity: visible ? 1 : 0,
-        transition: 'opacity 0.6s cubic-bezier(0.4,0,0.2,1)',
+        transition: 'opacity 0.3s ease',
       }}
     >
-      {/* Top right close button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleDone();
-        }}
-        className="absolute z-30 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center text-white/80 hover:text-white border border-white/20 backdrop-blur-md shadow-lg"
+      {/* De kaart */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-[340px] rounded-[32px] px-6 pt-8 pb-5 text-center"
         style={{
-          top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 12px)',
-          right: 'max(16px, env(safe-area-inset-right, 16px))',
+          background: isDark ? 'linear-gradient(180deg, #1F1726 0%, #131219 100%)' : 'linear-gradient(180deg, #FFF1F6 0%, #FFFFFF 70%)',
+          border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(255,75,114,0.12)',
+          boxShadow: '0 30px 70px rgba(0,0,0,0.45)',
+          transform: visible ? 'scale(1) translateY(0)' : 'scale(0.88) translateY(14px)',
+          opacity: visible ? 1 : 0,
+          transition: 'transform 0.5s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.3s ease',
         }}
-        aria-label={trNow('Sluiten', 'Close')}
       >
-        <X className="w-5 h-5 text-white" />
-      </button>
-      <style>{`
-        @keyframes popIn {
-          0% { transform: scale(0.8); opacity: 0; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes pulseGlow {
-          0%, 100% { filter: drop-shadow(0 0 20px rgba(234,63,211,0.6)); }
-          50% { filter: drop-shadow(0 0 40px rgba(255,75,114,1)); }
-        }
-        @keyframes floatRays {
-          0% { transform: rotate(0deg); opacity: 0.2; }
-          50% { opacity: 0.5; }
-          100% { transform: rotate(360deg); opacity: 0.2; }
-        }
-        .anim-pop { animation: popIn 0.8s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .heart-glow { animation: pulseGlow 2s ease-in-out infinite; }
-      `}</style>
+        <button
+          onClick={(e) => { e.stopPropagation(); handleDone(); }}
+          className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+          style={{ background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }}
+          aria-label={trNow('Sluiten', 'Close')}
+        >
+          <X className="w-4 h-4" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.45)' }} />
+        </button>
 
-      {/* Background Rays */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none flex items-center justify-center">
-        <div 
-          className="absolute w-[200vw] h-[200vw]"
-          style={{
-            background: 'conic-gradient(from 0deg, transparent 0deg, rgba(255,75,114,0.15) 15deg, transparent 30deg, rgba(234,63,211,0.15) 45deg, transparent 60deg, rgba(255,75,114,0.15) 75deg, transparent 90deg, rgba(234,63,211,0.15) 105deg, transparent 120deg, rgba(255,75,114,0.15) 135deg, transparent 150deg, rgba(234,63,211,0.15) 165deg, transparent 180deg, rgba(255,75,114,0.15) 195deg, transparent 210deg, rgba(234,63,211,0.15) 225deg, transparent 240deg, rgba(255,75,114,0.15) 255deg, transparent 270deg, rgba(234,63,211,0.15) 285deg, transparent 300deg, rgba(255,75,114,0.15) 315deg, transparent 330deg, rgba(234,63,211,0.15) 345deg, transparent 360deg)',
-            animation: 'floatRays 90s linear infinite'
-          }}
-        />
-      </div>
-
-      <div className="relative z-10 flex flex-col items-center w-full px-6 anim-pop">
-        {/* Top Heart Icon */}
-        <Heart className="w-10 h-10 text-white mb-6" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 0 12px rgba(255,255,255,0.8))' }} />
-        
-        {/* Title */}
-        <h1 className="text-[44px] font-black text-white text-center leading-none tracking-tight mb-8" style={{ textShadow: '0 4px 20px rgba(255,75,114,0.6)' }}>
-          It's a Match!
-        </h1>
-
-        {/* Center Split Heart */}
-        <div className="relative mb-8 heart-glow" style={{ width: 280, height: 280 }}>
-          <svg width="280" height="280" viewBox="0 0 240 240">
-            <defs>
-              <clipPath id="heartClipLeft">
-                <path d="M120 210 C60 170 20 130 20 80 C20 50 45 30 70 30 C90 30 108 42 120 58 L120 210Z" />
-              </clipPath>
-              <clipPath id="heartClipRight">
-                <path d="M120 210 L120 58 C132 42 150 30 170 30 C195 30 220 50 220 80 C220 130 180 170 120 210Z" />
-              </clipPath>
-              <linearGradient id="gradLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#8E54E9" />
-                <stop offset="100%" stopColor="#FF4B72" />
-              </linearGradient>
-            </defs>
-
-            {/* Left Photo/Avatar */}
-            <g clipPath="url(#heartClipLeft)">
-              {myPhoto ? (
-                <image
-                  href={myPhoto}
-                  x="20"
-                  y="30"
-                  width="100"
-                  height="180"
-                  preserveAspectRatio="xMidYMid slice"
-                />
-              ) : (
-                <g>
-                  <rect x="20" y="30" width="100" height="180" fill="url(#gradLeft)" />
-                  <text
-                    x="70"
-                    y="120"
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fill="#FFF"
-                    fontSize="40"
-                  >
-                    {myProfile?.avatar ? myProfile.avatar.split(' ')[0] : '👤'}
-                  </text>
-                </g>
-              )}
-            </g>
-
-            {/* Right Photo/Avatar */}
-            <g clipPath="url(#heartClipRight)">
-              {theirPhoto ? (
-                <image
-                  href={theirPhoto}
-                  x="120"
-                  y="30"
-                  width="100"
-                  height="180"
-                  preserveAspectRatio="xMidYMid slice"
-                />
-              ) : (
-                <g>
-                  <rect x="120" y="30" width="100" height="180" fill="#F03E8F" />
-                  <text
-                    x="170"
-                    y="120"
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fill="#FFF"
-                    fontSize="40"
-                  >
-                    {matchedProfile?.avatar ? matchedProfile.avatar.split(' ')[0] : '👤'}
-                  </text>
-                </g>
-              )}
-            </g>
-
-            {/* Outer Glowing Stroke */}
-            <path
-              d="M120 210 C60 170 20 130 20 80 C20 50 45 30 70 30 C90 30 108 42 120 58 C132 42 150 30 170 30 C195 30 220 50 220 80 C220 130 180 170 120 210Z"
-              fill="none"
-              stroke="#FFF"
-              strokeWidth="3.5"
-              style={{ filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.9))' }}
-            />
-            {/* Center Split Line */}
-            <line x1="120" y1="58" x2="120" y2="210" stroke="#FFF" strokeWidth="2" strokeOpacity="0.9" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.5))' }} />
-          </svg>
+        {/* Jullie twee foto's, licht overlappend met een hartje */}
+        <div className="relative flex items-center justify-center mb-6">
+          <div className="-mr-4 z-10"><PhotoBubble photo={myPhoto} profile={myProfile} tilt={-6} grad="linear-gradient(135deg,#8E54E9,#FF4B72)" /></div>
+          <div className="-ml-4"><PhotoBubble photo={theirPhoto} profile={matchedProfile} tilt={6} grad="linear-gradient(135deg,#FF4B72,#EA3FD3)" /></div>
+          <div
+            className="absolute z-20 w-10 h-10 rounded-full flex items-center justify-center"
+            style={{
+              bottom: -8,
+              background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+              border: `4px solid ${cardBorder}`,
+              boxShadow: '0 6px 14px rgba(255,75,114,0.45)',
+            }}
+          >
+            <Heart className="w-4 h-4 text-white" fill="white" strokeWidth={0} />
+          </div>
         </div>
 
-        {/* Cursive Text */}
-        <p 
-          className="text-[#FFD700] text-[34px] mb-8" 
-          style={{ 
-            fontFamily: "'Brush Script MT', 'Dancing Script', 'Caveat', cursive", 
-            textShadow: '0 2px 10px rgba(255,75,114,0.8)',
-            transform: 'rotate(-4deg)'
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] mb-1.5" style={{ color: '#FF4B72' }}>
+          {trNow('Nieuwe match', 'New match')}
+        </p>
+        <h1 className="text-[30px] font-black leading-none tracking-tight" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
+          It's a Match!
+        </h1>
+        <p
+          className="text-[19px] mt-2 mb-6"
+          style={{
+            color: isDark ? 'rgba(255,215,140,0.9)' : '#D9930B',
+            fontFamily: "'Brush Script MT', 'Dancing Script', 'Caveat', cursive",
           }}
         >
           Let the good times roll
         </p>
 
-        {/* Button: Chat ontgrendelen */}
+        {/* Chat ontgrendelen */}
         <button
           onClick={handleUnlockChat}
           disabled={unlockingChat}
-          className="w-full max-w-[300px] py-4 rounded-full flex items-center justify-center gap-3 active:scale-95 transition-transform relative overflow-hidden shadow-2xl"
+          className="w-full py-3.5 rounded-full flex items-center justify-center gap-2 font-bold text-[15px] text-white active:scale-95 transition-transform disabled:opacity-80"
           style={{
-            background: 'linear-gradient(90deg, #FF4B72 0%, #FFB84D 100%)',
-            boxShadow: '0 8px 30px rgba(255,75,114,0.6)'
+            background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
+            boxShadow: '0 10px 24px rgba(255,75,114,0.4)',
           }}
         >
-          <div className="absolute inset-0 bg-white/20 opacity-0 hover:opacity-100 transition-opacity" />
-          <span className="text-white font-bold text-[18px]">
-            {unlockingChat ? 'Ontgrendelen...' : 'Chat ontgrendelen'}
-          </span>
-          <MessageCircle className="w-6 h-6 text-white" fill="white" strokeWidth={1} />
+          <MessageCircle className="w-[18px] h-[18px]" />
+          {unlockingChat ? trNow('Ontgrendelen...', 'Unlocking...') : trNow('Chat ontgrendelen', 'Unlock chat')}
         </button>
 
-        {/* Skip button / text */}
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDone();
-          }}
-          className="mt-6 text-white/70 hover:text-white text-[15px] font-semibold tracking-wide py-2 px-6 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-sm active:scale-95 transition-all"
+        {/* Doorgaan zonder chat */}
+        <button
+          onClick={(e) => { e.stopPropagation(); handleDone(); }}
+          className="w-full mt-2 py-2.5 rounded-full text-[14px] font-semibold active:scale-95 transition-transform"
+          style={{ color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(17,24,39,0.5)' }}
         >
-          {trNow('Tik om door te gaan', 'Tap to continue')}
+          {trNow('Later', 'Later')}
         </button>
-
       </div>
 
       {/* Daily limit modal popup overlay */}
