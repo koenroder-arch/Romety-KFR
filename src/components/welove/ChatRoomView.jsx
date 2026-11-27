@@ -6,7 +6,8 @@ import { ChevronLeft, Send, Camera, X, Clock, MoreVertical, AlertTriangle, Ban, 
 import { toast } from 'sonner';
 import ProfilePhotoCarousel, { getProfilePhotos } from '@/components/welove/ProfilePhotoCarousel';
 import { deleteChatRoomAndMedia } from '@/lib/chatUtils';
-import { countUnread, markRoomRead } from '@/lib/chatUnread';
+import { countUnread, markRoomRead, isHiddenPhase2Photo, isPhase2Locked, isPhase2Photo } from '@/lib/chatUnread';
+import Phase2StartAnimation from './Phase2StartAnimation';
 import { trNow } from '@/lib/LanguageContext';
 import BlockUserDialog from './BlockUserDialog';
 import { dt } from '@/lib/displayText';
@@ -169,6 +170,19 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   // Fase 2 vergrendeld: de chatbalk blijft staan, maar je kunt alleen een foto maken (geen tekst)
   const showComposer = canChat || (phase2Locked && isActive && !isDeleted && !isArchived && !isTimeExpired);
   const waitingForOtherPhoto = phase2Locked && !!myPhotoSent && !otherPhotoSent;
+
+  // Popup "Fase 2 begint!" zodra allebei een foto hebben gestuurd (één keer per chat per persoon)
+  const [showPhase2Intro, setShowPhase2Intro] = useState(false);
+  const phase2BothSent = phase === 2 && !!myPhotoSent && !!otherPhotoSent;
+  useEffect(() => {
+    if (loading || !phase2BothSent || !localRoom?.id || !isActive) return;
+    const key = `romety_phase2_intro_${localRoom.id}_${(currentUserEmail || '').toLowerCase()}`;
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, '1');
+    } catch (e) { /* zonder opslag toch tonen */ }
+    setShowPhase2Intro(true);
+  }, [loading, phase2BothSent, localRoom?.id, isActive, currentUserEmail]);
 
   const bg = isDark ? '#08090E' : '#F8F9FB';
   const msgBubbleMe = 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)';
@@ -593,7 +607,13 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
         type: 'photo',
         is_system: false,
       });
-      notifyPartner('📷 Heeft een foto gestuurd');
+      // Fase 2: je match ziet je foto pas als jullie er allebei een hebben gestuurd.
+      // Als eerste versturen geeft dus nog geen melding; als laatste wel: fase 2 begint.
+      if (phase === 2 && !myPhotoSent) {
+        if (otherPhotoSent) notifyPartner('🎉 Fase 2 begint! Jullie foto\'s zijn nu zichtbaar');
+      } else {
+        notifyPartner('📷 Heeft een foto gestuurd');
+      }
       await loadMessages();
       scrollToBottom(true);
 
@@ -812,6 +832,8 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
   const messageGroups = [];
   let lastDate = null;
   for (const msg of messages) {
+    // Fase 2: de foto van je match blijft onzichtbaar tot jullie allebei een foto hebben gestuurd
+    if (isHiddenPhase2Photo(localRoom, msg, currentUserEmail)) continue;
     const dateLabel = formatDate(msg.created_at || msg.created_date);
     if (dateLabel !== lastDate) {
       messageGroups.push({ type: 'date', label: dateLabel });
@@ -1095,7 +1117,18 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
                   </div>
                 )}
                 <div className={`max-w-[75%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
-                  {msg.type === 'photo' && msg.media_url ? (
+                  {msg.type === 'photo' && msg.media_url && isMe && isPhase2Locked(localRoom) && isPhase2Photo(localRoom, msg) ? (
+                    // Je eigen fase 2-foto: nog verborgen tot je match ook een foto stuurt
+                    <div
+                      className="rounded-2xl rounded-br-sm px-4 py-3 flex items-center gap-2.5 shadow-sm"
+                      style={{ maxWidth: 240, background: 'rgba(255,75,114,0.12)', border: '1px dashed rgba(255,75,114,0.5)' }}
+                    >
+                      <Camera className="w-5 h-5 flex-shrink-0" style={{ color: '#FF4B72' }} />
+                      <p className="text-xs font-semibold leading-snug" style={{ color: textMain }}>
+                        {trNow('Foto verstuurd. Jullie zien elkaars foto zodra jullie er allebei een hebben gestuurd.', "Photo sent. You'll see each other's photo once you've both sent one.")}
+                      </p>
+                    </div>
+                  ) : msg.type === 'photo' && msg.media_url ? (
                     <div className={`rounded-2xl overflow-hidden shadow-lg ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`} style={{ maxWidth: 220 }}>
                       <img src={msg.media_url} alt={trNow('Foto', 'Photo')} className="w-full object-cover" style={{ maxHeight: 280 }} />
                     </div>
@@ -1390,6 +1423,21 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
           </p>
         </div>
       )}
+
+      {/* Popup: fase 2 begint (allebei een foto gestuurd) */}
+      {showPhase2Intro && (() => {
+        const phase2Photos = messages.filter((m) => isPhase2Photo(localRoom, m) && m.media_url);
+        const lastFrom = (mine) => [...phase2Photos].reverse()
+          .find((m) => (m.sender_email === currentUserEmail) === mine)?.media_url || null;
+        return (
+          <Phase2StartAnimation
+            myPhoto={lastFrom(true)}
+            theirPhoto={lastFrom(false) || otherAvatar}
+            theirAvatar={otherProfile?.avatar}
+            onClose={() => setShowPhase2Intro(false)}
+          />
+        );
+      })()}
 
       {/* Extension prompt modal */}
       <AnimatePresence>

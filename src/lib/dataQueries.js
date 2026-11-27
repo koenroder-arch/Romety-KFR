@@ -108,7 +108,7 @@ export async function fetchMessageMetaByRoom(roomIds) {
     const rows = await fetchAllPages(() =>
       supabase
         .from('ChatMessage')
-        .select('id, room_id, sender_email, is_system, created_at')
+        .select('id, room_id, sender_email, is_system, type, created_at')
         .in('room_id', chunk)
         .order('created_at', { ascending: true })
     );

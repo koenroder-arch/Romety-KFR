@@ -24,6 +24,33 @@ export function getReadAt(room, email) {
 
 const msgTime = (m) => new Date(m.created_at || m.created_date || 0).getTime();
 
+const PHASE2_MS = 48 * 60 * 60 * 1000;
+
+/** Fase 2 is nog 'op slot' zolang niet allebei een foto hebben gestuurd */
+export function isPhase2Locked(room) {
+  return !!room && Number(room.phase || 1) === 2 && !(room.photo_sent_a && room.photo_sent_b);
+}
+
+/** Begin van fase 2 (fase 2 duurt 48 uur, dus eindtijd min 48 uur) */
+export function getPhase2StartMs(room) {
+  if (!room?.phase_expires_at) return 0;
+  return new Date(room.phase_expires_at).getTime() - PHASE2_MS;
+}
+
+/** Is dit een foto die in fase 2 is gestuurd? */
+export function isPhase2Photo(room, msg) {
+  return !!msg && msg.type === 'photo' && Number(room?.phase || 1) === 2
+    && msgTime(msg) >= getPhase2StartMs(room) - 60 * 1000;
+}
+
+/**
+ * Foto's in fase 2 blijven geheim tot allebei een foto hebben gestuurd.
+ * Zolang is de foto van de ander voor jou onzichtbaar (en telt hij niet als ongelezen).
+ */
+export function isHiddenPhase2Photo(room, msg, email) {
+  return isPhase2Locked(room) && isPhase2Photo(room, msg) && lower(msg.sender_email) !== lower(email);
+}
+
 /** Aantal ongelezen berichten van de ander in één chat */
 export function countUnread(room, messages, email) {
   const me = lower(email);
@@ -31,6 +58,7 @@ export function countUnread(room, messages, email) {
   const readMs = readAt ? new Date(readAt).getTime() : 0;
   return (messages || []).filter(
     (m) => m && !m.is_system && m.sender_email !== 'system' && lower(m.sender_email) !== me && msgTime(m) > readMs
+      && !isHiddenPhase2Photo(room, m, email)
   ).length;
 }
 
@@ -62,7 +90,7 @@ export async function fetchChatUnreadSummary(email) {
 
   const { data: rooms, error } = await supabase
     .from('ChatRoom')
-    .select('id, user_a_email, user_b_email, status, deleted_at, last_read_a, last_read_b')
+    .select('id, user_a_email, user_b_email, status, deleted_at, last_read_a, last_read_b, phase, phase_expires_at, photo_sent_a, photo_sent_b')
     .or(`user_a_email.eq."${me}",user_b_email.eq."${me}"`);
   if (error || !rooms) return empty;
 
@@ -73,7 +101,7 @@ export async function fetchChatUnreadSummary(email) {
 
   const { data: msgs } = await supabase
     .from('ChatMessage')
-    .select('room_id, sender_email, is_system, created_at')
+    .select('room_id, sender_email, is_system, type, created_at')
     .in('room_id', chatRooms.map((r) => r.id));
 
   const byRoom = {};
