@@ -343,11 +343,11 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
             </div>
 
             {/* Foreground Content */}
-            <div className="relative z-10 flex flex-col h-full p-6 pb-[100px] pointer-events-none">
+            <div className="relative z-10 flex flex-col h-full px-4 pt-6 pb-[100px] pointer-events-none">
 
               <div className="mt-auto flex flex-col pointer-events-none">
                 {/* Name/Age/Height */}
-                <h2 className="text-[32px] font-black text-white drop-shadow-md leading-none mb-4 tracking-wide pointer-events-none select-none">
+                <h2 className="text-[22px] font-black text-white drop-shadow-md leading-none mb-2.5 tracking-wide pointer-events-none select-none">
                   {profile.age} {trNow('jaar', 'yrs')} {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                 </h2>
 
@@ -392,15 +392,15 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], isPremiu
                 </AnimatePresence>
 
                 {/* Tags (Avatar first, then interests/traits) */}
-                <div className="flex flex-wrap gap-2 mb-6 items-center pointer-events-none">
+                <div className="flex flex-wrap gap-1.5 mb-3.5 items-center pointer-events-none">
                   {profile.avatar && (
-                    <span className="px-4 py-1.5 rounded-full text-[14px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5 pointer-events-none select-none">
-                      <span className="text-base">{profile.avatar.split(' ')[0]}</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white bg-black/45 backdrop-blur-md border border-pink-500/50 shadow-sm flex items-center gap-1.5 pointer-events-none select-none">
+                      <span className="text-xs">{profile.avatar.split(' ')[0]}</span>
                       <span className="text-pink-100">{profile.avatar.split(' ').slice(1).join(' ')}</span>
                     </span>
                   )}
                   {[...(profile.interests || []).slice(0, 2), ...(profile.traits || []).slice(0, 1)].map((tag) => (
-                    <span key={tag} className="px-4 py-1.5 rounded-full text-[14px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20 pointer-events-none select-none">
+                    <span key={tag} className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border border-white/20 pointer-events-none select-none">
                       {tag}
                     </span>
                   ))}

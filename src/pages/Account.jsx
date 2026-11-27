@@ -1061,7 +1061,7 @@ export default function Account() {
                       : 'bg-white/90 border-pink-200 text-pink-600 hover:bg-white'
                   }`}
                 >
-                  <Eye className="w-3.5 h-3.5" /> Voorvertoning
+                  <Eye className="w-3.5 h-3.5" /> {trNow('Voorbeeld', 'Preview')}
                 </button>
               </div>
               <p className="text-xs font-medium truncate mt-0.5" style={{ color: textSub }}>
@@ -2596,23 +2596,23 @@ export default function Account() {
               />
 
               {/* Foreground Card Content matching MatchesSwiper */}
-              <div className="relative z-10 p-6 flex flex-col pointer-events-none">
+              <div className="relative z-10 px-4 pt-4 pb-6 flex flex-col pointer-events-none">
                 <div className="pointer-events-auto flex flex-col">
                   {/* Name / Age / Height */}
-                  <h2 className="text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide">
+                  <h2 className="text-[22px] font-black text-white drop-shadow-md leading-none mb-2.5 tracking-wide">
                     {form.age || myProfile?.age || '24'} {trNow('jaar', 'yrs')} {form.height_cm || myProfile?.height_cm ? `• ${form.height_cm || myProfile.height_cm} cm` : ''}
                   </h2>
 
                   {/* Tags (Avatar first, then interests/traits) */}
-                  <div className="flex flex-wrap gap-1.5 mb-5 items-center">
+                  <div className="flex flex-wrap gap-1.5 mb-3.5 items-center">
                     {myProfile?.avatar && (
-                      <span className="px-3.5 py-1 rounded-full text-[13px] font-bold text-white bg-black/45 backdrop-blur-md border-2 border-pink-500/50 shadow-sm flex items-center gap-1.5">
-                        <span className="text-sm">{myProfile.avatar.split(' ')[0]}</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white bg-black/45 backdrop-blur-md border border-pink-500/50 shadow-sm flex items-center gap-1.5">
+                        <span className="text-xs">{myProfile.avatar.split(' ')[0]}</span>
                         <span className="text-pink-100">{myProfile.avatar.split(' ').slice(1).join(' ')}</span>
                       </span>
                     )}
                     {[...(form.interests || myProfile?.interests || []).slice(0, 2), ...(form.traits || myProfile?.traits || []).slice(0, 1)].map((tag) => (
-                      <span key={tag} className="px-3.5 py-1 rounded-full text-[13px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border-2 border-white/20">
+                      <span key={tag} className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white bg-black/40 backdrop-blur-[2px] shadow-sm border border-white/20">
                         {dt(tag)}
                       </span>
                     ))}

@@ -179,7 +179,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-        className="fixed inset-0 z-[250] max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
+        className="fixed inset-0 z-[190] max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
         style={{ 
           background: bg, 
           touchAction: 'pan-y' 
@@ -207,7 +207,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
         )}
 
         {/* Profile Swiper Area (Full screen scrolling snap feed) */}
-        <div className="absolute inset-0 z-0">
+        <div className="relative flex-1 min-h-0 z-0">
           <div 
             className="w-full h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col no-scrollbar" 
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -222,13 +222,12 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                   <ProfilePhotoCarousel
                     profile={profile}
                     isDark={isDark}
-                    dotsClassName="top-[102px] left-4 z-30"
+                    dotsClassName="top-4 left-4 z-30"
                   />
 
                   {/* ── Three-dots options button (top right) ── */}
                   <div 
-                    className="profile-options-menu-container absolute right-4 z-40 pointer-events-auto"
-                    style={{ top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 58px)' }}
+                    className="profile-options-menu-container absolute top-4 right-3 z-40 pointer-events-auto"
                   >
                     <button
                       onClick={(e) => {
@@ -306,12 +305,12 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
 
                   {/* Foreground Content */}
                   <div 
-                    className="relative z-10 flex flex-col h-full p-6 justify-end pointer-events-none"
-                    style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
+                    className="relative z-10 flex flex-col h-full px-4 pt-6 justify-end pointer-events-none"
+                    style={{ paddingBottom: '100px' }}
                   >
                     <div className="mt-auto pointer-events-auto flex flex-col">
                       {/* Name/Age/Height */}
-                      <h2 className="text-[26px] sm:text-[28px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide text-left">
+                      <h2 className="text-[22px] font-black text-white drop-shadow-md leading-none mb-2.5 tracking-wide text-left">
                         {profile.age} {trNow('jaar', 'yrs')} {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                       </h2>
 
@@ -335,15 +334,15 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                       </AnimatePresence>
 
                       {/* Tags (Avatar first, then interests/traits) */}
-                      <div className="flex flex-wrap gap-1.5 mb-5 items-center">
+                      <div className="flex flex-wrap gap-1.5 mb-3.5 items-center">
                         {profile.avatar && (
-                          <span className="px-3.5 py-1 rounded-full text-[12px] font-bold text-white bg-black/45 backdrop-blur-md border border-pink-500/40 shadow-sm flex items-center gap-1.5">
-                            <span className="text-sm">{profile.avatar.split(' ')[0]}</span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white bg-black/45 backdrop-blur-md border border-pink-500/40 shadow-sm flex items-center gap-1.5">
+                            <span className="text-xs">{profile.avatar.split(' ')[0]}</span>
                             <span className="text-pink-100">{profile.avatar.split(' ').slice(1).join(' ')}</span>
                           </span>
                         )}
                         {[...(profile.interests || []).slice(0, 2), ...(profile.traits || []).slice(0, 1)].map((tag) => (
-                          <span key={tag} className="px-3.5 py-1 rounded-full text-[12px] font-semibold text-white bg-black/35 backdrop-blur-[2px] shadow-sm border border-white/15">
+                          <span key={tag} className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white bg-black/35 backdrop-blur-[2px] shadow-sm border border-white/15">
                             {tag}
                           </span>
                         ))}
@@ -356,9 +355,9 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                           return (
                             <button
                               onClick={() => { onClose(); navigate(createPageUrl('Chat')); }}
-                              className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-green-400 bg-green-500/15 border border-green-500/40 backdrop-blur-md shadow-lg active:scale-95 transition-transform"
+                              className="w-full py-2.5 px-4 rounded-full flex items-center justify-center gap-1.5 font-bold text-[13px] text-green-400 bg-green-500/15 border border-green-500/40 backdrop-blur-md shadow-lg active:scale-95 transition-transform"
                             >
-                              <MessageCircle className="w-5 h-5" />
+                              <MessageCircle className="w-4 h-4" />
                               <span>{trNow('Chat actief! Ga naar Chats →', 'Chat active! Go to Chats →')}</span>
                             </button>
                           );
@@ -366,8 +365,8 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                         if (room?.status === 'pending') {
                           if (room.user_a_email === currentUser.email) {
                             return (
-                              <div className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 font-bold text-sm text-amber-300 bg-amber-500/20 border border-amber-500/40 backdrop-blur-md shadow-lg">
-                                <Clock className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '3s' }} />
+                              <div className="w-full py-2.5 px-4 rounded-full flex items-center justify-center gap-1.5 font-bold text-[13px] text-amber-300 bg-amber-500/20 border border-amber-500/40 backdrop-blur-md shadow-lg">
+                                <Clock className="w-4 h-4 text-amber-300 animate-spin" style={{ animationDuration: '3s' }} />
                                 <span>{trNow('Uitnodiging verstuurd', 'Invite sent')}</span>
                               </div>
                             );
@@ -375,9 +374,9 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                             return (
                               <button
                                 onClick={() => { onClose(); navigate(createPageUrl('Chat')); }}
-                                className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-pink-300 bg-pink-500/20 border border-pink-500/40 backdrop-blur-md shadow-lg active:scale-95 transition-transform"
+                                className="w-full py-2.5 px-4 rounded-full flex items-center justify-center gap-1.5 font-bold text-[13px] text-pink-300 bg-pink-500/20 border border-pink-500/40 backdrop-blur-md shadow-lg active:scale-95 transition-transform"
                               >
-                                <MessageCircle className="w-5 h-5" />
+                                <MessageCircle className="w-4 h-4" />
                                 <span>{trNow('Uitnodiging ontvangen! Ga naar Chats →', 'Invite received! Go to Chats →')}</span>
                               </button>
                             );
@@ -387,10 +386,10 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
                           <button
                             onClick={() => handleStartChat(profile)}
                             disabled={startingChatFor === profile.user_email}
-                            className="w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-white transition-transform active:scale-95 shadow-lg disabled:opacity-60"
+                            className="w-full py-2.5 px-4 rounded-full flex items-center justify-center gap-1.5 font-bold text-[13px] text-white transition-transform active:scale-95 shadow-lg disabled:opacity-60"
                             style={{ background: GRAD, boxShadow: '0 6px 20px rgba(234, 63, 211, 0.4)' }}
                           >
-                            <MessageCircle className="w-5 h-5 text-white" />
+                            <MessageCircle className="w-4 h-4 text-white" />
                             {startingChatFor === profile.user_email ? trNow('Bezig...', 'Working...') : trNow('Chat ontgrendelen', 'Unlock chat')}
                           </button>
                         );
@@ -405,9 +404,9 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
 
         {/* Floating WhatsApp-Style Header */}
         <div
-          className="absolute top-0 left-0 w-full z-20 flex items-center justify-between px-4 pb-3.5 backdrop-blur-xl"
+          className="order-first relative w-full flex-shrink-0 z-20 flex items-center justify-between px-4 pb-4 backdrop-blur-xl"
           style={{ 
-            paddingTop: 'max(14px, env(safe-area-inset-top, 14px))',
+            paddingTop: 'max(48px, calc(env(safe-area-inset-top, 0px) + 12px))',
             background: isDark ? 'rgba(13,14,21,0.85)' : 'rgba(255,255,255,0.85)',
             borderBottom: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
@@ -424,7 +423,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
             </button>
             <div>
               <h2
-                className="font-black text-base tracking-wide"
+                className="font-black text-lg tracking-wide leading-tight h-[22.5px]"
                 style={{
                   background: GRAD,
                   WebkitBackgroundClip: 'text',
@@ -433,7 +432,7 @@ export default function SuperMatchesSheet({ profiles, currentUser, myProfile, is
               >
                 💜 Supermatches
               </h2>
-              <p className="text-[11px] font-medium" style={{ color: textSub }}>
+              <p className="text-[11px] font-medium mt-0.5" style={{ color: textSub }}>
                 {profiles.length} {profiles.length === 1 ? 'supermatch' : 'supermatches'} • Jullie hebben elkaar geliked!
               </p>
             </div>

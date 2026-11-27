@@ -72,13 +72,13 @@ export default function ProfilePhotoCarousel({
     // Trigger swipe if horizontal movement is significant
     if (Math.abs(deltaX) > 25 && Math.abs(deltaX) > Math.abs(deltaY)) {
       isSwiping.current = true;
-      if (deltaX < 0) {
-        // Vinger naar rechts -> volgende foto
+      if (deltaX > 0) {
+        // Vinger naar links -> volgende foto
         if (currentIndex < totalPhotos - 1) {
           setCurrentIndex(prev => prev + 1);
         }
       } else {
-        // Vinger naar links -> terug naar de vorige foto
+        // Vinger naar rechts -> terug naar de vorige foto
         if (currentIndex > 0) {
           setCurrentIndex(prev => prev - 1);
         }
@@ -102,8 +102,8 @@ export default function ProfilePhotoCarousel({
     const deltaX = mouseStartX.current - e.clientX;
     if (Math.abs(deltaX) > 30) {
       isSwiping.current = true;
-      // Zelfde richting als op de telefoon: naar rechts slepen = volgende foto
-      if (deltaX < 0) {
+      // Zelfde richting als op de telefoon: naar links slepen = volgende foto
+      if (deltaX > 0) {
         goToNext();
       } else {
         goToPrev();

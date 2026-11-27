@@ -167,7 +167,7 @@ export default function RevealedLikesSheet({
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-        className="fixed inset-0 z-[250] max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
+        className="fixed inset-0 z-[190] max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
         style={{
           background: bg,
           touchAction: 'pan-y',
@@ -195,7 +195,7 @@ export default function RevealedLikesSheet({
         )}
 
         {/* Profile Swiper Area (Full screen snap-scrolling feed like Matches page) */}
-        <div className="absolute inset-0 z-0">
+        <div className="relative flex-1 min-h-0 z-0">
           <div
             className="w-full h-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col no-scrollbar"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -222,7 +222,7 @@ export default function RevealedLikesSheet({
                     profile={profile}
                     isDark={isDark}
                     onDoubleTap={(x, y, p) => handleDoubleTapAtCoord(x, y, p)}
-                    dotsClassName="top-[102px] left-4 z-30"
+                    dotsClassName="top-4 left-4 z-30"
                   />
 
                   {/* ── Top-Level Double Tap Hearts Animation (Pops over entire card with glow) ── */}
@@ -260,8 +260,7 @@ export default function RevealedLikesSheet({
 
                   {/* ── Three-dots options button (top right) ── */}
                   <div
-                    className="profile-options-menu-container absolute right-4 z-40 pointer-events-auto"
-                    style={{ top: 'calc(max(16px, env(safe-area-inset-top, 16px)) + 58px)' }}
+                    className="profile-options-menu-container absolute top-4 right-3 z-40 pointer-events-auto"
                   >
                     <button
                       onClick={(e) => {
@@ -339,12 +338,12 @@ export default function RevealedLikesSheet({
 
                   {/* Foreground Content */}
                   <div
-                    className="relative z-10 flex flex-col h-full p-6 justify-end pointer-events-none"
-                    style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
+                    className="relative z-10 flex flex-col h-full px-4 pt-6 justify-end pointer-events-none"
+                    style={{ paddingBottom: '100px' }}
                   >
                     <div className="mt-auto pointer-events-auto flex flex-col">
                       {/* Name / Age / Height */}
-                      <h2 className="text-[28px] sm:text-[30px] font-black text-white drop-shadow-md leading-none mb-3 tracking-wide text-left">
+                      <h2 className="text-[22px] font-black text-white drop-shadow-md leading-none mb-2.5 tracking-wide text-left">
                         {profile.age} {trNow('jaar', 'yrs')} {profile.height_cm ? `• ${profile.height_cm} cm` : ''}
                       </h2>
 
@@ -368,15 +367,15 @@ export default function RevealedLikesSheet({
                       </AnimatePresence>
 
                       {/* Tags (Avatar, Interests, Traits) */}
-                      <div className="flex flex-wrap gap-1.5 mb-5 items-center">
+                      <div className="flex flex-wrap gap-1.5 mb-3.5 items-center">
                         {profile.avatar && (
-                          <span className="px-3.5 py-1 rounded-full text-[12px] font-bold text-white bg-black/45 backdrop-blur-md border border-pink-500/40 shadow-sm flex items-center gap-1.5">
-                            <span className="text-sm">{profile.avatar.split(' ')[0]}</span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold text-white bg-black/45 backdrop-blur-md border border-pink-500/40 shadow-sm flex items-center gap-1.5">
+                            <span className="text-xs">{profile.avatar.split(' ')[0]}</span>
                             <span className="text-pink-100">{profile.avatar.split(' ').slice(1).join(' ')}</span>
                           </span>
                         )}
                         {[...(profile.interests || []).slice(0, 2), ...(profile.traits || []).slice(0, 1)].map((tag) => (
-                          <span key={tag} className="px-3.5 py-1 rounded-full text-[12px] font-semibold text-white bg-black/35 backdrop-blur-[2px] shadow-sm border border-white/15">
+                          <span key={tag} className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white bg-black/35 backdrop-blur-[2px] shadow-sm border border-white/15">
                             {tag}
                           </span>
                         ))}
@@ -386,7 +385,7 @@ export default function RevealedLikesSheet({
                       <button
                         onClick={() => handleLikeBack(profile, 1500)}
                         disabled={pendingLikedEmails.has(profile.user_email)}
-                        className={`w-full py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2.5 font-black text-sm sm:text-base text-white transition-all shadow-xl ${
+                        className={`w-full py-2.5 px-4 rounded-full flex items-center justify-center gap-1.5 font-bold text-[13px] text-white transition-all shadow-xl ${
                           pendingLikedEmails.has(profile.user_email) ? 'opacity-90' : 'active:scale-95'
                         }`}
                         style={{
@@ -394,7 +393,7 @@ export default function RevealedLikesSheet({
                           boxShadow: '0 8px 24px rgba(255, 75, 114, 0.45)',
                         }}
                       >
-                        <Heart className={`w-5 h-5 fill-white text-white ${pendingLikedEmails.has(profile.user_email) ? 'animate-bounce' : 'animate-pulse'}`} />
+                        <Heart className={`w-4 h-4 fill-white text-white ${pendingLikedEmails.has(profile.user_email) ? 'animate-bounce' : 'animate-pulse'}`} />
                         <span>{pendingLikedEmails.has(profile.user_email) ? trNow('Geliked! 💖', 'Liked! 💖') : trNow('Like terug & match direct!', 'Like back & match instantly!')}</span>
                       </button>
                     </div>
@@ -407,9 +406,9 @@ export default function RevealedLikesSheet({
 
         {/* Floating Top Header */}
         <div
-          className="absolute top-0 left-0 w-full z-20 flex items-center justify-between px-4 pb-3.5 backdrop-blur-xl"
+          className="order-first relative w-full flex-shrink-0 z-20 flex items-center justify-between px-4 pb-4 backdrop-blur-xl"
           style={{
-            paddingTop: 'max(14px, env(safe-area-inset-top, 14px))',
+            paddingTop: 'max(48px, calc(env(safe-area-inset-top, 0px) + 12px))',
             background: isDark ? 'rgba(13,14,21,0.85)' : 'rgba(255,255,255,0.85)',
             borderBottom: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
@@ -426,7 +425,7 @@ export default function RevealedLikesSheet({
             </button>
             <div>
               <h2
-                className="font-black text-base tracking-wide"
+                className="font-black text-lg tracking-wide leading-tight h-[22.5px]"
                 style={{
                   background: GRAD,
                   WebkitBackgroundClip: 'text',
@@ -435,7 +434,7 @@ export default function RevealedLikesSheet({
               >
                 💖 {trNow('Ontvangen Likes', 'Received Likes')}
               </h2>
-              <p className="text-[11px] font-medium" style={{ color: textSub }}>
+              <p className="text-[11px] font-medium mt-0.5" style={{ color: textSub }}>
                 {activeProfiles.length} {activeProfiles.length === 1 ? trNow('persoon heeft jou geliked', 'person liked you') : trNow('mensen hebben jou geliked', 'people liked you')}
               </p>
             </div>
