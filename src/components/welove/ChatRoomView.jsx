@@ -1840,7 +1840,7 @@ export default function ChatRoomView({ room, currentUserEmail, otherProfile, onB
             <div
               className="w-full max-w-sm rounded-[24px] p-5 shadow-2xl border"
               style={{
-                background: isDark ? '#141521' : '#FFFFFF',
+                background: isDark ? '#0A0A0F' : '#FFFFFF',
                 borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
               }}
             >

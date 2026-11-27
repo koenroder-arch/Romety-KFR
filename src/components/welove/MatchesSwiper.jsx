@@ -234,8 +234,8 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], likedMeE
               dotsClassName="top-4 left-4 z-30"
             />
 
-            {/* Gouden "Supermatch" linksboven (onder de fotobolletjes); groeit soepel van klein naar groot
-                zodra het profiel in beeld komt */}
+            {/* "Supermatch!" linksboven (onder de fotobolletjes), schuin in zacht goud;
+                groeit soepel van klein naar groot zodra het profiel in beeld komt */}
             <AnimatePresence>
               {isSuperMatch && (
                 <motion.div
@@ -246,23 +246,21 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], likedMeE
                   whileInView={{ opacity: 1, scale: 1, rotate: -8 }}
                   exit={{ opacity: 0, scale: 0.6, rotate: -8 }}
                   viewport={{ amount: 0.6 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 18, mass: 0.8 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 20, mass: 0.8 }}
                 >
-                  {/* Blijft constant zacht van klein naar groot gaan (ademend) */}
-                  <motion.span
-                    className="block text-[26px] font-black italic tracking-tight leading-none origin-left"
-                    animate={{ scale: [1, 1.07, 1] }}
-                    transition={{ duration: 3.2, ease: 'easeInOut', repeat: Infinity }}
+                  <span
+                    className="block text-[26px] font-black italic tracking-tight leading-none pr-2 py-0.5"
                     style={{
-                      background: 'linear-gradient(135deg, #FFF3C4 0%, #FFD45C 35%, #F2B01E 65%, #C98A0B 100%)',
+                      // Zachter goud: minder fel, met een lichte schaduw voor leesbaarheid
+                      background: 'linear-gradient(135deg, #FBEBC0 0%, #EFCB7A 45%, #D9A94E 100%)',
                       WebkitBackgroundClip: 'text',
                       backgroundClip: 'text',
                       color: 'transparent',
-                      filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(255,200,60,0.35))',
+                      filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.5))',
                     }}
                   >
-                    Supermatch!!
-                  </motion.span>
+                    Supermatch!
+                  </span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -499,7 +497,7 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], likedMeE
         {/* Report Modal */}
         {reportState && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
-            <div className="w-full max-w-sm rounded-[24px] p-5 shadow-2xl border" style={{ background: isDark ? '#141521' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }}>
+            <div className="w-full max-w-sm rounded-[24px] p-5 shadow-2xl border" style={{ background: isDark ? '#0A0A0F' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }}>
               {reportState.step === 'choose' && (
                 <div>
                   <div className="flex items-center justify-between mb-3">

@@ -41,7 +41,7 @@ export default function BlockUserDialog({ target, isDark = true, onClose, onBloc
     >
       <div
         className="w-full max-w-sm rounded-3xl p-6 text-center"
-        style={{ background: isDark ? '#1E1E35' : '#FFFFFF', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)' }}
+        style={{ background: isDark ? '#0A0A0F' : '#FFFFFF', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-red-500/15 text-red-500">

@@ -687,7 +687,7 @@ export default function StoriesViewer({
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 350, damping: 30 }}
               className="w-full max-w-md rounded-t-[32px] overflow-hidden pb-8 text-white"
-              style={{ background: 'rgba(14, 14, 25, 0.98)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+              style={{ background: 'rgba(10, 10, 15, 0.98)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-center py-4">
