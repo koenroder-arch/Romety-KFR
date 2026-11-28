@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLang } from '@/lib/LanguageContext';
 import { useAuth } from '@/lib/AuthContext';
-import LaunchScreen, { LAUNCH_BG, subscribeLoaders } from './LaunchScreen';
+import LaunchScreen, { LAUNCH_BG } from './LaunchScreen';
 import RometyLogo from './RometyLogo';
 
 // Zo lang blijft de R minimaal in beeld, ook als de app al klaar is
@@ -46,15 +46,10 @@ export default function SplashScreen({ onDone }) {
       metaTheme.setAttribute('content', LAUNCH_BG);
     }
 
-    // Terugzetten, behalve als de app (die al onder dit scherm laadt) intussen zelf een kleur koos
-    const launchColor = document.documentElement.style.backgroundColor;
-    const launchMeta = metaTheme ? metaTheme.getAttribute('content') : null;
     return () => {
-      if (document.documentElement.style.backgroundColor === launchColor) {
-        document.documentElement.style.backgroundColor = originalBg;
-      }
+      document.documentElement.style.backgroundColor = originalBg;
       document.body.style.backgroundColor = originalBodyBg;
-      if (metaTheme && originalMetaColor && metaTheme.getAttribute('content') === launchMeta) {
+      if (metaTheme && originalMetaColor) {
         metaTheme.setAttribute('content', originalMetaColor);
       }
     };
@@ -65,27 +60,9 @@ export default function SplashScreen({ onDone }) {
     return () => clearTimeout(timer);
   }, []);
 
-  // De app laadt al onder dit scherm. Pas weggaan als er nergens meer een laadscherm (de R)
-  // staat, anders zie je de R twee keer. Na maximaal 8 seconden gaan we toch door.
-  const [loadersBusy, setLoadersBusy] = useState(true);
   useEffect(() => {
-    let settleTimer = null;
-    const unsubscribe = subscribeLoaders((count) => {
-      clearTimeout(settleTimer);
-      if (count > 0) {
-        setLoadersBusy(true);
-      } else {
-        // Even wachten: soms volgt meteen het volgende laadscherm (bijv. na het inloggen)
-        settleTimer = setTimeout(() => setLoadersBusy(false), 250);
-      }
-    });
-    const maxTimer = setTimeout(() => setLoadersBusy(false), 8000);
-    return () => { unsubscribe(); clearTimeout(settleTimer); clearTimeout(maxTimer); };
-  }, []);
-
-  useEffect(() => {
-    if (phase === 'logo' && minTimePassed && !isLoadingAuth && !loadersBusy) finishSplash();
-  }, [phase, minTimePassed, isLoadingAuth, loadersBusy]);
+    if (phase === 'logo' && minTimePassed && !isLoadingAuth) finishSplash();
+  }, [phase, minTimePassed, isLoadingAuth]);
 
   const handleLangSelect = (code) => {
     setSelectedLang(code);
@@ -97,7 +74,7 @@ export default function SplashScreen({ onDone }) {
   };
 
   if (phase === 'logo') {
-    return <LaunchScreen animateIn fadingOut={isFadingOut} isSplash />;
+    return <LaunchScreen animateIn fadingOut={isFadingOut} />;
   }
 
   return (

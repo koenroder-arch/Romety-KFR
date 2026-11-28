@@ -1,35 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 // Precies de achtergrondkleur van het app-icoon, zodat de rand van het icoon onzichtbaar is
 export const LAUNCH_BG = '#080A09';
-
-/**
- * Houdt bij of er ergens in de app nog een laadscherm (de R) staat, bijvoorbeeld terwijl
- * het inloggen of het profiel wordt gecontroleerd. Het opstartscherm blijft staan tot er
- * geen laadschermen meer zijn, zodat je bij het openen maar één keer de R ziet.
- */
-let activeLoaders = 0;
-const loaderListeners = new Set();
-const notifyLoaders = () => loaderListeners.forEach((fn) => fn(activeLoaders));
-export function subscribeLoaders(fn) {
-  loaderListeners.add(fn);
-  fn(activeLoaders);
-  return () => loaderListeners.delete(fn);
-}
-
-/** Laat een pagina meetellen als "nog aan het laden" zonder zelf een laadscherm te tonen. */
-export function useBootLoader(active) {
-  useEffect(() => {
-    if (!active) return undefined;
-    activeLoaders += 1;
-    notifyLoaders();
-    return () => {
-      activeLoaders = Math.max(0, activeLoaders - 1);
-      notifyLoaders();
-    };
-  }, [active]);
-}
 
 /**
  * Opstartscherm: de R in het midden met een laadrad eronder.
@@ -39,20 +12,9 @@ export function useBootLoader(active) {
  * - animateIn: de R komt zacht tevoorschijn (alleen bij het allereerste scherm)
  * - fadingOut: het hele scherm vervaagt voordat de app verschijnt
  */
-export default function LaunchScreen({ animateIn = false, fadingOut = false, onClick, isSplash = false }) {
+export default function LaunchScreen({ animateIn = false, fadingOut = false, onClick }) {
   const reduceMotion = useReducedMotion();
   const enter = animateIn && !reduceMotion;
-
-  // Laadscherm in de app (niet het opstartscherm zelf) meetellen
-  useEffect(() => {
-    if (isSplash) return undefined;
-    activeLoaders += 1;
-    notifyLoaders();
-    return () => {
-      activeLoaders = Math.max(0, activeLoaders - 1);
-      notifyLoaders();
-    };
-  }, [isSplash]);
 
   return (
     <div
@@ -99,10 +61,9 @@ export default function LaunchScreen({ animateIn = false, fadingOut = false, onC
         {/* Laadrad onder de R (verschijnt kort na de R, zodat een snelle start rustig blijft) */}
         <motion.div
           className="-mt-7"
-          initial={enter ? { opacity: 0 } : false}
+          initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          // Zonder vertraging als dit laadscherm een ander opvolgt: anders knippert het laadrad
-          transition={{ duration: 0.4, delay: enter ? 0.45 : 0 }}
+          transition={{ duration: 0.4, delay: enter ? 0.45 : 0.15 }}
         >
           <div
             // Het laadrad draait altijd, ook als animaties beperkt zijn: anders zie je niet dat de app bezig is
