@@ -787,12 +787,20 @@ export default function Login() {
                   : 'bg-white border-pink-200 text-gray-900'
               }`}
               style={{
-                boxShadow: '0 0 50px rgba(255, 75, 114, 0.3)'
+                boxShadow: '0 0 50px rgba(255, 75, 114, 0.3)',
               }}
             >
-              {/* Background ambient glow */}
-              <div className="absolute -top-24 -left-24 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
+              {/* Background ambient glow. In een eigen afgeronde laag met masker: de iPhone (Safari)
+                  knipte de wazige gloed anders niet af op de ronde hoeken, waardoor er een vierkant
+                  achter de kaart zichtbaar werd. */}
+              <div
+                aria-hidden
+                className="absolute inset-0 rounded-[32px] overflow-hidden pointer-events-none"
+                style={{ WebkitMaskImage: '-webkit-radial-gradient(white, black)', maskImage: 'radial-gradient(white, black)', isolation: 'isolate' }}
+              >
+                <div className="absolute -top-24 -left-24 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl" />
+                <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-rose-500/20 rounded-full blur-3xl" />
+              </div>
 
               {/* Glowing animated checkmark badge */}
               <div className="relative mx-auto w-24 h-24 mb-5 flex items-center justify-center">

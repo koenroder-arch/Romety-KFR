@@ -137,7 +137,7 @@ const MapView = forwardRef(function MapView({ venues, searchPin, myCheckIn, onVe
         center={[52.3676, 4.9041]}
         zoom={7}
         style={{ height: '100%', width: '100%' }}
-        zoomControl={true}
+        zoomControl={false} // geen + en - knoppen; inzoomen gaat met twee vingers
       >
         <TileLayer
           attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
