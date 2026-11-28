@@ -8,6 +8,7 @@ import { isAppAdmin } from '@/lib/moderation';
 import { useUser } from '@/lib/useUser';
 import BlockedUsersSheet from '@/components/welove/BlockedUsersSheet';
 import { getNotificationsEnabled, saveNotificationsEnabled } from '@/components/welove/useNotifications';
+import { useLockBodyScroll } from '@/lib/useLockBodyScroll';
 import ModerationSheet from '@/components/welove/ModerationSheet';
 import RometyLogo from '@/components/welove/RometyLogo';
 import { createPageUrl } from '@/utils';
@@ -130,9 +131,14 @@ export default function Account() {
   const headerBg = isDark 
     ? 'linear-gradient(180deg, #4D122D 0%, #2E0B1B 65%, rgba(13,14,21,0) 100%)' 
     : 'linear-gradient(180deg, rgba(255,75,114,0.25) 0%, rgba(234,63,211,0.1) 70%, transparent 100%)';
-  const cardBg = isDark ? '#141521' : '#FFFFFF';
-  const cardBorder = isDark ? '1.5px solid rgba(255, 75, 114, 0.25)' : '1px solid rgba(0,0,0,0.06)';
-  const cardShadow = isDark ? '0 0 16px rgba(255, 75, 114, 0.15)' : '0 4px 20px rgba(0,0,0,0.06)';
+  // Zelfde kaartstijl als Home en Pinpoint: egaal vlak met een zachte roze tint en dunne roze rand
+  const cardBg = isDark
+    ? 'linear-gradient(150deg, rgba(255,75,114,0.10), rgba(234,63,211,0.04) 55%, transparent 100%), #15151F'
+    : 'linear-gradient(150deg, rgba(255,75,114,0.06), rgba(234,63,211,0.02) 55%, transparent 100%), #FFFFFF';
+  const cardBorder = isDark ? '1px solid rgba(255, 75, 114, 0.3)' : '1px solid rgba(255, 75, 114, 0.18)';
+  const cardShadow = isDark ? '0 8px 24px rgba(0,0,0,0.35)' : '0 6px 18px rgba(17,24,39,0.07)';
+  // Klein kopje boven een groep, zoals in het locatiefilter
+  const sectionLabelStyle = { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(17,24,39,0.45)' };
   const textMain = isDark ? 'text-white' : 'text-gray-900';
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.55)';
   const divider = isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.06)';
@@ -159,6 +165,8 @@ export default function Account() {
     return () => { active = false; };
   }, [routerLocation.search]);
   const [showPreview, setShowPreview] = useState(false);
+  // Zolang het Voorbeeld open is, scrollt de Account-pagina erachter niet mee
+  useLockBodyScroll(showPreview);
   const [form, setForm] = useState({});
   const [initialForm, setInitialForm] = useState({});
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -1017,7 +1025,7 @@ export default function Account() {
       <div className="px-[3px] pt-3 relative z-10 max-w-md mx-auto space-y-4">
 
         {/* ── Profile Card ── */}
-        <div className="rounded-[28px] p-5" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
+        <div className="rounded-[24px] p-5" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
           
           <div className="flex items-center gap-4">
             {/* Avatar Photo */}
@@ -1099,7 +1107,7 @@ export default function Account() {
                   Mijn Foto's <span className="text-pink-500">({getProfilePhotos(myProfile).length}/3)</span>
                 </span>
               </div>
-              <span className="text-[10px] font-semibold text-white/50">
+              <span className="text-[10px] font-semibold" style={{ color: textSub }}>
                 Max. 3 foto's
               </span>
             </div>
@@ -1169,7 +1177,7 @@ export default function Account() {
                         <div className="w-8 h-8 rounded-full flex items-center justify-center bg-pink-500/15 text-pink-500 group-hover:bg-pink-500/25 transition-colors">
                           <Plus className="w-4 h-4" />
                         </div>
-                        <span className="text-[10px] font-bold text-white/60">
+                        <span className="text-[10px] font-bold" style={{ color: textSub }}>
                           {isFirst ? trNow('Hoofdfoto', 'Main photo') : `${trNow('Foto', 'Photo')} ${slotIdx + 1}`}
                         </span>
                       </label>
@@ -1217,7 +1225,7 @@ export default function Account() {
         {/* ── Mijn Statistieken Dashboard ── */}
         <div className="grid grid-cols-3 gap-3">
           <div 
-            className="rounded-2xl p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
+            className="rounded-[20px] p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
             style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
             onClick={() => navigate(createPageUrl('Chat'))}
           >
@@ -1233,11 +1241,11 @@ export default function Account() {
           </div>
 
           <div 
-            className="rounded-2xl p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
+            className="rounded-[20px] p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
             style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
             onClick={() => navigate(createPageUrl('Pinpoint'))}
           >
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-amber-500/15 text-amber-500">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-[#F445A3]/15 text-[#F445A3]">
               <MapPin className="w-4 h-4" />
             </div>
             <div className="h-7 flex items-center justify-center w-full min-w-0">
@@ -1249,11 +1257,11 @@ export default function Account() {
           </div>
 
           <div 
-            className="rounded-2xl p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
+            className="rounded-[20px] p-3 sm:p-3.5 text-center flex flex-col items-center justify-center cursor-pointer transition-transform active:scale-95 min-w-0 overflow-hidden" 
             style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
             onClick={() => navigate(createPageUrl('Matches'))}
           >
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-purple-500/15 text-purple-500">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 bg-[#EA3FD3]/15 text-[#EA3FD3]">
               <Heart className="w-4 h-4" />
             </div>
             <div className="h-7 flex items-center justify-center w-full min-w-0">
@@ -1266,7 +1274,10 @@ export default function Account() {
         </div>
 
         {/* ── Settings & Preferences ── */}
-        <div className="rounded-2xl overflow-hidden" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
+        <p className="text-[10.5px] font-black uppercase tracking-[0.14em] px-2 -mb-2" style={sectionLabelStyle}>
+          {trNow('Instellingen', 'Settings')}
+        </p>
+        <div className="rounded-[22px] overflow-hidden" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
           
           {/* Land row */}
           <div className="relative" style={{ borderBottom: divider }}>
@@ -1335,7 +1346,7 @@ export default function Account() {
           {/* Theme Switch */}
           <div className="flex items-center justify-between p-4" style={{ borderBottom: divider }}>
             <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-amber-400/15 text-amber-400' : 'bg-pink-500/15 text-pink-500'}`}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#F445A3]/15 text-[#F445A3]">
                 {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
               </div>
               <div>
@@ -1359,7 +1370,7 @@ export default function Account() {
               className="w-full flex items-center justify-between p-4 text-left active:opacity-70 transition-opacity"
             >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-orange-500/15 text-orange-500">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#EE42BC]/15 text-[#EE42BC]">
                   <Flag className="w-4 h-4" />
                 </div>
                 <div>
@@ -1391,7 +1402,7 @@ export default function Account() {
           {/* Notifications Toggle */}
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-500/15 text-blue-500">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#EA3FD3]/15 text-[#EA3FD3]">
                 <Bell className="w-4 h-4" />
               </div>
               <div>
@@ -1408,7 +1419,7 @@ export default function Account() {
                 toast.success(nextVal ? trNow('Notificaties ingeschakeld 🔔', 'Notifications enabled 🔔') : trNow('Notificaties uitgeschakeld', 'Notifications disabled'));
               }}
               className="w-12 h-6 rounded-full transition-all flex items-center p-0.5 cursor-pointer select-none"
-              style={notificationsEnabled ? { background: 'linear-gradient(135deg, #3B82F6, #2563EB)' } : { background: 'rgba(0,0,0,0.12)' }}
+              style={notificationsEnabled ? { background: 'linear-gradient(135deg, #FF4B72, #EA3FD3)' } : { background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' }}
             >
               <div className={`w-5 h-5 bg-white rounded-full shadow transition-all ${notificationsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
@@ -1417,7 +1428,10 @@ export default function Account() {
         </div>
 
         {/* ── FAQ Accordion ── */}
-        <div className="rounded-2xl overflow-hidden" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
+        <p className="text-[10.5px] font-black uppercase tracking-[0.14em] px-2 -mb-2" style={sectionLabelStyle}>
+          {trNow('Hulp', 'Help')}
+        </p>
+        <div className="rounded-[22px] overflow-hidden" style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}>
           <div className="px-4 py-3 flex items-center gap-2" style={{ borderBottom: divider }}>
             <HelpCircle className="w-4 h-4 text-pink-500" />
             <span className={`text-xs font-black uppercase tracking-wider ${textMain}`}>{trNow('Veelgestelde Vragen', 'Frequently Asked Questions')}</span>
@@ -1441,13 +1455,16 @@ export default function Account() {
         </div>
 
         {/* ── Account Actions ── */}
-        <div className="space-y-2.5 pt-2">
+        <p className="text-[10.5px] font-black uppercase tracking-[0.14em] px-2 -mb-2" style={sectionLabelStyle}>
+          {trNow('Account', 'Account')}
+        </p>
+        <div className="space-y-2.5">
 
           {/* Feedback Button */}
           <button 
             type="button"
             onClick={() => setShowFeedbackModal(true)} 
-            className="w-full rounded-2xl p-3.5 flex items-center justify-between transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer" 
+            className="w-full rounded-[20px] p-3.5 flex items-center justify-between transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer" 
             style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
           >
             <div className="flex items-center gap-3">
@@ -1463,7 +1480,7 @@ export default function Account() {
           <button 
             type="button"
             onClick={() => setShowLogoutConfirm(true)} 
-            className="w-full rounded-2xl p-3.5 flex items-center justify-between transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer" 
+            className="w-full rounded-[20px] p-3.5 flex items-center justify-between transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer" 
             style={{ background: cardBg, border: cardBorder, boxShadow: cardShadow }}
           >
             <div className="flex items-center gap-3">
@@ -1480,7 +1497,7 @@ export default function Account() {
             type="button"
             onClick={() => setShowDeleteConfirm(true)} 
             disabled={deleting} 
-            className="w-full rounded-2xl p-3.5 flex items-center justify-between border border-red-500/30 transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer bg-red-500/5" 
+            className="w-full rounded-[20px] p-3.5 flex items-center justify-between border border-red-500/30 transition-colors duration-150 hover:brightness-105 active:opacity-85 outline-none focus:outline-none select-none cursor-pointer bg-red-500/5" 
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-red-500/20 text-red-500">
