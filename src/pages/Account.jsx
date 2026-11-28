@@ -1539,7 +1539,8 @@ export default function Account() {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div>
-                  <h1 className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600">
+                  {/* Zelfde titelkleur als de headers van Home en Account: wit (zwart in licht thema) */}
+                  <h1 className="font-black text-lg tracking-tight leading-tight" style={{ color: isDark ? '#FFFFFF' : '#111827' }}>
                     {trNow('Account aanpassen', 'Edit account')}
                   </h1>
                   <p className={`text-[11px] font-medium ${isDark ? 'text-white/60' : 'text-gray-500'}`}>{trNow('Pas je gegevens en voorkeuren aan', 'Adjust your details and preferences')}</p>
