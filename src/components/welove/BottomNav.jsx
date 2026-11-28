@@ -139,7 +139,12 @@ export default function BottomNav({ items, currentPageName, isDark, hasActiveVen
               draggable={false}
               onClick={(e) => {
                 if (suppressClickRef.current) { e.preventDefault(); return; }
-                if (!beforeNavigate(page)) e.preventDefault();
+                if (!beforeNavigate(page)) { e.preventDefault(); return; }
+                // Tik op de pagina waar je al bent: laat die pagina terug naar het begin gaan
+                // (bijv. Home sluit een open scherm van een van de 6 knoppen)
+                if (page === currentPageName) {
+                  try { window.dispatchEvent(new CustomEvent('romety_nav_reselect', { detail: { page } })); } catch (err) { /* niet erg */ }
+                }
               }}
               className="relative z-10 flex-1 h-full flex items-center justify-center rounded-full active:scale-90 transition-transform duration-200"
             >

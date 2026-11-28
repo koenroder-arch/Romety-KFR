@@ -102,7 +102,7 @@ export default function SendHintSheet({
     return () => { active = false; };
   }, []);
 
-  const bg = isDark ? '#0E0E1C' : '#FFFFFF';
+  const bg = isDark ? '#08090E' : '#F8F9FB'; // zelfde achtergrond als Chat
   const textMain = isDark ? '#FFFFFF' : '#111827';
   const textSub = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)';
   const divider = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';

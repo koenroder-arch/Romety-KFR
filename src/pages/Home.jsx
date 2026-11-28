@@ -7,7 +7,7 @@ import { createPageUrl } from '@/utils';
 import { Crown, Plus, Eye, X, MessageCircle, ChevronLeft, Lightbulb, Flame, Camera, MapPin, Clock } from 'lucide-react';
 import { usePullToRefresh } from '@/components/welove/usePullToRefresh';
 import { InstagramSpinner } from '@/components/welove/PullToRefreshSpinner';
-import { useBootLoader } from '@/components/welove/LaunchScreen';
+import { useLockBodyScroll } from '@/lib/useLockBodyScroll';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
@@ -86,8 +86,6 @@ export default function Home() {
   const [matches, setMatches] = useState([]);
   const [myCheckIn, setMyCheckIn] = useState(null);
   const [loading, setLoading] = useState(true);
-  // Bij het openen van de app blijft het opstartscherm (de R) staan tot Home geladen is
-  useBootLoader(loading);
   const initialLoadedRef = useRef(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [superMatchCount, setSuperMatchCount] = useState(0);
@@ -174,6 +172,8 @@ export default function Home() {
   const [myTodayHint, setMyTodayHint] = useState(null);
   const [timeLeft, setTimeLeft] = useState('');
   const [showSheet, setShowSheet] = useState(false);
+  // Zolang een sheet of popup van de Home-knoppen open is, scrollt de Home-pagina erachter niet mee
+  useLockBodyScroll(showSheet || showSuperMatchSheet || showRevealModal || showDiscountsModal || !!hintingProfile);
   const [mutualMatches, setMutualMatches] = useState([]);
   const [superHintsCollapsed, setSuperHintsCollapsed] = useState(true);
   const [regularHintsCollapsed, setRegularHintsCollapsed] = useState(true);
@@ -183,6 +183,23 @@ export default function Home() {
   const [brokenStoryPhotos, setBrokenStoryPhotos] = useState({});
   const [selectedStoryGroup, setSelectedStoryGroup] = useState(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
+
+  // Tik op het Home-icoon terwijl je al op Home bent: open schermen sluiten en terug naar boven
+  useEffect(() => {
+    const onReselect = (e) => {
+      if (e.detail?.page !== 'Home') return;
+      setShowSheet(false);
+      setShowSuperMatchSheet(false);
+      setShowRevealModal(false);
+      setShowDiscountsModal(false);
+      setHintingProfile(null);
+      setSelectedStoryGroup(null);
+      // Na het loslaten van de vastgezette achtergrond rustig naar boven
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 60);
+    };
+    window.addEventListener('romety_nav_reselect', onReselect);
+    return () => window.removeEventListener('romety_nav_reselect', onReselect);
+  }, []);
   const [seenStoryIds, setSeenStoryIds] = useState([]);
 
   const isSheetOpen = Boolean(showSheet || showSuperMatchSheet || selectedStoryGroup || showRevealModal);
@@ -1293,7 +1310,7 @@ export default function Home() {
               transition={{ type: 'spring', damping: 30, stiffness: 320 }}
               className="fixed inset-0 z-[102] max-w-md mx-auto flex flex-col overflow-hidden shadow-2xl"
               style={{
-                background: isDark ? '#0E0E1C' : '#FFFFFF',
+                background: isDark ? '#08090E' : '#F8F9FB', // zelfde achtergrond als Chat
                 touchAction: 'pan-y',
               }}
             >
