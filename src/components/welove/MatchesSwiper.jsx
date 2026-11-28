@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import MatchAnimation from './MatchAnimation';
-import { Heart, MessageCircle, MoreVertical, AlertTriangle, Ban, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Heart, MessageCircle, MoreVertical, AlertTriangle, Ban, X, ChevronDown, ChevronUp, Check, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfilePhotoCarousel, { getProfilePhotos } from './ProfilePhotoCarousel';
 import { addLocalReportedEmail } from '@/lib/reportUtils';
@@ -181,21 +181,57 @@ export default function MatchesSwiper({ profiles, initialLikedIds = [], likedMeE
   const visibleProfiles = profiles.filter((p) => !reportedEmails.has(p.user_email));
 
   if (visibleProfiles.length === 0) return (
-    <div className="h-full flex flex-col items-center justify-center py-10 px-6 text-center" style={{ background: bg }}>
-      <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ background: isDark ? 'rgba(255,107,74,0.1)' : 'rgba(255,107,74,0.05)' }}>
-        <p className="text-4xl">📭</p>
-      </div>
-      <p className={`text-lg font-black mb-2 ${textMain}`}>{trNow('Nog geen', 'No')} {isMutual ? 'super matches' : 'matches'}{trNow('', ' yet')}</p>
-      <p className="text-sm max-w-xs mb-6" style={{ color: textSub }}>
-        {trNow('Er is op dit moment niemand nieuw op jouw locatie die aan je voorkeuren voldoet.', 'There is currently no one new at your location who matches your preferences.')}
-      </p>
-      <button
-        onClick={() => navigate('/Pinpoint')}
-        className="px-6 py-3 rounded-full font-black text-sm text-white shadow-lg active:scale-95 transition-transform"
-        style={{ background: GRAD, boxShadow: '0 8px 24px rgba(255,107,74,0.3)' }}
+    // Geen matches: kaart in dezelfde stijl als de rest van de app
+    <div className="h-full flex flex-col items-center justify-center px-5 pb-24" style={{ background: bg }}>
+      <div
+        className="w-full max-w-sm rounded-[28px] p-[1.5px]"
+        style={{
+          background: 'linear-gradient(135deg, rgba(255,75,114,0.7) 0%, rgba(234,63,211,0.3) 100%)',
+          boxShadow: isDark ? '0 16px 40px rgba(0,0,0,0.45)' : '0 12px 30px rgba(17,24,39,0.1)',
+        }}
       >
-        🗺️ {trNow('Bekijk andere clubs', 'View other clubs')}
-      </button>
+        <div
+          className="rounded-[26.5px] px-6 pt-8 pb-6 text-center"
+          style={{
+            background: isDark
+              ? 'linear-gradient(160deg, rgba(255,75,114,0.14), rgba(234,63,211,0.05) 55%, transparent 100%), #15151F'
+              : 'linear-gradient(160deg, rgba(255,75,114,0.08), rgba(234,63,211,0.03) 55%, transparent 100%), #FFFFFF',
+          }}
+        >
+          {/* Hartje in het Romety-verloop met een zacht ademende ring */}
+          <div className="relative w-20 h-20 mx-auto mb-5">
+            <motion.div
+              aria-hidden
+              className="absolute inset-0 rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(255,75,114,0.35) 0%, transparent 70%)' }}
+              animate={{ scale: [1, 1.25, 1], opacity: [0.7, 0.25, 0.7] }}
+              transition={{ duration: 3, ease: 'easeInOut', repeat: Infinity }}
+            />
+            <div
+              className="relative w-20 h-20 rounded-full flex items-center justify-center"
+              style={{ background: GRAD, boxShadow: '0 10px 26px rgba(255,75,114,0.45), inset 0 1px 0 rgba(255,255,255,0.25)' }}
+            >
+              <Heart className="w-9 h-9 text-white" strokeWidth={2.2} />
+            </div>
+          </div>
+
+          <p className={`text-[20px] font-black leading-tight mb-2 ${textMain}`}>
+            {trNow('Nog geen', 'No')} {isMutual ? 'super matches' : 'matches'}{trNow('', ' yet')}
+          </p>
+          <p className="text-[13px] leading-relaxed mb-6 mx-auto max-w-[260px]" style={{ color: textSub }}>
+            {trNow('Er is op dit moment niemand nieuw op jouw locatie die aan je voorkeuren voldoet.', 'There is currently no one new at your location who matches your preferences.')}
+          </p>
+
+          <button
+            onClick={() => navigate('/Pinpoint')}
+            className="w-full py-3.5 rounded-full font-bold text-[15px] text-white flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            style={{ background: GRAD, boxShadow: '0 10px 24px rgba(255,75,114,0.4)' }}
+          >
+            <MapPin className="w-[18px] h-[18px]" />
+            {trNow('Bekijk andere clubs', 'View other clubs')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 
