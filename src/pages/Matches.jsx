@@ -14,6 +14,8 @@ import { isMatch, calculateCompatibility } from '@/lib/matchUtils';
 import { fetchReportedEmails } from '@/lib/reportUtils';
 import { fetchActiveCheckIns, fetchActiveDestinations, fetchProfilesForCountry } from '@/lib/dataQueries';
 import NotificationBell from '@/components/welove/NotificationBell';
+import { headerGlassStyle } from '@/lib/pageHeader';
+import PageHeaderTitle from '@/components/welove/PageHeaderTitle';
 import SendHintSheet from '@/components/welove/SendHintSheet';
 
 
@@ -177,31 +179,19 @@ export default function Matches() {
     <div className="fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col" style={{ background: bg }}>
       {/* Glassmorphic Header styled like SuperMatchesSheet */}
       <div 
-        className="flex items-center justify-between px-5 pb-4 flex-shrink-0 backdrop-blur-xl z-[100]" 
-        style={{ 
+        className="flex items-center justify-between px-5 pb-4 flex-shrink-0 z-[100]"
+        style={{
           paddingTop: 'max(48px, calc(env(safe-area-inset-top, 0px) + 12px))',
-          background: isDark ? 'rgba(13,14,21,0.85)' : 'rgba(255,255,255,0.85)',
-          borderBottom: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+          // Zelfde glazen header als Home en Account
+          ...headerGlassStyle(isDark),
         }}
       >
-        <div>
-          <h1
-            className="font-black text-lg tracking-wide leading-tight"
-            style={{
-              background: 'linear-gradient(135deg, #FF4B72 0%, #EA3FD3 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              color: 'transparent',
-            }}
-          >
-            {myLocation?.venue_name ? `Matches - ${myLocation.venue_name}` : 'Matches'}
-          </h1>
-          <p className="text-[11px] font-medium mt-0.5" style={{ color: textSub }}>
-            {matches.length} {matches.length === 1 ? tr('match op je locatie', 'match at your location') : tr('matches op je locatie', 'matches at your location')}
-          </p>
-        </div>
+        {/* Titel links met het aantal matches eronder (even hoog als voorheen) */}
+        <PageHeaderTitle
+          title={myLocation?.venue_name ? `Matches - ${myLocation.venue_name}` : 'Matches'}
+          subtitle={`${matches.length} ${matches.length === 1 ? tr('match op je locatie', 'match at your location') : tr('matches op je locatie', 'matches at your location')}`}
+          isDark={isDark}
+        />
         <NotificationBell isDark={isDark} />
       </div>
 

@@ -8,6 +8,8 @@ import { Crown, Plus, Eye, X, MessageCircle, ChevronLeft, Lightbulb, Flame, Came
 import { usePullToRefresh } from '@/components/welove/usePullToRefresh';
 import { InstagramSpinner } from '@/components/welove/PullToRefreshSpinner';
 import { useLockBodyScroll } from '@/lib/useLockBodyScroll';
+import { headerGlassStyle, pageTopColor } from '@/lib/pageHeader';
+import PageHeaderTitle from '@/components/welove/PageHeaderTitle';
 import { useLang } from '@/lib/LanguageContext';
 import { useTheme } from '@/lib/ThemeContext';
 import { T } from '@/lib/translations';
@@ -757,31 +759,25 @@ export default function Home() {
       {/* Top Over-Scroll Extension to eliminate black gap when pulling down */}
       <div 
         className="absolute -top-[500px] left-0 right-0 h-[500px] pointer-events-none" 
-        style={{ background: isDark ? '#4D122D' : '#FFE8F0' }}
+        style={{ background: pageTopColor(isDark) }}
       />
 
       {/* Fixed Sticky Top Header Pinned to Top */}
       <div 
         className="sticky top-0 left-0 right-0 z-40 px-5 pb-4 select-none min-h-[104px] flex items-center justify-between" 
-        style={{ 
+        style={{
           paddingTop: 'max(48px, calc(env(safe-area-inset-top, 0px) + 12px))',
-          background: isDark 
-            ? 'linear-gradient(180deg, #4D122D 0%, #380D21 75%, #240815 100%)' 
-            : 'linear-gradient(180deg, #FFF0F4 0%, #FEE2EA 75%, #FAF9FB 100%)',
-          borderBottom: isDark ? '1px solid rgba(255, 75, 114, 0.15)' : '1px solid rgba(0,0,0,0.05)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          // Zelfde glazen header als Matches en Account
+          ...headerGlassStyle(isDark),
         }}
       >
         <div className="relative flex items-center justify-between w-full">
-          {/* Left spacer (logo removed) */}
+          {/* Lege ruimte links, zodat de titel precies in het midden staat */}
           <div className="w-8 z-10" />
 
-          {/* Centered Title */}
+          {/* Titel in het midden */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <h1 className={`text-2xl font-black tracking-tight leading-tight pointer-events-auto ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Home
-            </h1>
+            <PageHeaderTitle title="Home" isDark={isDark} center />
           </div>
 
           {/* Actions on the right */}

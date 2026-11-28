@@ -42,10 +42,8 @@ export default function Layout({ children, currentPageName }) {
 
   // Synchronize mobile top bar & overscroll canvas color so no black bar appears
   React.useEffect(() => {
-    const isTopGradientPage = ['Home', 'Account'].includes(currentPageName);
-    const topColor = isDark 
-      ? (isTopGradientPage ? '#4D122D' : '#08090E')
-      : (isTopGradientPage ? '#FFF0F4' : '#F8F9FB');
+    // De headers zijn nu overal glas op de paginakleur, dus de statusbalk ook
+    const topColor = isDark ? '#08090E' : '#F8F9FB';
 
     document.documentElement.style.backgroundColor = topColor;
     const metaTheme = document.querySelector('meta[name="theme-color"]');

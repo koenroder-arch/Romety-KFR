@@ -9,6 +9,8 @@ import { useUser } from '@/lib/useUser';
 import BlockedUsersSheet from '@/components/welove/BlockedUsersSheet';
 import { getNotificationsEnabled, saveNotificationsEnabled } from '@/components/welove/useNotifications';
 import { useLockBodyScroll } from '@/lib/useLockBodyScroll';
+import { headerGlassStyle, pageTopColor } from '@/lib/pageHeader';
+import PageHeaderTitle from '@/components/welove/PageHeaderTitle';
 import ModerationSheet from '@/components/welove/ModerationSheet';
 import RometyLogo from '@/components/welove/RometyLogo';
 import { createPageUrl } from '@/utils';
@@ -951,30 +953,25 @@ export default function Account() {
       {/* Top Over-Scroll Extension to eliminate black gap when pulling down */}
       <div 
         className="absolute -top-[500px] left-0 right-0 h-[500px] pointer-events-none" 
-        style={{ background: isDark ? '#4D122D' : '#FFF0F4' }}
+        style={{ background: pageTopColor(isDark) }}
       />
       
       {/* Fixed Sticky Top Header Pinned to Top */}
       <div 
         className="sticky top-0 left-0 right-0 z-40 px-5 pb-4 select-none min-h-[104px] flex flex-col justify-end" 
-        style={{ 
-          background: isDark 
-            ? 'linear-gradient(180deg, #4D122D 0%, #350D1F 75%, #200813 100%)' 
-            : 'linear-gradient(180deg, #FFF0F4 0%, #FEE2EA 75%, #FAF9FB 100%)', 
+        style={{
           paddingTop: 'max(48px, calc(env(safe-area-inset-top, 0px) + 12px))',
-          borderBottom: isDark ? '1px solid rgba(255, 75, 114, 0.15)' : '1px solid rgba(0,0,0,0.05)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          // Zelfde glazen header als Home en Matches
+          ...headerGlassStyle(isDark),
         }}
       >
         <div className="relative flex items-center justify-between w-full">
+          {/* Lege ruimte links, zodat de titel precies in het midden staat */}
           <div className="w-8 z-10" />
 
-          {/* Centered Title */}
+          {/* Titel in het midden */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <h1 className={`text-2xl font-black tracking-tight leading-tight pointer-events-auto ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {trNow('Mijn Account', 'My Account')}
-            </h1>
+            <PageHeaderTitle title={trNow('Mijn Account', 'My Account')} isDark={isDark} center />
           </div>
 
           {/* Edit action on the right */}
